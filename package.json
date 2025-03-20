@@ -1,0 +1,16 @@
+{
+  "name": "adt-line-bot",
+  "version": "1.0.0",
+  "description": "LINE Bot for ADT",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "@line/bot-sdk": "^7.5.2",
+    "@supabase/supabase-js": "^2.21.0",
+    "dotenv": "^16.0.3",
+    "cors": "^2.8.5"
+  }
+}
