@@ -1,131 +1,80 @@
-// Comprehensive LINE Bot Authentication System
-require('dotenv').config(); // Load environment variables
+// ไฟล์: index.js
+require('dotenv').config(); // เพิ่ม dotenv เพื่อใช้งาน environment variables
 const express = require('express');
 const line = require('@line/bot-sdk');
 const { createClient } = require('@supabase/supabase-js');
 const crypto = require('crypto');
-const cors = require('cors');
-const helmet = require('helmet');
-const rateLimit = require('express-rate-limit');
+const cors = require('cors'); // เพิ่ม cors สำหรับการเรียก API จาก VBA
 
-// Express App Initialization
 const app = express();
 
-// Security Middleware
-app.use(helmet()); // Adds various HTTP headers for security
+// เพิ่ม CORS Middleware
+app.use(cors());
+app.use(express.json());
 
-// Rate Limiting
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per windowMs
-  standardHeaders: true, // Return rate limit info in RateLimit-* headers
-  legacyHeaders: false, // Disable X-RateLimit-* headers
-});
-app.use(limiter);
-
-// CORS Configuration
-const corsOptions = {
-  origin: [
-    'https://your-frontend-domain.com', 
-    'http://localhost:3000',
-    'https://adt-line-bot.onrender.com'
-  ],
-  methods: ['GET', 'POST'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-line-signature']
-};
-app.use(cors(corsOptions));
-
-// Enhanced JSON Parsing Middleware
-app.use(express.json({
-  verify: (req, res, buf, encoding) => {
-    if (buf && buf.length) {
-      req.rawBody = buf.toString(encoding || 'utf8');
-    }
-  },
-  limit: '1mb' // Prevent large payload attacks
-}));
-
-// Logging Middleware (Optional - can use winston or morgan in production)
-const logRequest = (req, res, next) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
-  next();
-};
-app.use(logRequest);
-
-// Configuration from Environment Variables
+// กำหนดค่าสำหรับ LINE Bot จาก environment variables
 const lineConfigBot1 = {
-  channelAccessToken: process.env.LINE_BOT1_ACCESS_TOKEN || '',
-  channelSecret: process.env.LINE_BOT1_CHANNEL_SECRET || '',
+  channelAccessToken: process.env.LINE_BOT1_ACCESS_TOKEN || '0oVvErESHf2ZQNTM+gIJbo4XPmBp8GwXeLQ5Qr+A5IRG9XqkrPTRoyRCpXXeyV89GlWnSktNpiTP7ddY7HPGuQHchWXFs4/5Mnw1rrnjUuDaxQ2O2b8/gN/w1Fq+GzYnP1MJ7NLCxz9ygk5NBRE0hgdB04t89/1O/w1cDnyilFU=',
+  channelSecret: process.env.LINE_BOT1_CHANNEL_SECRET || 'c6dd9d51591ae867df634cf5ff032159',
 };
 
 const lineConfigBot2 = {
-  channelAccessToken: process.env.LINE_BOT2_ACCESS_TOKEN || '',
-  channelSecret: process.env.LINE_BOT2_CHANNEL_SECRET || '',
+  channelAccessToken: process.env.LINE_BOT2_ACCESS_TOKEN || 'VcdMebbh7xEnFBj3t58u/vjAOfjBbrelQs0pLGPTUmvrc3wHYjyWhAA98hy/SkWE1Tj4HjRxMzQu0V9eFYXH78QVYfxLftp6uqyzZsLACPZMbXIkjxqyqJPVYbcg507U3TwgUjZh+Y/7zpy/IzmZpQdB04t89/1O/w1cDnyilFU=',
+  channelSecret: process.env.LINE_BOT2_CHANNEL_SECRET || '3558642df20f8e7e357c70c5ffd826f4',
 };
 
-// Supabase Configuration
-const supabaseUrl = process.env.SUPABASE_URL || '';
-const supabaseKey = process.env.SUPABASE_KEY || '';
-const supabase = createClient(supabaseUrl, supabaseKey);
-
-// Bot Configuration Constants
+// บันทึก bot IDs สำหรับการระบุตัวตน
 const BOT1_ID = process.env.LINE_BOT1_ID || 'bot1_id';
 const BOT2_ID = process.env.LINE_BOT2_ID || 'bot2_id';
+
+// กำหนด Admin LINE User ID 
 const ADMIN_USER_ID = process.env.ADMIN_USER_ID || '1234-golfkop';
 
-// LINE Client Initialization
+// กำหนดค่าสำหรับ Supabase จาก environment variables
+const supabaseUrl = process.env.SUPABASE_URL || 'https://wpxpukbvynxawfxcdroj.supabase.co';
+const supabaseKey = process.env.SUPABASE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndweHB1a2J2eW54YXdmeGNkcm9qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDIzODY3OTIsImV4cCI6MjA1Nzk2Mjc5Mn0.JaYLI4p9r8A3l_eb5QrvhnK5_Vz16crWzdOkjO-veO8';
+const supabase = createClient(supabaseUrl, supabaseKey);
+
+// สร้าง LINE client สำหรับทั้งสอง Bot
 const lineClientBot1 = new line.Client(lineConfigBot1);
 const lineClientBot2 = new line.Client(lineConfigBot2);
 
-// Bot Clients Mapping
+// แมประหว่าง Bot ID และ client
 const botClients = {
   [BOT1_ID]: lineClientBot1,
   [BOT2_ID]: lineClientBot2
 };
 
-// Utility Functions
-/**
- * Generate a random 6-digit reference code
- * @returns {string} 6-digit reference code
- */
+// ฟังก์ชันสำหรับสร้าง Ref.Code แบบสุ่ม
 function generateRefCode() {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
-/**
- * Generate a random serial key with numbers and characters
- * @returns {string} Serial key in format XXXX-YYYY
- */
+// ฟังก์ชันสำหรับสร้าง Serial Key แบบสุ่ม
 function generateSerialKey() {
   const serialNumber = Math.floor(1000 + Math.random() * 9000).toString();
   const serialChars = Math.random().toString(36).substring(2, 6).toUpperCase();
-  return `${serialNumber}-${serialChars}`;
+  return serialNumber + "-" + serialChars;
 }
 
-/**
- * Generate expiration timestamp
- * @param {number} minutes - Minutes until expiration
- * @returns {string} ISO formatted expiration timestamp
- */
-function getExpirationTime(minutes = 15) {
+// กำหนดเวลาหมดอายุสำหรับ Ref.Code (15 นาที)
+function getExpirationTime() {
   const expirationTime = new Date();
-  expirationTime.setMinutes(expirationTime.getMinutes() + minutes);
+  expirationTime.setMinutes(expirationTime.getMinutes() + 15);
   return expirationTime.toISOString();
 }
 
-/**
- * Validate LINE webhook signature
- * @param {Object} body - Webhook request body
- * @param {string} signature - Signature from LINE headers
- * @param {string} channelSecret - Bot channel secret
- * @returns {boolean} Signature validation result
- */
+// ฟังก์ชันตรวจสอบลายเซ็นสำหรับ webhook
 function validateSignature(body, signature, channelSecret) {
   try {
     const hash = crypto
       .createHmac('SHA256', channelSecret)
       .update(Buffer.from(JSON.stringify(body)))
       .digest('base64');
+    
+    console.log('Calculated Hash:', hash);
+    console.log('Received Signature:', signature);
+    
     return hash === signature;
   } catch (error) {
     console.error('Signature Validation Error:', error);
@@ -133,56 +82,101 @@ function validateSignature(body, signature, channelSecret) {
   }
 }
 
-/**
- * Handle individual LINE webhook events
- * @param {Object} event - LINE webhook event
- * @param {string} botId - Bot identifier
- * @returns {Promise} Processed event result
- */
-async function handleEvent(event, botId) {
+// Middleware สำหรับ LINE Webhook (ใช้ URL เดียวกันสำหรับทั้งสอง Bot)
+app.post('/webhook', express.json(), async (req, res) => {
   try {
-    // Log incoming event for debugging
-    console.log(`Received event for Bot ${botId}:`, JSON.stringify(event, null, 2));
+    console.log('Webhook Request Headers:', JSON.stringify(req.headers, null, 2));
+    console.log('Webhook Request Body:', JSON.stringify(req.body, null, 2));
 
-    // Only process text messages
-    if (event.type !== 'message' || event.message.type !== 'text') {
-      console.log('Non-text message event, skipping');
-      return null;
+    const signature = req.headers['x-line-signature'];
+    const events = req.body.events;
+    
+    console.log('Signature:', signature);
+    console.log('BOT1_ID:', BOT1_ID);
+    console.log('BOT2_ID:', BOT2_ID);
+
+    if (!events || events.length === 0) {
+      console.log('No events received');
+      return res.status(200).end();
     }
 
-    const userId = event.source.userId;
-    const messageText = event.message.text.trim().toUpperCase();
-    const lineClient = botClients[botId];
-
-    // Command handling
-    switch(messageText) {
-      case 'REQ_REFCODE':
-        return handleRefCodeRequest(userId, lineClient, botId);
-      default:
-        return lineClient.replyMessage(event.replyToken, {
-          type: 'text',
-          text: 'สวัสดีครับ! พิมพ์ REQ_REFCODE เพื่อขอรหัสอ้างอิง'
-        });
+    const destination = events[0].destination;
+    console.log('Destination:', destination);
+    
+    let botId = null;
+    let isValid = false;
+    
+    if (destination === BOT1_ID) {
+      botId = BOT1_ID;
+      isValid = validateSignature(req.body, signature, lineConfigBot1.channelSecret);
+      console.log('Checking Bot1 Signature');
+    } else if (destination === BOT2_ID) {
+      botId = BOT2_ID;
+      isValid = validateSignature(req.body, signature, lineConfigBot2.channelSecret);
+      console.log('Checking Bot2 Signature');
+    } else {
+      console.error('Unknown destination:', destination);
+      return res.status(400).send('Unknown Bot');
     }
-  } catch (error) {
-    console.error('Event Handling Error:', error);
+    
+    if (!isValid) {
+      console.error('Invalid signature');
+      console.error('Received Signature:', signature);
+      console.error('Bot Config Secret:', 
+        botId === BOT1_ID ? lineConfigBot1.channelSecret : lineConfigBot2.channelSecret
+      );
+      return res.status(401).send('Invalid signature');
+    }
+    
+    if (botId) {
+      await Promise.all(events.map(event => {
+        console.log('Processing event:', JSON.stringify(event, null, 2));
+        return handleEvent(event, botId);
+      }));
+    }
+    
+    res.status(200).end();
+  } catch (err) {
+    console.error('Comprehensive Webhook Error:', err);
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: err.message,
+      stack: err.stack
+    });
+  }
+});
+
+// ฟังก์ชันจัดการ events จาก LINE
+async function handleEvent(event, botId) {
+  if (event.type !== 'message' || event.message.type !== 'text') {
+    console.log('Non-text message event, skipping');
     return null;
   }
+
+  const userId = event.source.userId;
+  const messageText = event.message.text;
+  console.log(`Received message from user ${userId}: ${messageText}`);
+
+  const lineClient = botClients[botId];
+  
+  if (messageText.startsWith('REQ_REFCODE')) {
+    return handleRefCodeRequest(userId, messageText, lineClient, botId);
+  }
+
+  return lineClient.replyMessage(event.replyToken, {
+    type: 'text',
+    text: 'สวัสดีครับ! พิมพ์ REQ_REFCODE เพื่อขอรหัสอ้างอิง'
+  });
 }
 
-/**
- * Handle Reference Code Request
- * @param {string} userId - LINE User ID
- * @param {Object} lineClient - LINE Messaging API client
- * @param {string} botId - Bot identifier
- * @returns {Promise} Result of sending reference code
- */
-async function handleRefCodeRequest(userId, lineClient, botId) {
+// ฟังก์ชันจัดการการขอ Ref.Code
+async function handleRefCodeRequest(userId, messageText, lineClient, botId) {
   try {
     const refCode = generateRefCode();
+    console.log(`Generating Ref.Code for user ${userId}. Ref.Code: ${refCode}`);
+
     const expiresAt = getExpirationTime();
 
-    // Insert session to Supabase
     const { data, error } = await supabase
       .from('auth_sessions')
       .insert([{ 
@@ -196,18 +190,22 @@ async function handleRefCodeRequest(userId, lineClient, botId) {
 
     if (error) throw error;
 
-    // Customize message based on bot
-    const customMessage = botId === BOT1_ID
-      ? "กรุณานำรหัสนี้ไปกรอกในช่อง Ref. Code และกดปุ่ม Verify Code"
-      : "กรุณานำรหัสนี้ไปกรอกในฟอร์ม VBA และกดปุ่ม Verify Code";
+    let messageText = `รหัสอ้างอิง (Ref.Code) ของคุณคือ: ${refCode}\n`;
+    
+    if (botId === BOT1_ID) {
+      messageText += "กรุณานำรหัสนี้ไปกรอกในช่อง Ref. Code และกดปุ่ม Verify Code";
+    } else {
+      messageText += "กรุณานำรหัสนี้ไปกรอกในฟอร์ม VBA และกดปุ่ม Verify Code";
+    }
+    
+    messageText += "\n(รหัสนี้จะหมดอายุใน 15 นาที)";
 
-    // Send Ref Code to user
     return lineClient.pushMessage(userId, {
       type: 'text',
-      text: `รหัสอ้างอิง (Ref.Code) ของคุณคือ: ${refCode}\n${customMessage}\n(รหัสนี้จะหมดอายุใน 15 นาที)`
+      text: messageText
     });
   } catch (error) {
-    console.error('Ref Code Generation Error:', error);
+    console.error('Error generating ref code:', error);
     return lineClient.pushMessage(userId, {
       type: 'text',
       text: 'ขออภัย เกิดข้อผิดพลาดในการสร้างรหัส กรุณาลองใหม่อีกครั้ง'
@@ -215,87 +213,13 @@ async function handleRefCodeRequest(userId, lineClient, botId) {
   }
 }
 
-// Webhook Route with Comprehensive Error Handling
-app.post('/webhook', async (req, res) => {
-  // Comprehensive logging
-  console.log('Webhook Called:', {
-    method: req.method,
-    path: req.path,
-    headers: req.headers,
-    body: JSON.stringify(req.body)
-  });
-
-  // Validate Content-Type
-  if (req.headers['content-type'] !== 'application/json') {
-    console.error('Invalid Content-Type');
-    return res.status(415).json({ error: 'Unsupported Media Type' });
-  }
-
-  try {
-    const signature = req.headers['x-line-signature'];
-    const events = req.body.events || [];
-
-    // Check for empty events
-    if (!events.length) {
-      console.warn('No events in webhook payload');
-      return res.status(200).json({ message: 'No events to process' });
-    }
-
-    // Determine Bot and Validate Signature
-    const destination = events[0].destination;
-    let botId = null;
-    let isValid = false;
-
-    if (destination === BOT1_ID) {
-      botId = BOT1_ID;
-      isValid = validateSignature(req.body, signature, lineConfigBot1.channelSecret);
-    } else if (destination === BOT2_ID) {
-      botId = BOT2_ID;
-      isValid = validateSignature(req.body, signature, lineConfigBot2.channelSecret);
-    }
-
-    // Signature Validation
-    if (!isValid) {
-      console.error('Invalid webhook signature', { 
-        destination, 
-        signature, 
-        body: JSON.stringify(req.body) 
-      });
-      return res.status(401).json({ error: 'Invalid signature' });
-    }
-
-    // Process Events
-    if (botId) {
-      await Promise.all(events.map(event => handleEvent(event, botId)));
-    }
-
-    res.status(200).json({ message: 'Webhook processed successfully' });
-  } catch (error) {
-    console.error('Webhook Processing Error:', error);
-    res.status(500).json({ 
-      error: 'Internal Server Error', 
-      message: error.message 
-    });
-  }
-});
-
-// Health Check Endpoint
-app.get('/health', (req, res) => {
-  res.status(200).json({ 
-    status: 'ok', 
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-    environment: process.env.NODE_ENV || 'development'
-  });
-});
-
-// Additional Endpoints for Ref Code and Serial Key Verification
-app.post('/verify-ref-code', async (req, res) => {
+// Middleware สำหรับ Webhook จาก Userform3 เพื่อรับ Ref.Code
+app.post('/verify-ref-code', express.json(), async (req, res) => {
   try {
     const { refCode } = req.body;
-    
-    // Verify Reference Code
-    const { data, error } = await supabase
+    console.log('Received Ref.Code from Userform3:', refCode);
+
+    const { data: refCodeData, error } = await supabase
       .from('auth_sessions')
       .select('*')
       .eq('ref_code', refCode)
@@ -303,34 +227,38 @@ app.post('/verify-ref-code', async (req, res) => {
       .gt('expires_at', new Date().toISOString())
       .single();
 
-    if (error || !data) {
+    if (error || !refCodeData) {
+      console.error('Error fetching Ref.Code:', error);
       return res.status(400).json({ 
         error: 'Invalid Ref.Code', 
-        message: 'รหัสอ้างอิงไม่ถูกต้องหรือหมดอายุแล้ว' 
+        message: 'รหัสอ้างอิงไม่ถูกต้องหรือหมดอายุแล้ว กรุณาขอรหัสใหม่' 
       });
     }
 
-    // Generate Serial Key
     const serialKey = generateSerialKey();
-    const serialKeyExpiresAt = getExpirationTime(30); // 30 minutes
+    console.log('Generated Serial Key:', serialKey);
 
-    // Update Session
-    const { error: updateError } = await supabase
+    const serialKeyExpiresAt = new Date();
+    serialKeyExpiresAt.setMinutes(serialKeyExpiresAt.getMinutes() + 30);
+
+    const { data: updateData, error: updateError } = await supabase
       .from('auth_sessions')
       .update({
         serial_key: serialKey,
         status: 'AWAITING_VERIFICATION',
-        expires_at: serialKeyExpiresAt
+        updated_at: new Date().toISOString(),
+        expires_at: serialKeyExpiresAt.toISOString()
       })
-      .eq('id', data.id);
+      .eq('id', refCodeData.id);
 
     if (updateError) {
-      throw updateError;
+      console.error('Error updating Serial Key:', updateError);
+      return res.status(500).json({ error: 'Failed to update Serial Key' });
     }
 
-    // Notify User via LINE
-    const lineClient = botClients[data.bot_id] || lineClientBot1;
-    await lineClient.pushMessage(data.line_user_id, {
+    const lineClient = botClients[refCodeData.bot_id] || lineClientBot1;
+
+    await lineClient.pushMessage(refCodeData.line_user_id, {
       type: 'text',
       text: `Serial Key ของคุณคือ: ${serialKey}\nกรุณานำ Serial Key นี้ไปกรอก และกด Enter เพื่อยืนยัน\n(Serial Key นี้จะหมดอายุใน 30 นาที)`
     });
@@ -339,52 +267,178 @@ app.post('/verify-ref-code', async (req, res) => {
       success: true,
       message: 'Serial Key generated and sent to user' 
     });
-  } catch (error) {
-    console.error('Ref Code Verification Error:', error);
-    res.status(500).json({ 
-      error: 'Internal Server Error', 
-      message: error.message 
-    });
+  } catch (err) {
+    console.error('Webhook Error:', err);
+    res.status(500).json({ error: 'Internal Server Error' });
   }
 });
 
-// 404 Handler
-app.use((req, res, next) => {
-  console.warn(`Unhandled route: ${req.method} ${req.path}`);
-  res.status(404).json({ error: 'Not Found' });
+// Middleware สำหรับ Webhook จาก Userform3 เพื่อตรวจสอบ Serial Key
+app.post('/verify-serial-key', express.json(), async (req, res) => {
+  try {
+    const { serialKey, machineId, ipAddress } = req.body;
+    console.log('Received Serial Key from Userform3:', serialKey);
+    
+    if (machineId || ipAddress) {
+      console.log('Machine Info:', { machineId, ipAddress });
+      const { data: serialKeyData, error } = await supabase
+      .from('auth_sessions')
+      .select('*')
+      .eq('serial_key', serialKey)
+      .eq('status', 'AWAITING_VERIFICATION')
+      .gt('expires_at', new Date().toISOString())
+      .single();
+
+    if (error || !serialKeyData) {
+      console.error('Error fetching Serial Key:', error);
+      return res.status(400).json({ 
+        error: 'Invalid Serial Key',
+        message: 'Serial Key ไม่ถูกต้องหรือหมดอายุแล้ว กรุณาขอรหัสใหม่'
+      });
+    }
+
+    // ข้อมูลที่จะอัปเดต
+    const updateData = { 
+      status: 'VERIFIED',
+      updated_at: new Date().toISOString()
+    };
+    
+    // เพิ่มข้อมูลเครื่องถ้ามี
+    if (machineId) updateData.machine_id = machineId;
+    if (ipAddress) updateData.ip_address = ipAddress;
+
+    // อัปเดตสถานะเป็น VERIFIED
+    const { data: updatedData, error: updateError } = await supabase
+      .from('auth_sessions')
+      .update(updateData)
+      .eq('id', serialKeyData.id);
+
+    if (updateError) {
+      console.error('Error updating status:', updateError);
+      return res.status(500).json({ error: 'Failed to update status' });
+    }
+
+    // เลือก LINE Client ตามค่า bot_id
+    const lineClient = botClients[serialKeyData.bot_id] || lineClientBot1;
+
+    // ส่งข้อความยืนยันกลับไปยังผู้ใช้ทาง LINE ผ่าน Bot ตัวที่ 1
+    await lineClient.pushMessage(serialKeyData.line_user_id, {
+      type: 'text',
+      text: `การยืนยันสำเร็จ! ขอบคุณที่ใช้บริการของเรา`
+    });
+    
+    // ส่งข้อความแจ้งเตือนไปยังผู้ดูแลระบบ (คุณ) ผ่าน Bot ตัวที่ 2
+    const notificationText = `มีผู้ใช้ลงทะเบียนเสร็จสมบูรณ์!\nUser ID: ${serialKeyData.line_user_id}\nSerial Key: ${serialKey}`;
+    
+    // เพิ่มข้อมูลเครื่องถ้ามี
+    const machineInfo = [];
+    if (machineId) machineInfo.push(`Machine ID: ${machineId}`);
+    if (ipAddress) machineInfo.push(`IP Address: ${ipAddress}`);
+    
+    const fullNotificationText = notificationText + 
+      (machineInfo.length > 0 ? '\n' + machineInfo.join('\n') : '') + 
+      `\nเวลา: ${new Date().toLocaleString("th-TH", {timeZone: "Asia/Bangkok"})}`;
+    
+    await lineClientBot2.pushMessage(ADMIN_USER_ID, {
+      type: 'text',
+      text: fullNotificationText
+    });
+
+    res.status(200).json({ 
+      verified: true,
+      message: 'Serial Key verified successfully'
+    });
+  } catch (err) {
+    console.error('Webhook Error:', err);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
 });
 
-// Global Error Handler
-app.use((err, req, res, next) => {
-  console.error('Unhandled Error:', err);
-  res.status(500).json({ 
-    error: 'Unexpected Error', 
-    message: err.message 
-  });
+// Endpoint เพื่อรับข้อมูล Machine ID และ IP Address ในกรณีที่ต้องการแยกการส่ง
+app.post('/report-machine-info', express.json(), async (req, res) => {
+  try {
+    const { refCode, serialKey, machineId, ipAddress } = req.body;
+    console.log('Received machine info:', { refCode, serialKey, machineId, ipAddress });
+
+    // ค้นหาข้อมูลในฐานข้อมูลโดยใช้ refCode หรือ serialKey
+    let query = supabase.from('auth_sessions').select('*');
+    
+    if (serialKey) {
+      query = query.eq('serial_key', serialKey);
+    } else if (refCode) {
+      query = query.eq('ref_code', refCode);
+    } else {
+      return res.status(400).json({ error: 'Missing refCode or serialKey' });
+    }
+    
+    const { data: sessionData, error } = await query.single();
+
+    if (error || !sessionData) {
+      console.error('Error fetching session data:', error);
+      return res.status(400).json({ error: 'Invalid reference or serial key' });
+    }
+
+    // อัปเดตข้อมูล Machine ID และ IP Address
+    const updateData = { updated_at: new Date().toISOString() };
+    if (machineId) updateData.machine_id = machineId;
+    if (ipAddress) updateData.ip_address = ipAddress;
+
+    const { data: updateResult, error: updateError } = await supabase
+      .from('auth_sessions')
+      .update(updateData)
+      .eq('id', sessionData.id);
+
+    if (updateError) {
+      console.error('Error updating machine info:', updateError);
+      return res.status(500).json({ error: 'Failed to update machine info' });
+    }
+
+    // ส่งข้อความแจ้งเตือนไปยังผู้ดูแลระบบ (คุณ)
+    const machineInfo = [];
+    if (machineId) machineInfo.push(`Machine ID: ${machineId}`);
+    if (ipAddress) machineInfo.push(`IP Address: ${ipAddress}`);
+    
+    if (machineInfo.length > 0) {
+      await lineClientBot2.pushMessage(ADMIN_USER_ID, {
+        type: 'text',
+        text: `ได้รับข้อมูลเครื่องจากผู้ใช้!\nUser ID: ${sessionData.line_user_id}\n${machineInfo.join('\n')}\nเวลา: ${new Date().toLocaleString("th-TH", {timeZone: "Asia/Bangkok"})}`
+      });
+    }
+
+    res.status(200).json({ 
+      success: true,
+      message: 'Machine information reported successfully' 
+    });
+  } catch (err) {
+    console.error('Report Machine Info Error:', err);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
 });
 
-// Server Initialization
+// สร้าง endpoint ทดสอบสำหรับตรวจสอบว่าเซิร์ฟเวอร์ทำงานอยู่
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'ok', time: new Date().toISOString() });
+});
+
+// Endpoint ทดสอบสำหรับการเชื่อมต่อ VBA
+app.get('/test-vba-connection', (req, res) => {
+  res.status(200).json({ status: 'ok', message: 'VBA connection successful' });
+});
+
+// กำหนด PORT และเริ่มต้นเซิร์ฟเวอร์
 const PORT = process.env.PORT || 3000;
-const server = app.listen(PORT, async () => {
-  console.log(`Server running on port ${PORT}`);
+app.listen(PORT, async () => {
+  console.log(`Server is running on port ${PORT}`);
+  console.log(`Webhook URL: ${process.env.SERVER_URL || 'http://localhost:' + PORT}/webhook`);
   
-  // Supabase Connection Test
+  // ตรวจสอบการเชื่อมต่อกับ Supabase
   try {
     const { data, error } = await supabase.from('auth_sessions').select('count').limit(1);
     if (error) throw error;
-    console.log('Supabase connection successful');
+    console.log('Successfully connected to Supabase');
   } catch (error) {
-    console.error('Supabase connection failed:', error);
+    console.error('Failed to connect to Supabase:', error);
   }
-});
-
-// Graceful Shutdown
-process.on('SIGTERM', () => {
-  console.log('SIGTERM signal received: closing HTTP server');
-  server.close(() => {
-    console.log('HTTP server closed');
-    process.exit(0);
-  });
 });
 
 // Export for testing or additional configuration
