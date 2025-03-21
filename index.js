@@ -315,6 +315,7 @@ await lineClientBot2.pushMessage(ADMIN_USER_ID, {
   text: fullNotificationText
 });
 try {
+  const result = await someAsyncFunction(); 
   res.status(200).json({ 
     verified: true,
     message: 'Serial Key verified successfully'
