@@ -300,9 +300,10 @@ supabase
 });
 
     
-    // ดำเนินการต่อหลังจากอัปเดตข้อมูลสำเร็จ
-    // ...
-
+let updateData = {
+  status: 'verified',  // กำหนดค่าที่ต้องการอัพเดต
+  updated_at: new Date()
+};
   supabase
   .from('auth_sessions')
   .update(updateData)
