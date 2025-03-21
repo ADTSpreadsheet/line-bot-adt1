@@ -356,7 +356,6 @@ app.post('/verify-serial-key', express.json(), async (req, res) => {
     stack: err.stack 
   });
 }
-});
 
 // Endpoint เพื่อรับข้อมูล Machine ID และ IP Address ในกรณีที่ต้องการแยกการส่ง
 app.post('/report-machine-info', express.json(), async (req, res) => {
