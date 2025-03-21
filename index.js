@@ -253,17 +253,66 @@ function someFunction() {
     expires_at: serialKeyExpiresAt.toISOString()
   })
   // คำสั่งที่ใช้ดึงข้อมูล refCodeData จากฐานข้อมูล
-  let someValue = 'your_value';  
+let someValue = 'your_value';  
 supabase
 .from('some_table')
 .select('*')
 .eq('some_column', someValue)
-.single()  // ใช้ .single() ถ้าคุณคาดหวังผลลัพธ์เดียว
+.single()
 .then(({ data: refCodeData, error }) => {
   if (error) {
     console.error('Error fetching refCodeData:', error);
-    return res.status(500).json({ error: 'Failed to fetch refCodeData' });
+    return Promise.reject(error);
   }
+
+  // ตรวจสอบว่า refCodeData มีค่าหรือไม่
+  if (!refCodeData) {
+    console.error('No refCodeData found');
+    return Promise.reject(new Error('RefCodeData not found'));
+  }
+
+  // ดำเนินการต่อกับ refCodeData
+})
+.catch((error) => {
+  console.error('Unexpected error:', error);
+});
+  
+    // ตรวจสอบ refCodeData
+    if (!refCodeData) {
+      console.error('No refCodeData found');
+      return Promise.reject(new Error('RefCodeData not found'));
+    }
+  
+    // ดำเนินการต่อ
+    return refCodeData;
+
+    // เพิ่ม error handling ให้ครอบคลุม
+supabase
+.from('your_table')
+.select('*')
+.eq('column', value)
+.single()
+.then(({ data, error }) => {
+  if (error) {
+    console.error('Error fetching data:', error);
+    throw error;  // ใช้ throw แทน return Promise.reject
+  }
+
+  if (!data) {
+    throw new Error('No data found');
+  }
+
+  return data;  // ส่งข้อมูลต่อไป
+})
+.then((refCodeData) => {
+  // ดำเนินการกับ refCodeData ต่อ
+  console.log('Data found:', refCodeData);
+  // ... โค้ดต่อไป
+})
+.catch((error) => {
+  console.error('Unexpected error:', error);
+  // จัดการ error ที่นี่
+});
 
   // เช็คว่า refCodeData มีค่าอยู่หรือไม่
   if (!refCodeData) {
@@ -274,7 +323,7 @@ supabase
   let updateData = {
     status: 'verified',  // กำหนดค่าที่ต้องการอัพเดต
     updated_at: new Date()
-  };
+   };
   
   supabase
     .from('auth_sessions')
@@ -288,47 +337,80 @@ supabase
       // ตอบกลับเมื่ออัปเดตสำเร็จ
       res.status(200).json({ message: 'Serial Key updated successfully' });
     })
-    .catch(updateError => {
-      console.error('Error in update:', updateError);
-      res.status(500).json({ error: 'Failed to update Serial Key' });
-    });
-  
-})
-.catch(fetchError => {
-  console.error('Error fetching data:', fetchError);
-  res.status(500).json({ error: 'Failed to fetch data' });
+    .catch((error) => {
+  // Combine error handling for update and fetch errors
+  if (error.type === 'update') {
+    console.error('Error in update:', error);
+    return res.status(500).json({ error: 'Failed to update Serial Key' });
+  } else {
+    console.error('Error fetching data:', error);
+    return res.status(500).json({ error: 'Failed to fetch data' });
+  }
 });
 
-    
-let updateData = {
+ let updateData = {
   status: 'verified',  // กำหนดค่าที่ต้องการอัพเดต
   updated_at: new Date()
 };
-  supabase
-  .from('auth_sessions')
-  .update(updateData)
-  .eq('id', refCodeData.id)
-  .then(({ data: updatedData, error: updateError }) => {
-    if (updateError) {
-      console.error('Error updating Serial Key:', updateError);
-      return res.status(500).json({ error: 'Failed to update Serial Key' });
+let refCodeData = null;  // ประกาศตัวแปรก่อนใช้
+
+supabase
+  .from('your_table')
+  .select('*')
+  .eq('column', value)
+  .single()
+  .then(({ data, error }) => {
+    if (error) {
+      console.error('Error fetching data:', error);
+      return Promise.reject(error);
     }
+
+    refCodeData = data;  // กำหนดค่าให้ refCodeData
+
+    if (!refCodeData) {
+      console.error('No data found');
+      return Promise.reject(new Error('Data not found'));
+    }
+
+    // ดำเนินการต่อโดยใช้ refCodeData
+    return refCodeData;
+  })
+  .catch((error) => {
+    console.error('Unexpected error:', error);
+  });
+
+    refCodeData = data;  // กำหนดค่าให้ refCodeData
+
+    if (!refCodeData) {
+      console.error('No data found');
+      return;
+    }
+
+    // ดำเนินการต่อโดยใช้ refCodeData
+  })
+  .then(() => {
+    // ตอบกลับเมื่ออัปเดตสำเร็จ
+    return res.status(200).json({ message: 'Serial Key updated successfully' });
+  })
+  .catch((updateError) => {
+    console.error('Error in update:', updateError);
+    return res.status(500).json({ error: 'Failed to update Serial Key' });
+  });
     const lineClient = botClients[refCodeData.bot_id] || lineClientBot1;
 
     // ตัวอย่างการใช้ lineClient
     lineClient.pushMessage(refCodeData.line_user_id, {
       type: 'text',
       text: 'Serial Key verified successfully!'
+    })
+    .then(() => {
+      return res.status(200).json({ message: 'Serial Key updated successfully' });
+    })
+    .catch((error) => {
+      console.error('Error sending message:', error);
+      return res.status(500).json({ error: 'Failed to send verification message' });
     });
-
-    return res.status(200).json({ message: 'Serial Key updated successfully' });
-  })
-  .catch((error) => {
-    console.error('Error:', error);
-    return res.status(500).json({ error: 'An error occurred' });
-  });
-
-
+  
 try {
   lineClient.pushMessage(refCodeData.line_user_id, {
     type: 'text',
@@ -394,7 +476,7 @@ app.post('/verify-serial-key', express.json(), async (req, res) => {
       });
     }
 
-    const updateData = { 
+    const newupdateData = {
       status: 'VERIFIED',
       updated_at: new Date().toISOString()
     };
