@@ -252,22 +252,76 @@ function someFunction() {
     updated_at: new Date().toISOString(),
     expires_at: serialKeyExpiresAt.toISOString()
   })
+  // คำสั่งที่ใช้ดึงข้อมูล refCodeData จากฐานข้อมูล
+  let someValue = 'your_value';  
+supabase
+.from('some_table')
+.select('*')
+.eq('some_column', someValue)
+.single()  // ใช้ .single() ถ้าคุณคาดหวังผลลัพธ์เดียว
+.then(({ data: refCodeData, error }) => {
+  if (error) {
+    console.error('Error fetching refCodeData:', error);
+    return res.status(500).json({ error: 'Failed to fetch refCodeData' });
+  }
+
+  // เช็คว่า refCodeData มีค่าอยู่หรือไม่
+  if (!refCodeData) {
+    console.error('No refCodeData found');
+    return res.status(404).json({ error: 'RefCodeData not found' });
+  }
+
+  // หลังจากได้ refCodeData แล้ว ใช้ในคำสั่ง .eq() ได้
+  supabase
+    .from('auth_sessions')
+    .update(updateData)
+    .eq('id', refCodeData.id)  // ใช้ refCodeData.id
+    .then(({ data: updateData, error: updateError }) => {
+      if (updateError) {
+        console.error('Error updating Serial Key:', updateError);
+        return res.status(500).json({ error: 'Failed to update Serial Key' });
+      }
+      // ตอบกลับเมื่ออัปเดตสำเร็จ
+      res.status(200).json({ message: 'Serial Key updated successfully' });
+    })
+    .catch(updateError => {
+      console.error('Error in update:', updateError);
+      res.status(500).json({ error: 'Failed to update Serial Key' });
+    });
+})
+.catch(fetchError => {
+  console.error('Error fetching data:', fetchError);
+  res.status(500).json({ error: 'Failed to fetch data' });
+});
+
+    
+    // ดำเนินการต่อหลังจากอัปเดตข้อมูลสำเร็จ
+    // ...
+
+  supabase
+  .from('auth_sessions')
+  .update(updateData)
   .eq('id', refCodeData.id)
-  .then(({ data: updateData, error: updateError }) => {
+  .then(({ data: updatedData, error: updateError }) => {
     if (updateError) {
       console.error('Error updating Serial Key:', updateError);
       return res.status(500).json({ error: 'Failed to update Serial Key' });
     }
-    
-    // ดำเนินการต่อหลังจากอัปเดตข้อมูลสำเร็จ
-    // ...
+    const lineClient = botClients[refCodeData.bot_id] || lineClientBot1;
+
+    // ตัวอย่างการใช้ lineClient
+    lineClient.pushMessage(refCodeData.line_user_id, {
+      type: 'text',
+      text: 'Serial Key verified successfully!'
+    });
+
+    return res.status(200).json({ message: 'Serial Key updated successfully' });
   })
   .catch((error) => {
     console.error('Error:', error);
     return res.status(500).json({ error: 'An error occurred' });
   });
 
-  const lineClient = botClients[refCodeData.bot_id] || lineClientBot1;
 
 try {
   lineClient.pushMessage(refCodeData.line_user_id, {
@@ -297,12 +351,34 @@ app.post('/verify-serial-key', express.json(), async (req, res) => {
     if (machineId || ipAddress) {
       console.log('Machine Info:', { machineId, ipAddress });
       const { data: serialKeyData, error } = await supabase
-      .from('auth_sessions')
-      .select('*')
-      .eq('serial_key', serialKey)
-      .eq('status', 'AWAITING_VERIFICATION')
-      .gt('expires_at', new Date().toISOString())
-      .single();
+        .from('auth_sessions')
+        .select('*')
+        .eq('serial_key', serialKey)
+        .eq('status', 'AWAITING_VERIFICATION')
+        .gt('expires_at', new Date().toISOString())
+        .single();
+
+      // เช็ค error และตอบกลับ
+      if (error) {
+        console.error('Database Error:', error);
+        return res.status(500).json({ error: 'Database query failed' });
+      }
+
+      if (!serialKeyData) {
+        return res.status(400).json({ error: 'Invalid or expired serial key' });
+      }
+
+      // ดำเนินการต่อถ้า serialKey ถูกต้อง
+      console.log('Serial Key Verified:', serialKeyData);
+      return res.status(200).json({ message: 'Serial Key verified successfully' });
+    }
+    
+  } catch (err) {
+    console.error('Server Error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 
     if (error || !serialKeyData) {
       console.error('Error fetching Serial Key:', error);
@@ -320,11 +396,11 @@ app.post('/verify-serial-key', express.json(), async (req, res) => {
     if (machineId) updateData.machine_id = machineId;
     if (ipAddress) updateData.ip_address = ipAddress;
 
-    const { data: updatedData, error: updateError } = await supabase
-      .from('auth_sessions')
-      .update(updateData)
-      .eq('id', serialKeyData.id);
-
+    supabase
+  .from('auth_sessions')
+  .update(updateData)
+  .eq('id', serialKeyData.id)
+  .then(({ data: updatedData, error: updateError }) => {
     if (updateError) {
       console.error('Error updating status:', updateError);
       return res.status(500).json({ error: 'Failed to update status' });
@@ -332,10 +408,24 @@ app.post('/verify-serial-key', express.json(), async (req, res) => {
 
     const lineClient = botClients[serialKeyData.bot_id] || lineClientBot1;
 
-    await lineClient.pushMessage(serialKeyData.line_user_id, {
+    lineClient.pushMessage(serialKeyData.line_user_id, {
       type: 'text',
       text: `การยืนยันสำเร็จ! ขอบคุณที่ใช้บริการของเรา`
+    })
+    .then(() => {
+      console.log('Message sent successfully');
+      return res.status(200).json({ message: 'Status updated and message sent successfully' });
+    })
+    .catch((err) => {
+      console.error('Error sending message:', err);
+      return res.status(500).json({ error: 'Failed to send message' });
     });
+  })
+  .catch((err) => {
+    console.error('Error updating status:', err);
+    return res.status(500).json({ error: 'Failed to update status' });
+  });
+
     
 const notificationText = `มีผู้ใช้ลงทะเบียนเสร็จสมบูรณ์!\nUser ID: ${serialKeyData.line_user_id}\nSerial Key: ${serialKey}`;
 
@@ -343,28 +433,60 @@ const machineInfo = [];
 if (machineId) machineInfo.push(`Machine ID: ${machineId}`);
 if (ipAddress) machineInfo.push(`IP Address: ${ipAddress}`);
 
+// สร้างข้อความ notification
 const fullNotificationText = notificationText + 
   (machineInfo.length > 0 ? '\n' + machineInfo.join('\n') : '') + 
   `\nเวลา: ${new Date().toLocaleString("th-TH", {timeZone: "Asia/Bangkok"})}`;
 
-await lineClientBot2.pushMessage(ADMIN_USER_ID, {
+// ส่งข้อความไปยัง Admin
+lineClientBot2.pushMessage(ADMIN_USER_ID, {
   type: 'text',
   text: fullNotificationText
+}).then(() => {
+  console.log('Notification sent successfully');
+}).catch((error) => {
+  console.error('Error sending notification:', error);
 });
-try {
-  const result = await someAsyncFunction(); 
-  res.status(200).json({ 
-    verified: true,
-    message: 'Serial Key verified successfully'
-  });
-} catch (err) {
-  console.error('Webhook Error:', err);
-  res.status(500).json({ 
-    error: 'Internal Server Error',
-    message: err.message,
-    stack: err.stack 
+
+someAsyncFunction()
+  .then(result => {
+    res.status(200).json({
+      verified: true,
+      message: 'Serial Key verified successfully'
+    });
+  })
+ // สมมติว่า `someAsyncFunction` เป็นฟังก์ชันที่ใช้เวลา
+function someAsyncFunction() {
+  return new Promise((resolve, reject) => {
+    // โค้ดจำลองการทำงานแบบอะซิงโครนัส
+    setTimeout(() => {
+      // จำลองว่าเกิดข้อผิดพลาด
+      const isError = false; // ถ้าเป็น `true` จะทำการ reject
+      if (isError) {
+        reject('Something went wrong!');
+      } else {
+        resolve('Success');
+      }
+    }, 1000);
   });
 }
+
+// ใช้ `then` และ `catch` สำหรับการจัดการผลลัพธ์
+someAsyncFunction()
+  .then(result => {
+    res.status(200).json({ 
+      verified: true,
+      message: 'Serial Key verified successfully'
+    });
+  })
+  .catch(error => {
+    console.error('Error:', error);
+    res.status(500).json({
+      verified: false,
+      message: 'Failed to verify Serial Key'
+    });
+  });
+
 
 app.post('/report-machine-info', express.json(), async (req, res) => {
   try {
