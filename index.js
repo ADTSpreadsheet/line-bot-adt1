@@ -146,7 +146,7 @@ async function handleEvent(event, botId) {
   const lineClient = botClients[botId];
   
   if (messageText.startsWith('REQ_REFCODE')) {
-    return handleRefCodeRequest;
+    return handleRefCodeRequest(userId, messageText, lineClient, botId)
   }
 
   return lineClient.replyMessage(event.replyToken, {
