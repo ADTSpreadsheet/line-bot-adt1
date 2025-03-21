@@ -203,45 +203,39 @@ async function handleRefCodeRequest(userId, messageText, lineClient, botId) {
   }
 }
 
-    const refCode = generateRefCode();
-    console.log(`Generating Ref.Code for user ${userId}. Ref.Code: ${refCode}`);
+function someFunction() {
 
-    const expiresAt = getExpirationTime();
+  const refCode = generateRefCode();
+  console.log(`Generating Ref.Code for user ${userId}. Ref.Code: ${refCode}`);
 
-    const { data, error } = await supabase
-      .from('auth_sessions')
-      .insert([{ 
-        line_user_id: userId,
-        bot_id: botId,
-        ref_code: refCode,
-        status: 'PENDING',
-        created_at: new Date().toISOString(),
-        expires_at: expiresAt
-      }]);
+  const expiresAt = getExpirationTime();
 
-    if (error) throw error;
+  supabase
+    .from('auth_sessions')
+    .insert([{ 
+      line_user_id: userId,
+      bot_id: botId,
+      ref_code: refCode,
+      status: 'PENDING',
+      created_at: new Date().toISOString(),
+      expires_at: expiresAt
+    }])
+    .then(({ data, error }) => {
+      if (error) throw error;
 
-    let messageText = `รหัสอ้างอิง (Ref.Code) ของคุณคือ: ${refCode}\n`;
-    
-    if (botId === BOT1_ID) {
-      messageText += "กรุณานำรหัสนี้ไปกรอกในช่อง Ref. Code และกดปุ่ม Verify Code";
-    } else {
-      messageText += "กรุณานำรหัสนี้ไปกรอกในฟอร์ม VBA และกดปุ่ม Verify Code";
-    }
-    
-    messageText += "\n(รหัสนี้จะหมดอายุใน 15 นาที)";
+      let messageText = `รหัสอ้างอิง (Ref.Code) ของคุณคือ: ${refCode}\n`;
+      
+      if (botId === BOT1_ID) {
+        messageText += "กรุณานำรหัสนี้ไปกรอกในช่อง Ref. Code และกดปุ่ม Verify Code";
+      } else {
+        messageText += "กรุณานำรหัสนี้ไปกรอกในฟอร์ม VBA และกดปุ่ม Verify Code";
+      }
 
-    return lineClient.pushMessage(userId, {
-      type: 'text',
-      text: messageText
+    })
+    .catch((error) => {
+      console.error('Error:', error);
     });
-  } catch (error) {
-    console.error('Error generating ref code:', error);
-    return lineClient.pushMessage(userId, {
-      type: 'text',
-      text: 'ขออภัย เกิดข้อผิดพลาดในการสร้างรหัส กรุณาลองใหม่อีกครั้ง'
-    });
-  }
+
 }
 
     const serialKey = generateSerialKey();
@@ -250,37 +244,50 @@ async function handleRefCodeRequest(userId, messageText, lineClient, botId) {
     const serialKeyExpiresAt = new Date();
     serialKeyExpiresAt.setMinutes(serialKeyExpiresAt.getMinutes() + 30);
 
-    const { data: updateData, error: updateError } = await supabase
-      .from('auth_sessions')
-      .update({
-        serial_key: serialKey,
-        status: 'AWAITING_VERIFICATION',
-        updated_at: new Date().toISOString(),
-        expires_at: serialKeyExpiresAt.toISOString()
-      })
-      .eq('id', refCodeData.id);
-
+    supabase
+  .from('auth_sessions')
+  .update({
+    serial_key: serialKey,
+    status: 'AWAITING_VERIFICATION',
+    updated_at: new Date().toISOString(),
+    expires_at: serialKeyExpiresAt.toISOString()
+  })
+  .eq('id', refCodeData.id)
+  .then(({ data: updateData, error: updateError }) => {
     if (updateError) {
       console.error('Error updating Serial Key:', updateError);
       return res.status(500).json({ error: 'Failed to update Serial Key' });
     }
+    
+    // ดำเนินการต่อหลังจากอัปเดตข้อมูลสำเร็จ
+    // ...
+  })
+  .catch((error) => {
+    console.error('Error:', error);
+    return res.status(500).json({ error: 'An error occurred' });
+  });
 
-    const lineClient = botClients[refCodeData.bot_id] || lineClientBot1;
+  const lineClient = botClients[refCodeData.bot_id] || lineClientBot1;
 
-    await lineClient.pushMessage(refCodeData.line_user_id, {
-      type: 'text',
-      text: `Serial Key ของคุณคือ: ${serialKey}\nกรุณานำ Serial Key นี้ไปกรอก และกด Enter เพื่อยืนยัน\n(Serial Key นี้จะหมดอายุใน 30 นาที)`
-    });
-
+try {
+  lineClient.pushMessage(refCodeData.line_user_id, {
+    type: 'text',
+    text: `Serial Key ของคุณคือ: ${serialKey}\nกรุณานำ Serial Key นี้ไปกรอก และกด Enter เพื่อยืนยัน\n(Serial Key นี้จะหมดอายุใน 30 นาที)`
+  })
+  .then(() => {
     res.status(200).json({ 
       success: true,
       message: 'Serial Key generated and sent to user' 
     });
-  } catch (err) {
-    console.error('Webhook Error:', err);
-    res.status(500).json({ error: 'Internal Server Error' });
-  }
-});
+  })
+  .catch((error) => {
+    console.error('Error sending Serial Key:', error);
+    res.status(500).json({ error: 'Failed to send Serial Key' });
+  });
+} catch (err) {
+  console.error('Webhook Error:', err);
+  res.status(500).json({ error: 'Internal Server Error' });
+}
 
 app.post('/verify-serial-key', express.json(), async (req, res) => {
   try {
