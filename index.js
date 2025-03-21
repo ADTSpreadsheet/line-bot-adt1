@@ -319,8 +319,7 @@ try {
     verified: true,
     message: 'Serial Key verified successfully'
   });
-} 
-catch (err) {
+} catch (err) {
   console.error('Webhook Error:', err);
   res.status(500).json({ 
     error: 'Internal Server Error',
