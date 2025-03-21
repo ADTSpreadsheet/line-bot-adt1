@@ -146,7 +146,7 @@ async function handleEvent(event, botId) {
   const lineClient = botClients[botId];
   
   if (messageText.startsWith('REQ_REFCODE')) {
-    return handleRefCodeRequest(userId, messageText, lineClient, botId);
+    return handleRefCodeRequest;
   }
 
   return lineClient.replyMessage(event.replyToken, {
@@ -155,7 +155,7 @@ async function handleEvent(event, botId) {
   });
 }
 
-async function handleRefCodeRequest(userId, messageText, lineClient, botId) {
+async function handleRefCodeRequest {
   try {
     const refCode = generateRefCode();
     console.log(`Generating Ref.Code for user ${userId}. Ref.Code: ${refCode}`);
