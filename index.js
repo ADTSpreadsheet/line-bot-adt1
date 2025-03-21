@@ -348,10 +348,14 @@ app.post('/verify-serial-key', express.json(), async (req, res) => {
       verified: true,
       message: 'Serial Key verified successfully'
     });
-  } catch (err) {
-    console.error('Webhook Error:', err);
-    res.status(500).json({ error: 'Internal Server Error' });
-  }
+ } catch (err) {
+  console.error('Webhook Error:', err);
+  res.status(500).json({ 
+    error: 'Internal Server Error',
+    message: err.message,
+    stack: err.stack 
+  });
+}
 });
 
 // Endpoint เพื่อรับข้อมูล Machine ID และ IP Address ในกรณีที่ต้องการแยกการส่ง
