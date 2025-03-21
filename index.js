@@ -328,27 +328,27 @@ app.post('/verify-serial-key', express.json(), async (req, res) => {
     });
     
     // ส่งข้อความแจ้งเตือนไปยังผู้ดูแลระบบ (คุณ) ผ่าน Bot ตัวที่ 2
-    const notificationText = `มีผู้ใช้ลงทะเบียนเสร็จสมบูรณ์!\nUser ID: ${serialKeyData.line_user_id}\nSerial Key: ${serialKey}`;
-    
-    // เพิ่มข้อมูลเครื่องถ้ามี
-    const machineInfo = [];
-    if (machineId) machineInfo.push(`Machine ID: ${machineId}`);
-    if (ipAddress) machineInfo.push(`IP Address: ${ipAddress}`);
-    
-    const fullNotificationText = notificationText + 
-      (machineInfo.length > 0 ? '\n' + machineInfo.join('\n') : '') + 
-      `\nเวลา: ${new Date().toLocaleString("th-TH", {timeZone: "Asia/Bangkok"})}`;
-    
-    await lineClientBot2.pushMessage(ADMIN_USER_ID, {
-      type: 'text',
-      text: fullNotificationText
-    });
+const notificationText = `มีผู้ใช้ลงทะเบียนเสร็จสมบูรณ์!\nUser ID: ${serialKeyData.line_user_id}\nSerial Key: ${serialKey}`;
 
-    res.status(200).json({ 
-      verified: true,
-      message: 'Serial Key verified successfully'
-    });
- } catch (err) {
+// เพิ่มข้อมูลเครื่องถ้ามี
+const machineInfo = [];
+if (machineId) machineInfo.push(`Machine ID: ${machineId}`);
+if (ipAddress) machineInfo.push(`IP Address: ${ipAddress}`);
+
+const fullNotificationText = notificationText + 
+  (machineInfo.length > 0 ? '\n' + machineInfo.join('\n') : '') + 
+  `\nเวลา: ${new Date().toLocaleString("th-TH", {timeZone: "Asia/Bangkok"})}`;
+
+await lineClientBot2.pushMessage(ADMIN_USER_ID, {
+  type: 'text',
+  text: fullNotificationText
+});
+
+res.status(200).json({ 
+  verified: true,
+  message: 'Serial Key verified successfully'
+});
+} catch (err) {
   console.error('Webhook Error:', err);
   res.status(500).json({ 
     error: 'Internal Server Error',
