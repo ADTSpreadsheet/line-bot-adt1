@@ -407,4 +407,5 @@ app.listen(PORT, async () => {
     console.error('Failed to connect to Supabase:', error);
   }
 });
+      
 module.exports = app;
