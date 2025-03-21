@@ -271,12 +271,16 @@ supabase
     return res.status(404).json({ error: 'RefCodeData not found' });
   }
 
-  // หลังจากได้ refCodeData แล้ว ใช้ในคำสั่ง .eq() ได้
+  let updateData = {
+    status: 'verified',  // กำหนดค่าที่ต้องการอัพเดต
+    updated_at: new Date()
+  };
+  
   supabase
     .from('auth_sessions')
     .update(updateData)
     .eq('id', refCodeData.id)  // ใช้ refCodeData.id
-    .then(({ data: updateData, error: updateError }) => {
+    .then(({ data: updatedData, error: updateError }) => {
       if (updateError) {
         console.error('Error updating Serial Key:', updateError);
         return res.status(500).json({ error: 'Failed to update Serial Key' });
@@ -288,6 +292,7 @@ supabase
       console.error('Error in update:', updateError);
       res.status(500).json({ error: 'Failed to update Serial Key' });
     });
+  
 })
 .catch(fetchError => {
   console.error('Error fetching data:', fetchError);
