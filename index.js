@@ -160,15 +160,48 @@ async function handleRefCodeRequest(userId, messageText, lineClient, botId) {
       .gt('expires_at', new Date().toISOString())
       .single();
 
-    if (existingRefCode) {
-      const remainingTime = new Date(existingRefCode.expires_at) - new Date();
-      const remainingMinutes = Math.ceil(remainingTime / (1000 * 60));
-
+    // ตรวจสอบว่าเกิด error ในการดึงข้อมูลจาก Supabase หรือไม่
+    if (existingError) {
+      console.error("Error fetching Ref.Code:", existingError);
       return lineClient.pushMessage(userId, {
         type: 'text',
-        text: `คุณมี Ref.Code ที่ยังไม่ได้ใช้งาน\nรหัสเดิม: ${existingRefCode.ref_code}\nจะหมดอายุใน ${remainingMinutes} นาที\nกรุณาใช้รหัสเดิมก่อน`
+        text: 'เกิดข้อผิดพลาดในการตรวจสอบ Ref.Code กรุณาลองใหม่อีกครั้ง'
       });
     }
+
+    // ตรวจสอบว่ามีข้อมูล Ref.Code อยู่จริงหรือไม่
+    if (!existingRefCode || !existingRefCode.expires_at) {
+      return lineClient.pushMessage(userId, {
+        type: 'text',
+        text: 'ไม่พบ Ref.Code ที่ใช้งานได้ กรุณาขอรหัสใหม่'
+      });
+    }
+
+    // ตรวจสอบเวลาที่เหลือก่อนหมดอายุ
+    const remainingTime = new Date(existingRefCode.expires_at) - new Date();
+    if (remainingTime < 0) {
+      return lineClient.pushMessage(userId, {
+        type: 'text',
+        text: 'Ref.Code ของคุณหมดอายุแล้ว กรุณาขอใหม่'
+      });
+    }
+
+    // แปลงเป็นนาที
+    const remainingMinutes = Math.ceil(remainingTime / (1000 * 60));
+
+    return lineClient.pushMessage(userId, {
+      type: 'text',
+      text: `คุณมี Ref.Code ที่ยังไม่ได้ใช้งาน\nรหัสเดิม: ${existingRefCode.ref_code}\nจะหมดอายุใน ${remainingMinutes} นาที\nกรุณาใช้รหัสเดิมก่อน`
+    });
+
+  } catch (error) {
+    console.error("Unexpected Error:", error);
+    return lineClient.pushMessage(userId, {
+      type: 'text',
+      text: 'เกิดข้อผิดพลาดในการตรวจสอบข้อมูล กรุณาลองใหม่'
+    });
+  }
+}
 
     const refCode = generateRefCode();
     console.log(`Generating Ref.Code for user ${userId}. Ref.Code: ${refCode}`);
