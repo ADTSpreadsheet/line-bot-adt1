@@ -152,6 +152,24 @@ async function handleEvent(event, botId) {
 
 async function handleRefCodeRequest(userId, messageText, lineClient, botId) {
   try {
+    const { data: existingRefCode, error: existingError } = await supabase
+      .from('auth_sessions')
+      .select('*')
+      .eq('line_user_id', userId)
+      .eq('status', 'PENDING')
+      .gt('expires_at', new Date().toISOString())
+      .single();
+
+    if (existingRefCode) {
+      const remainingTime = new Date(existingRefCode.expires_at) - new Date();
+      const remainingMinutes = Math.ceil(remainingTime / (1000 * 60));
+
+      return lineClient.pushMessage(userId, {
+        type: 'text',
+        text: `คุณมี Ref.Code ที่ยังไม่ได้ใช้งาน\nรหัสเดิม: ${existingRefCode.ref_code}\nจะหมดอายุใน ${remainingMinutes} นาที\nกรุณาใช้รหัสเดิมก่อน`
+      });
+    }
+
     const refCode = generateRefCode();
     console.log(`Generating Ref.Code for user ${userId}. Ref.Code: ${refCode}`);
 
@@ -192,27 +210,6 @@ async function handleRefCodeRequest(userId, messageText, lineClient, botId) {
     });
   }
 }
-
-app.post('/verify-ref-code', express.json(), async (req, res) => {
-  try {
-    const { refCode } = req.body;
-    console.log('Received Ref.Code from Userform3:', refCode);
-
-    const { data: refCodeData, error } = await supabase
-      .from('auth_sessions')
-      .select('*')
-      .eq('ref_code', refCode)
-      .eq('status', 'PENDING')
-      .gt('expires_at', new Date().toISOString())
-      .single();
-
-    if (error || !refCodeData) {
-      console.error('Error fetching Ref.Code:', error);
-      return res.status(400).json({ 
-        error: 'Invalid Ref.Code', 
-        message: 'รหัสอ้างอิงไม่ถูกต้องหรือหมดอายุแล้ว กรุณาขอรหัสใหม่' 
-      });
-    }
 
     const serialKey = generateSerialKey();
     console.log('Generated Serial Key:', serialKey);
