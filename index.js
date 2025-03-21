@@ -4,7 +4,6 @@ const line = require('@line/bot-sdk');
 const { createClient } = require('@supabase/supabase-js');
 const crypto = require('crypto');
 const cors = require('cors'); 
-
 const app = express();
 
 app.use(cors());
@@ -22,16 +21,12 @@ const lineConfigBot2 = {
 
 const BOT1_ID = process.env.LINE_BOT1_ID || 'bot1_id';
 const BOT2_ID = process.env.LINE_BOT2_ID || 'bot2_id';
- 
 const ADMIN_USER_ID = process.env.ADMIN_USER_ID || '1234-golfkop';
-
 const supabaseUrl = process.env.SUPABASE_URL || 'https://wpxpukbvynxawfxcdroj.supabase.co';
 const supabaseKey = process.env.SUPABASE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndweHB1a2J2eW54YXdmeGNkcm9qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDIzODY3OTIsImV4cCI6MjA1Nzk2Mjc5Mn0.JaYLI4p9r8A3l_eb5QrvhnK5_Vz16crWzdOkjO-veO8';
 const supabase = createClient(supabaseUrl, supabaseKey);
-
 const lineClientBot1 = new line.Client(lineConfigBot1);
 const lineClientBot2 = new line.Client(lineConfigBot2);
-
 const botClients = {
   [BOT1_ID]: lineClientBot1,
   [BOT2_ID]: lineClientBot2
@@ -391,16 +386,13 @@ app.post('/report-machine-info', express.json(), async (req, res) => {
   }
 });
 
-
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok', time: new Date().toISOString() });
 });
 
-
 app.get('/test-vba-connection', (req, res) => {
   res.status(200).json({ status: 'ok', message: 'VBA connection successful' });
 });
-
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, async () => {
@@ -415,5 +407,4 @@ app.listen(PORT, async () => {
     console.error('Failed to connect to Supabase:', error);
   }
 });
-
 module.exports = app;
