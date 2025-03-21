@@ -319,12 +319,13 @@ await lineClientBot2.pushMessage(ADMIN_USER_ID, {
   type: 'text',
   text: fullNotificationText
 });
-
-res.status(200).json({ 
-  verified: true,
-  message: 'Serial Key verified successfully'
-});
-} catch (err) {
+try {
+  res.status(200).json({ 
+    verified: true,
+    message: 'Serial Key verified successfully'
+  });
+} 
+catch (err) {
   console.error('Webhook Error:', err);
   res.status(500).json({ 
     error: 'Internal Server Error',
