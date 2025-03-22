@@ -45,7 +45,7 @@ router.post('/webhook', async (req, res) => {
         if (existingSession) {
           console.log(`📌 Found existing session: ${JSON.stringify(existingSession)}`);
           await replyText(replyToken, `📌 คุณมี Ref.Code ที่ยังใช้งานได้
-รหัสคือ: ${existingSession.ref_code}`);
+รหัสคือ: ${existingSession.ref_code}`, userId);
           continue;
         }
         
@@ -79,7 +79,7 @@ router.post('/webhook', async (req, res) => {
         
         if (error) {
           console.error('❌ Failed to create session:', error);
-          await replyText(replyToken, 'เกิดข้อผิดพลาดในการสร้างรหัส กรุณาลองใหม่ภายหลัง');
+          await replyText(replyToken, 'เกิดข้อผิดพลาดในการสร้างรหัส กรุณาลองใหม่ภายหลัง', userId);
           continue;
         }
         
@@ -87,28 +87,168 @@ router.post('/webhook', async (req, res) => {
         
         await replyText(replyToken, `✅ สร้าง Ref.Code สำเร็จแล้ว!
 รหัสของคุณคือ: ${refCode}
-กรุณากรอกใน Excel VBA แล้วกด Verify ครับ ✅`);
+กรุณากรอกใน Excel VBA แล้วกด Verify ครับ ✅`, userId);
       } catch (err) {
         console.error('❌ Error processing REQ_REFCODE:', err);
-        await replyText(replyToken, 'เกิดข้อผิดพลาดในระบบ กรุณาลองใหม่ภายหลัง');
+        await replyText(replyToken, 'เกิดข้อผิดพลาดในระบบ กรุณาลองใหม่ภายหลัง', userId);
       }
     } else if (messageText === 'PING') {
       // เพิ่มคำสั่งทดสอบการเชื่อมต่อ
-      await replyText(replyToken, 'PONG! ระบบทำงานปกติ');
+      await replyText(replyToken, 'PONG! ระบบทำงานปกติ', userId);
     } else {
       // สำหรับข้อความอื่นๆ
-      await replyText(replyToken, `คุณพิมพ์ว่า: ${messageText}`);
+      await replyText(replyToken, `คุณพิมพ์ว่า: ${messageText}`, userId);
     }
   }
   
   res.status(200).send('OK');
 });
 
-async function replyText(replyToken, text) {
+// เพิ่มเส้นทางสำหรับ VBA: ตรวจสอบ Ref.Code
+router.get('/verify/:refCode', async (req, res) => {
+  const { refCode } = req.params;
+  
+  console.log(`🔍 Verifying ref_code: ${refCode}`);
+  
+  try {
+    // ค้นหา session ด้วย ref_code
+    const session = await db.findSessionByRefCode(refCode);
+    
+    if (!session) {
+      console.log(`❌ ไม่พบ ref_code: ${refCode}`);
+      return res.status(404).json({
+        success: false,
+        message: 'Ref.Code ไม่ถูกต้อง'
+      });
+    }
+    
+    // ตรวจสอบว่าหมดอายุหรือไม่
+    const today = new Date().toISOString().split('T')[0];
+    const now = new Date().toTimeString().split(' ')[0] + '+07';
+    
+    if (session.day_created_at !== today || session.expires_at < now) {
+      console.log(`❌ ref_code หมดอายุแล้ว: ${refCode}`);
+      return res.status(400).json({
+        success: false,
+        message: 'Ref.Code หมดอายุแล้ว'
+      });
+    }
+    
+    // ตรวจสอบสถานะว่าเป็น 'PENDING' หรือไม่
+    if (session.status !== 'PENDING') {
+      console.log(`❌ ref_code ถูกใช้งานไปแล้ว: ${refCode}`);
+      return res.status(400).json({
+        success: false,
+        message: 'Ref.Code นี้ถูกใช้งานไปแล้ว'
+      });
+    }
+    
+    console.log(`✅ ref_code ถูกต้อง: ${refCode}, lineId: ${session.line_user_id}`);
+    
+    // ส่งข้อมูลกลับไป
+    return res.json({
+      success: true,
+      lineId: session.line_user_id,
+      message: 'ยืนยัน Ref.Code สำเร็จ'
+    });
+  } catch (err) {
+    console.error('❌ Error verifying ref_code:', err);
+    return res.status(500).json({
+      success: false,
+      message: 'เกิดข้อผิดพลาดในระบบ'
+    });
+  }
+});
+
+// เพิ่มเส้นทางสำหรับ VBA: ส่ง Serial Key
+router.post('/webhook/verify-serial-key', async (req, res) => {
+  console.log('📩 Verify Serial Key request received:', JSON.stringify(req.body));
+  
+  const { userId, serialKey } = req.body;
+  
+  if (!userId || !serialKey) {
+    console.log('❌ ข้อมูลไม่ครบถ้วน');
+    return res.status(400).json({
+      success: false,
+      message: 'ข้อมูลไม่ครบถ้วน'
+    });
+  }
+  
+  try {
+    // ค้นหา session ที่มี line_user_id ตรงกับที่ระบุ
+    const { data, error } = await db.supabase
+      .from('auth_sessions')
+      .select('*')
+      .eq('line_user_id', userId)
+      .eq('status', 'PENDING')
+      .order('day_created_at', { ascending: false })
+      .limit(1);
+      
+    if (error) {
+      console.error('❌ Error finding session:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'เกิดข้อผิดพลาดในการค้นหาข้อมูล'
+      });
+    }
+    
+    if (!data || data.length === 0) {
+      console.log(`❌ ไม่พบ session สำหรับ userId: ${userId}`);
+      return res.status(404).json({
+        success: false,
+        message: 'ไม่พบข้อมูลผู้ใช้'
+      });
+    }
+    
+    const session = data[0];
+    
+    // อัปเดตสถานะเป็น 'VERIFIED' และเพิ่ม verify_count
+    const now = new Date().toTimeString().split(' ')[0] + '+07';
+    const { updateData, updateError } = await db.updateSessionByRefCode(session.ref_code, {
+      status: 'VERIFIED',
+      verify_count: session.verify_count + 1,
+      verify_at: now,
+      updated_at: now
+    });
+    
+    if (updateError) {
+      console.error('❌ Error updating session:', updateError);
+    }
+    
+    // ส่ง Serial Key ไปยังผู้ใช้ทาง LINE
+    await pushText(userId, `✅ รหัส Serial Key ของคุณคือ: ${serialKey}
+โปรดป้อนรหัสนี้ในแอป Excel ของคุณเพื่อเปิดใช้งาน
+รหัสนี้จะหมดอายุใน 5 นาที`);
+    
+    return res.json({
+      success: true,
+      message: 'ส่ง Serial Key สำเร็จ'
+    });
+  } catch (err) {
+    console.error('❌ Error processing serial key verification:', err);
+    return res.status(500).json({
+      success: false,
+      message: 'เกิดข้อผิดพลาดในระบบ'
+    });
+  }
+});
+
+/**
+ * ส่งข้อความตอบกลับไปยัง LINE
+ * @param {string} replyToken - Token สำหรับตอบกลับ
+ * @param {string} text - ข้อความที่ต้องการส่ง
+ * @param {string} userId - ID ของผู้ใช้ (สำหรับใช้กับ Push API หากต้องใช้)
+ * @returns {Promise<boolean>} - สถานะการส่งข้อความ
+ */
+async function replyText(replyToken, text, userId) {
   try {
     // ตรวจสอบ replyToken ก่อนส่ง
     if (!replyToken || replyToken === '00000000000000000000000000000000') {
-      console.log('⚠️ ไม่สามารถตอบกลับได้: replyToken ไม่ถูกต้อง');
+      console.log('⚠️ ไม่สามารถใช้ Reply API: replyToken ไม่ถูกต้อง');
+      // ถ้ามี userId ให้ใช้ Push API แทน
+      if (userId) {
+        return await pushText(userId, text);
+      }
       return false;
     }
     
@@ -133,12 +273,53 @@ async function replyText(replyToken, text) {
   } catch (err) {
     console.error('❌ Error replying to LINE:', err.response?.data || err.message);
     
-    // จำกัดข้อมูล error log เพื่อไม่ให้เต็มพื้นที่
+    // ถ้าเป็นข้อผิดพลาด Invalid reply token และมี userId ให้ลองใช้ Push API แทน
+    if (err.response?.data?.message === 'Invalid reply token' && userId) {
+      console.log('🔄 Falling back to Push API');
+      return await pushText(userId, text);
+    }
+    
     if (err.response) {
       console.error('❌ Status:', err.response.status);
       console.error('❌ Data:', JSON.stringify(err.response.data));
     }
     
+    return false;
+  }
+}
+
+/**
+ * ส่งข้อความแบบ push ไปยังผู้ใช้ LINE
+ * @param {string} userId - ID ของผู้ใช้
+ * @param {string} text - ข้อความที่ต้องการส่ง
+ * @returns {Promise<boolean>} - สถานะการส่งข้อความ
+ */
+async function pushText(userId, text) {
+  try {
+    console.log('📤 Sending push message to', userId);
+    
+    const response = await axios.post(
+      'https://api.line.me/v2/bot/message/push',
+      {
+        to: userId,
+        messages: [{ type: 'text', text }]
+      },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${LINE_TOKEN}`
+        }
+      }
+    );
+    
+    console.log('✅ Push sent successfully:', response.status);
+    return true;
+  } catch (err) {
+    console.error('❌ Error pushing to LINE:', err.response?.data || err.message);
+    if (err.response) {
+      console.error('❌ Push API error status:', err.response.status);
+      console.error('❌ Push API error data:', JSON.stringify(err.response.data));
+    }
     return false;
   }
 }
