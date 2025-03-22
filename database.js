@@ -30,16 +30,17 @@ async function findActiveSessionByUser(lineUserId, status = 'PENDING') {
     // สำหรับเวลาปัจจุบัน เราจะใช้เวลาในรูปแบบ HH:MM:SS+07
     const now = new Date();
     const currentTime = now.toTimeString().split(' ')[0] + '+07';
+    const today = now.toISOString().split('T')[0]; // YYYY-MM-DD
     
-    // ค้นหา session โดยไม่ใช้เงื่อนไขเวลาหมดอายุ (เพราะรูปแบบเวลาไม่ตรงกัน)
-    // แทนที่จะตรวจสอบใน query เราจะตรวจสอบหลังจากได้ข้อมูลแล้ว
+    // ค้นหา session ที่สร้างวันนี้ (ง่ายกว่าการเทียบเวลาหมดอายุ)
     const { data, error } = await supabase
       .from(SESSIONS_TABLE)
       .select('*')
       .eq('line_user_id', lineUserId)
       .eq('status', status)
+      .eq('day_created_at', today) // เฉพาะรายการที่สร้างวันนี้
       .order('day_created_at', { ascending: false })
-      .limit(5); // เอามากกว่า 1 เพื่อให้สามารถตรวจสอบเวลาได้หลายรายการ
+      .limit(5);
     
     if (error) {
       console.error('❌ เกิดข้อผิดพลาดในการค้นหา session:', error);
@@ -47,16 +48,10 @@ async function findActiveSessionByUser(lineUserId, status = 'PENDING') {
     }
     
     if (data && data.length > 0) {
-      // ตรวจสอบเวลาหมดอายุของแต่ละ session
+      // ค้นหา session ที่ยังไม่หมดอายุ
       const activeSession = data.find(session => {
-        // เปรียบเทียบวันที่ (ถ้าวันที่เป็นวันนี้ จึงจะตรวจสอบเวลา)
-        const today = new Date().toISOString().split('T')[0];
-        if (session.day_created_at === today) {
-          // เวลาอาจจะหมดอายุหรือไม่หมดอายุก็ได้
-          return session.expires_at > currentTime;
-        }
-        // ถ้าสร้างก่อนวันนี้ ถือว่าหมดอายุแล้ว
-        return false;
+        // เช็คเฉพาะเวลา เพราะเรากรองวันที่ไปแล้ว
+        return session.expires_at > currentTime;
       });
       
       if (activeSession) {
