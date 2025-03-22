@@ -48,6 +48,11 @@ router.post('/webhook', async (req, res) => {
         const serialKey = generateSerialKey();
         const expiresAt = calculateExpiryTime(15); // นาที
         
+        // สร้างวันที่และเวลาปัจจุบัน
+        const now = new Date();
+        const currentDate = now.toISOString().split('T')[0]; // YYYY-MM-DD
+        const currentTime = now.toTimeString().split(' ')[0] + '+07'; // HH:MM:SS+07
+        
         const sessionData = {
           line_user_id: userId,
           ref_code: refCode,
@@ -55,10 +60,10 @@ router.post('/webhook', async (req, res) => {
           status: 'PENDING',
           request_count: 1,
           verify_count: 0,
-          day_created_at: new Date().toISOString().split('T')[0],
-          time_created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          verify_at: new Date().toISOString(),
+          day_created_at: currentDate,
+          time_created_at: currentTime,
+          updated_at: currentTime,
+          verify_at: currentTime,
           expires_at: expiresAt
         };
         
