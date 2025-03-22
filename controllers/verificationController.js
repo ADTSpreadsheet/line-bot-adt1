@@ -1,4 +1,5 @@
 const supabase = require('../config/supabaseClient');
+const { toThaiTime } = require('../utils/timeUtils'); // ✅ นำเข้า
 
 // ฟังก์ชันสร้าง Serial Key
 function generateSerialKey() {
@@ -9,7 +10,6 @@ const verifyRefCode = async (req, res) => {
   const { refCode } = req.body;
   
   try {
-    // ค้นหา Ref Code ที่ยังไม่หมดอายุ
     const { data, error } = await supabase
       .from('auth_sessions')
       .select('*')
@@ -23,10 +23,8 @@ const verifyRefCode = async (req, res) => {
       return res.status(404).json({ message: 'Invalid or expired ref code' });
     }
 
-    // สร้าง Serial Key
     const serialKey = generateSerialKey();
 
-    // อัปเดต Session ด้วย Serial Key
     const { error: updateError } = await supabase
       .from('auth_sessions')
       .update({ 
@@ -41,7 +39,10 @@ const verifyRefCode = async (req, res) => {
 
     res.status(200).json({ 
       message: 'Ref code verified', 
-      serialKey: serialKey 
+      serialKey: serialKey,
+      createdAtThai: toThaiTime(data.created_at),
+      expiresAtThai: toThaiTime(data.expires_at),
+      verifyAtThai: toThaiTime(new Date().toISOString())
     });
 
   } catch (error) {
@@ -68,7 +69,10 @@ const verifySerialKey = async (req, res) => {
 
     res.status(200).json({ 
       message: 'Serial key verified', 
-      data: data 
+      serialKey: data.serial_key,
+      createdAtThai: toThaiTime(data.created_at),
+      expiresAtThai: toThaiTime(data.expires_at),
+      verifyAtThai: toThaiTime(data.verify_at)
     });
 
   } catch (error) {
@@ -80,7 +84,6 @@ const sendSerialKey = async (req, res) => {
   const { refCode } = req.body;
 
   try {
-    // ค้นหา Session ที่มี Ref Code
     const { data, error } = await supabase
       .from('auth_sessions')
       .select('*')
@@ -96,7 +99,10 @@ const sendSerialKey = async (req, res) => {
 
     res.status(200).json({ 
       message: 'Serial key sent successfully',
-      serialKey: data.serial_key
+      serialKey: data.serial_key,
+      createdAtThai: toThaiTime(data.created_at),
+      expiresAtThai: toThaiTime(data.expires_at),
+      verifyAtThai: toThaiTime(data.verify_at)
     });
 
   } catch (error) {
