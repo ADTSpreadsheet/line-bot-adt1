@@ -16,7 +16,7 @@ router.post('/verify-ref-code', verificationController.verifyRefCode);
 // Verify Serial Key
 router.post('/verify-serial-key', verificationController.verifySerialKey);
 
-// Send Serial Key (เพิ่มใหม่)
+// Send Serial Key
 router.post('/send-serial-key', verificationController.sendSerialKey);
 
 // Health check
