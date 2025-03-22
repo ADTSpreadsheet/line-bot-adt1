@@ -1,42 +1,29 @@
+/**
+ * index.js
+ * จุดเริ่มต้นของระบบ LINE Bot + Supabase + Excel VBA
+ */
+
+require('dotenv').config();
 const express = require('express');
-const cors = require('cors');
-const CONFIG = require('./config');
-const db = require('./database');
 const routes = require('./routes');
-const { errorHandler } = require('./middleware/errorHandler');
+const CONFIG = require('./config');
 
-// สร้าง Express app
 const app = express();
+const PORT = CONFIG.PORT || 10000;
 
-// ใช้ middleware
-app.use(cors());
+// Middleware
 app.use(express.json());
 
-// ใช้เส้นทาง
+// Routes
 app.use('/', routes);
 
-// ใช้ middleware จัดการข้อผิดพลาด
-app.use(errorHandler);
+// Root route (optional)
+app.get('/', (req, res) => {
+  res.send('🎉 ADT LINE Bot Server is running!');
+});
 
-// เริ่มต้นเซิร์ฟเวอร์
-const startServer = async () => {
-  try {
-    // ทดสอบการเชื่อมต่อกับฐานข้อมูล
-    await db.testConnection();
-    console.log('Successfully connected to Supabase');
-    
-    // เริ่มต้นเซิร์ฟเวอร์
-    app.listen(CONFIG.SERVER.PORT, () => {
-      console.log(`Server is running on port ${CONFIG.SERVER.PORT}`);
-      console.log(`Webhook URL: ${CONFIG.SERVER.URL}/webhook`);
-    });
-  } catch (error) {
-    console.error('Failed to start server:', error);
-    process.exit(1);
-  }
-};
-
-startServer();
-
-// Export app for testing
-module.exports = app;
+// Start Server
+app.listen(PORT, () => {
+  console.log(`✅ Server is running on port ${PORT}`);
+  console.log(`🌐 Webhook URL: https://line-bot-adt.onrender.com/webhook`);
+});
