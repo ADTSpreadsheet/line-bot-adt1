@@ -2,7 +2,6 @@
  * routes/index.js
  * จัดการเส้นทางทั้งหมดของแอปพลิเคชัน
  */
-
 const express = require('express');
 const router = express.Router();
 const webhookController = require('../controllers/webhookController');
@@ -16,6 +15,9 @@ router.post('/verify-ref-code', verificationController.verifyRefCode);
 
 // Verify Serial Key
 router.post('/verify-serial-key', verificationController.verifySerialKey);
+
+// Send Serial Key (เพิ่มใหม่)
+router.post('/send-serial-key', verificationController.sendSerialKey);
 
 // Health check
 router.get('/health', (req, res) => {
