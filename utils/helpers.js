@@ -1,63 +1,74 @@
-/**
- * utils/helpers.js
- * ฟังก์ชันช่วยเหลือต่างๆ
- */
-
-const crypto = require('crypto');
+// utils/helpers.js - ฟังก์ชันช่วยเหลือทั่วไป
 
 /**
- * สร้างรหัสอ้างอิง 4 หลัก
- * @returns {string} - รหัสอ้างอิง 4 หลัก
+ * สร้าง Ref.Code แบบสุ่ม
+ * @returns {string} - Ref.Code ที่สร้างขึ้น (รูปแบบ: LETTER-NUMBER-LETTER-NUMBER, เช่น A1B2)
  */
-const generateRefCode = () => {
-  return Math.floor(1000 + Math.random() * 9000).toString();
-};
+function generateRefCode() {
+  const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  const numbers = '0123456789';
+  
+  let code = '';
+  
+  // รูปแบบ LETTER-NUMBER-LETTER-NUMBER
+  code += letters.charAt(Math.floor(Math.random() * letters.length));
+  code += numbers.charAt(Math.floor(Math.random() * numbers.length));
+  code += letters.charAt(Math.floor(Math.random() * letters.length));
+  code += numbers.charAt(Math.floor(Math.random() * numbers.length));
+  
+  console.log(`🔑 สร้าง Ref.Code: ${code}`);
+  return code;
+}
 
 /**
- * สร้าง Serial Key ในรูปแบบ XXXX-XX
- * @returns {string} - Serial Key ในรูปแบบ XXXX-XX
+ * สร้าง Serial Key แบบสุ่ม
+ * @returns {string} - Serial Key ที่สร้างขึ้น (รูปแบบ: XXXX-XXXX-XXXX-XXXX)
  */
-const generateSerialKey = () => {
-  const serialNumber = Math.floor(1000 + Math.random() * 9000).toString();
-  const serialChars = Math.random().toString(36).substring(2, 4).toUpperCase();
-  return serialNumber + "-" + serialChars;
-};
-
-/**
- * คำนวณเวลาหมดอายุ
- * @param {number} minutes - จำนวนนาทีที่จะหมดอายุ
- * @returns {string} - เวลาหมดอายุในรูปแบบ ISO
- */
-const calculateExpiryTime = (minutes) => {
-  const expirationTime = new Date();
-  expirationTime.setMinutes(expirationTime.getMinutes() + minutes);
-  return expirationTime.toISOString();
-};
-
-/**
- * ตรวจสอบลายเซ็นของ LINE
- * @param {Object} body - ข้อมูลที่ส่งมาจาก LINE
- * @param {string} signature - ลายเซ็นที่ส่งมาจาก LINE
- * @param {string} channelSecret - Channel Secret ของ LINE Bot
- * @returns {boolean} - ผลการตรวจสอบ
- */
-const validateLineSignature = (body, signature, channelSecret) => {
-  try {
-    const hash = crypto
-      .createHmac('SHA256', channelSecret)
-      .update(Buffer.from(JSON.stringify(body)))
-      .digest('base64');
-    
-    return hash === signature;
-  } catch (error) {
-    console.error('Signature Validation Error:', error);
-    return false;
+function generateSerialKey() {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  
+  let key = '';
+  for (let i = 0; i < 4; i++) {
+    let segment = '';
+    for (let j = 0; j < 4; j++) {
+      segment += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    key += segment;
+    if (i < 3) key += '-';
   }
-};
+  
+  console.log(`🔑 สร้าง Serial Key: ${key}`);
+  return key;
+}
+
+/**
+ * คำนวณเวลาหมดอายุตามจำนวนนาทีที่กำหนด
+ * @param {number} minutes - จำนวนนาทีสำหรับการหมดอายุ
+ * @returns {string} - เวลาหมดอายุในรูปแบบ ISO string
+ */
+function calculateExpiryTime(minutes) {
+  const now = new Date();
+  const expiry = new Date(now.getTime() + minutes * 60000);
+  
+  console.log(`⏱️ เวลาหมดอายุ: ${expiry.toISOString()} (${minutes} นาที)`);
+  return expiry.toISOString();
+}
+
+/**
+ * ตรวจสอบว่าเวลาหมดอายุหรือยัง
+ * @param {string} expiryTimeISO - เวลาหมดอายุในรูปแบบ ISO string
+ * @returns {boolean} - true ถ้าหมดอายุแล้ว, false ถ้ายังไม่หมดอายุ
+ */
+function isExpired(expiryTimeISO) {
+  const now = new Date();
+  const expiryTime = new Date(expiryTimeISO);
+  
+  return now > expiryTime;
+}
 
 module.exports = {
   generateRefCode,
   generateSerialKey,
   calculateExpiryTime,
-  validateLineSignature
+  isExpired
 };
