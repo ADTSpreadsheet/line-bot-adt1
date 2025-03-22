@@ -27,16 +27,19 @@ async function findActiveSessionByUser(lineUserId, status = 'PENDING') {
   console.log(`🔍 ค้นหา session ที่ยังใช้งานได้สำหรับ userId: ${lineUserId}, status: ${status}`);
   
   try {
-    const now = new Date().toISOString();
+    // สำหรับเวลาปัจจุบัน เราจะใช้เวลาในรูปแบบ HH:MM:SS+07
+    const now = new Date();
+    const currentTime = now.toTimeString().split(' ')[0] + '+07';
     
+    // ค้นหา session โดยไม่ใช้เงื่อนไขเวลาหมดอายุ (เพราะรูปแบบเวลาไม่ตรงกัน)
+    // แทนที่จะตรวจสอบใน query เราจะตรวจสอบหลังจากได้ข้อมูลแล้ว
     const { data, error } = await supabase
       .from(SESSIONS_TABLE)
       .select('*')
       .eq('line_user_id', lineUserId)
       .eq('status', status)
-      .gt('expires_at', now)
-      .order('created_at', { ascending: false })
-      .limit(1);
+      .order('day_created_at', { ascending: false })
+      .limit(5); // เอามากกว่า 1 เพื่อให้สามารถตรวจสอบเวลาได้หลายรายการ
     
     if (error) {
       console.error('❌ เกิดข้อผิดพลาดในการค้นหา session:', error);
@@ -44,8 +47,22 @@ async function findActiveSessionByUser(lineUserId, status = 'PENDING') {
     }
     
     if (data && data.length > 0) {
-      console.log(`✅ พบ session ที่ยังใช้งานได้: ${data[0].ref_code}`);
-      return data[0];
+      // ตรวจสอบเวลาหมดอายุของแต่ละ session
+      const activeSession = data.find(session => {
+        // เปรียบเทียบวันที่ (ถ้าวันที่เป็นวันนี้ จึงจะตรวจสอบเวลา)
+        const today = new Date().toISOString().split('T')[0];
+        if (session.day_created_at === today) {
+          // เวลาอาจจะหมดอายุหรือไม่หมดอายุก็ได้
+          return session.expires_at > currentTime;
+        }
+        // ถ้าสร้างก่อนวันนี้ ถือว่าหมดอายุแล้ว
+        return false;
+      });
+      
+      if (activeSession) {
+        console.log(`✅ พบ session ที่ยังใช้งานได้: ${activeSession.ref_code}`);
+        return activeSession;
+      }
     }
     
     console.log('⚠️ ไม่พบ session ที่ยังใช้งานได้');
@@ -93,7 +110,11 @@ async function updateSessionByRefCode(refCode, updateData) {
   console.log(`📝 กำลังอัปเดต session ref_code: ${refCode}`);
   
   try {
-    updateData.updated_at = new Date().toISOString();
+    // ปรับรูปแบบเวลาให้ตรงกับ timetz
+    if (updateData.updated_at === undefined) {
+      const now = new Date();
+      updateData.updated_at = now.toTimeString().split(' ')[0] + '+07';
+    }
     
     const { data, error } = await supabase
       .from(SESSIONS_TABLE)
