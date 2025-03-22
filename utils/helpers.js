@@ -43,27 +43,50 @@ function generateSerialKey() {
 
 /**
  * คำนวณเวลาหมดอายุตามจำนวนนาทีที่กำหนด
+ * สำหรับคอลัมน์ประเภท timetz ในฐานข้อมูล
  * @param {number} minutes - จำนวนนาทีสำหรับการหมดอายุ
- * @returns {string} - เวลาหมดอายุในรูปแบบ ISO string
+ * @returns {string} - เวลาหมดอายุในรูปแบบ HH:MM:SS+07
  */
 function calculateExpiryTime(minutes) {
   const now = new Date();
   const expiry = new Date(now.getTime() + minutes * 60000);
   
-  console.log(`⏱️ เวลาหมดอายุ: ${expiry.toISOString()} (${minutes} นาที)`);
-  return expiry.toISOString();
+  // สร้างเวลาในรูปแบบ HH:MM:SS+07 สำหรับประเภทข้อมูล timetz
+  // เนื่องจากเราใช้ Time Zone เป็น Asia/Bangkok (+07)
+  const timeOnly = expiry.toTimeString().split(' ')[0] + '+07';
+  
+  console.log(`⏱️ เวลาหมดอายุ: ${timeOnly} (${minutes} นาที)`);
+  return timeOnly;
 }
 
 /**
- * ตรวจสอบว่าเวลาหมดอายุหรือยัง
- * @param {string} expiryTimeISO - เวลาหมดอายุในรูปแบบ ISO string
+ * ตรวจสอบว่าเวลาหมดอายุหรือยัง สำหรับประเภทข้อมูล timetz
+ * @param {string} expiryTime - เวลาหมดอายุในรูปแบบ HH:MM:SS+07
+ * @param {string} currentTime - เวลาปัจจุบันในรูปแบบ HH:MM:SS+07
  * @returns {boolean} - true ถ้าหมดอายุแล้ว, false ถ้ายังไม่หมดอายุ
  */
-function isExpired(expiryTimeISO) {
-  const now = new Date();
-  const expiryTime = new Date(expiryTimeISO);
+function isExpired(expiryTime, currentTime) {
+  // แปลงเวลาเป็นนาที เพื่อเปรียบเทียบ
+  function timeToMinutes(timeStr) {
+    const timePart = timeStr.split('+')[0]; // ตัด timezone ออก
+    const [hours, minutes, seconds] = timePart.split(':').map(Number);
+    return hours * 60 + minutes;
+  }
   
-  return now > expiryTime;
+  const expiryMinutes = timeToMinutes(expiryTime);
+  const currentMinutes = timeToMinutes(currentTime);
+  
+  // ถ้าเวลาหมดอายุน้อยกว่าเวลาปัจจุบัน และไม่ได้ข้ามวัน
+  if (expiryMinutes < currentMinutes) {
+    return true;
+  }
+  
+  // ถ้าเวลาหมดอายุมากกว่าเวลาปัจจุบันมาก (เช่น 23:00 vs 01:00) อาจหมายถึงข้ามวัน
+  if (expiryMinutes > currentMinutes + 22 * 60) {
+    return true;
+  }
+  
+  return false;
 }
 
 module.exports = {
