@@ -1,49 +1,56 @@
 /**
  * services/lineService.js
- * บริการที่เกี่ยวข้องกับ LINE API
+ * จัดการการส่งข้อความกลับไปยังผู้ใช้ LINE
  */
 
-const line = require('@line/bot-sdk');
+const axios = require('axios');
 const CONFIG = require('../config');
 
-// สร้าง LINE Client สำหรับ Bot 1
-const lineClientBot1 = new line.Client({
-  channelAccessToken: CONFIG.LINE.BOT1.ACCESS_TOKEN,
-  channelSecret: CONFIG.LINE.BOT1.CHANNEL_SECRET
-});
-
-/**
- * ส่งข้อความไปยังผู้ใช้
- * @param {string} userId - LINE user ID
- * @param {Object} message - ข้อความที่จะส่ง
- * @returns {Promise}
- */
-const sendMessage = async (userId, message) => {
+// ✅ ส่งข้อความตอบกลับ (Reply Message)
+const replyMessage = async (replyToken, message) => {
   try {
-    return await lineClientBot1.pushMessage(userId, message);
+    const response = await axios.post(
+      'https://api.line.me/v2/bot/message/reply',
+      {
+        replyToken,
+        messages: [message]
+      },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${CONFIG.LINE.BOT1.CHANNEL_ACCESS_TOKEN}`
+        }
+      }
+    );
+    return response.data;
   } catch (error) {
-    console.error('Error sending message:', error);
-    throw error;
+    console.error('❌ Error replying to LINE:', error.response?.data || error.message);
   }
 };
 
-/**
- * ตอบกลับข้อความ
- * @param {string} replyToken - Token สำหรับตอบกลับข้อความ
- * @param {Object} message - ข้อความที่จะตอบกลับ
- * @returns {Promise}
- */
-const replyMessage = async (replyToken, message) => {
+// ✅ ส่งข้อความแบบ push (Push Message ไปหาผู้ใช้โดยตรง)
+const pushMessage = async (userId, message) => {
   try {
-    return await lineClientBot1.replyMessage(replyToken, message);
+    const response = await axios.post(
+      'https://api.line.me/v2/bot/message/push',
+      {
+        to: userId,
+        messages: [message]
+      },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${CONFIG.LINE.BOT1.CHANNEL_ACCESS_TOKEN}`
+        }
+      }
+    );
+    return response.data;
   } catch (error) {
-    console.error('Error replying message:', error);
-    throw error;
+    console.error('❌ Error pushing message to LINE:', error.response?.data || error.message);
   }
 };
 
 module.exports = {
-  lineClientBot1,
-  sendMessage,
-  replyMessage
+  replyMessage,
+  pushMessage
 };
