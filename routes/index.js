@@ -97,8 +97,10 @@ router.post('/webhook', async (req, res) => {
       // เพิ่มคำสั่งทดสอบการเชื่อมต่อ
       await replyText(replyToken, 'PONG! ระบบทำงานปกติ', userId);
     } else {
-      // สำหรับข้อความอื่นๆ
-      await replyText(replyToken, `คุณพิมพ์ว่า: ${messageText}`, userId);
+      // ไม่ตอบกลับข้อความอื่นๆ ที่ไม่เข้าเงื่อนไข
+      console.log(`⏩ ไม่ตอบกลับข้อความ: ${messageText}`);
+      // ลบบรรทัดต่อไปนี้ออกเพื่อไม่ให้ตอบกลับข้อความทั่วไป
+      // await replyText(replyToken, `คุณพิมพ์ว่า: ${messageText}`, userId);
     }
   }
   
