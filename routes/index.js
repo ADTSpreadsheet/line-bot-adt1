@@ -70,7 +70,8 @@ router.post('/webhook', async (req, res) => {
           time_created_at: currentTime,
           updated_at: currentTime,
           verify_at: currentTime,
-          expires_at: expiresAt
+          expires_at: expiresAt,
+          failed_attempts: 0
         };
         
         console.log('📋 Creating session with data:', JSON.stringify(sessionData));
@@ -143,13 +144,34 @@ router.get('/verify/:refCode', async (req, res) => {
       });
     }
     
+    // ตรวจสอบว่าถูกบล็อคหรือไม่
+    if (session.failed_attempts !== null && session.failed_attempts >= 3) {
+      console.log(`❌ ref_code ถูกบล็อคแล้ว: ${refCode}`);
+      return res.status(403).json({
+        success: false,
+        message: 'Ref.Code นี้ถูกระงับการใช้งานเนื่องจากมีการพยายามใช้ผิดพลาดหลายครั้ง'
+      });
+    }
+    
     console.log(`✅ ref_code ถูกต้อง: ${refCode}, lineId: ${session.line_user_id}`);
+    
+    // อัปเดตสถานะเป็น 'VERIFIED'
+    await db.updateSessionByRefCode(refCode, {
+      status: 'VERIFIED',
+      verify_count: session.verify_count + 1,
+      verify_at: now,
+      updated_at: now
+    });
+    
+    // ส่ง Serial Key ไปยังผู้ใช้ LINE
+    await pushText(session.line_user_id, `✅ รหัส Serial Key ของคุณคือ: ${session.serial_key}
+โปรดป้อนรหัสนี้ในแอป Excel ของคุณเพื่อเปิดใช้งาน
+รหัสนี้จะหมดอายุใน 5 นาที`);
     
     // ส่งข้อมูลกลับไป
     return res.json({
       success: true,
-      lineId: session.line_user_id,
-      message: 'ยืนยัน Ref.Code สำเร็จ'
+      message: 'ยืนยัน Ref.Code สำเร็จ และได้ส่ง Serial Key ไปยัง LINE ของคุณแล้ว'
     });
   } catch (err) {
     console.error('❌ Error verifying ref_code:', err);
@@ -160,14 +182,12 @@ router.get('/verify/:refCode', async (req, res) => {
   }
 });
 
-// เพิ่มเส้นทางสำหรับ VBA: ส่ง Serial Key
-router.post('/webhook/verify-serial-key', async (req, res) => {
+// เพิ่มเส้นทางสำหรับตรวจสอบ Serial Key
+router.post('/verify-serial-key', async (req, res) => {
+  const { refCode, serialKey } = req.body;
   console.log('📩 Verify Serial Key request received:', JSON.stringify(req.body));
   
-  const { userId, serialKey } = req.body;
-  
-  if (!userId || !serialKey) {
-    console.log('❌ ข้อมูลไม่ครบถ้วน');
+  if (!refCode || !serialKey) {
     return res.status(400).json({
       success: false,
       message: 'ข้อมูลไม่ครบถ้วน'
@@ -175,57 +195,147 @@ router.post('/webhook/verify-serial-key', async (req, res) => {
   }
   
   try {
-    // ค้นหา session ที่มี line_user_id ตรงกับที่ระบุ
-    const { data, error } = await db.supabase
-      .from('auth_sessions')
-      .select('*')
-      .eq('line_user_id', userId)
-      .eq('status', 'PENDING')
-      .order('day_created_at', { ascending: false })
-      .limit(1);
-      
-    if (error) {
-      console.error('❌ Error finding session:', error);
-      return res.status(500).json({
-        success: false,
-        message: 'เกิดข้อผิดพลาดในการค้นหาข้อมูล'
-      });
-    }
+    // ค้นหา session ด้วย ref_code
+    const session = await db.findSessionByRefCode(refCode);
     
-    if (!data || data.length === 0) {
-      console.log(`❌ ไม่พบ session สำหรับ userId: ${userId}`);
+    if (!session) {
       return res.status(404).json({
         success: false,
-        message: 'ไม่พบข้อมูลผู้ใช้'
+        message: 'ไม่พบ Ref.Code'
       });
     }
     
-    const session = data[0];
+    // ตรวจสอบว่าถูกบล็อคหรือไม่
+    if (session.failed_attempts !== null && session.failed_attempts >= 3) {
+      return res.status(403).json({
+        success: false,
+        message: 'Ref.Code นี้ถูกระงับการใช้งานเนื่องจากมีการพยายามใช้ผิดพลาดหลายครั้ง'
+      });
+    }
     
-    // อัปเดตสถานะเป็น 'VERIFIED' และเพิ่ม verify_count
+    // ตรวจสอบว่าหมดอายุหรือไม่
+    const today = new Date().toISOString().split('T')[0];
     const now = new Date().toTimeString().split(' ')[0] + '+07';
-    const { updateData, updateError } = await db.updateSessionByRefCode(session.ref_code, {
-      status: 'VERIFIED',
-      verify_count: session.verify_count + 1,
-      verify_at: now,
+    
+    if (session.day_created_at !== today || session.expires_at < now) {
+      return res.status(400).json({
+        success: false,
+        message: 'Ref.Code หมดอายุแล้ว'
+      });
+    }
+    
+    // ตรวจสอบสถานะว่าเป็น 'VERIFIED' หรือไม่
+    if (session.status !== 'VERIFIED') {
+      return res.status(400).json({
+        success: false,
+        message: 'กรุณาตรวจสอบ Ref.Code ก่อน'
+      });
+    }
+    
+    // ตรวจสอบว่า Serial Key ตรงกับในฐานข้อมูลหรือไม่
+    if (session.serial_key !== serialKey) {
+      // Serial Key ไม่ถูกต้อง เพิ่มจำนวนความพยายาม
+      const failedAttempts = (session.failed_attempts === null ? 0 : session.failed_attempts) + 1;
+      
+      const updateData = {
+        failed_attempts: failedAttempts,
+        updated_at: now
+      };
+      
+      // ถ้าล้มเหลว 3 ครั้ง ให้ล็อคบัญชี
+      if (failedAttempts >= 3) {
+        updateData.status = 'BLOCKED';
+        
+        // ส่งข้อความแจ้งเตือนไปยังผู้ใช้ LINE
+        await pushText(session.line_user_id, `⚠️ มีการพยายามใช้ Ref.Code ${refCode} ของคุณกรอก Serial Key ผิด 3 ครั้ง ระบบได้ระงับการใช้งานแล้ว`);
+      }
+      
+      await db.updateSessionByRefCode(refCode, updateData);
+      
+      return res.status(400).json({
+        success: false,
+        message: 'Serial Key ไม่ถูกต้อง',
+        failedAttempts: failedAttempts,
+        isBlocked: failedAttempts >= 3
+      });
+    }
+    
+    // อัปเดตสถานะเป็น 'ACTIVATED'
+    await db.updateSessionByRefCode(refCode, {
+      status: 'ACTIVATED',
       updated_at: now
     });
     
-    if (updateError) {
-      console.error('❌ Error updating session:', updateError);
-    }
-    
-    // ส่ง Serial Key ไปยังผู้ใช้ทาง LINE
-    await pushText(userId, `✅ รหัส Serial Key ของคุณคือ: ${serialKey}
-โปรดป้อนรหัสนี้ในแอป Excel ของคุณเพื่อเปิดใช้งาน
-รหัสนี้จะหมดอายุใน 5 นาที`);
+    // ส่งข้อความแจ้งเตือนไปยังผู้ใช้ LINE
+    await pushText(session.line_user_id, `✅ ยืนยันการลงทะเบียนสำเร็จ! คุณสามารถใช้งาน ADTSpreadsheet ได้ 7 วัน ขอบคุณที่ใช้บริการ`);
     
     return res.json({
       success: true,
-      message: 'ส่ง Serial Key สำเร็จ'
+      message: 'ยืนยัน Serial Key สำเร็จ'
     });
   } catch (err) {
-    console.error('❌ Error processing serial key verification:', err);
+    console.error('❌ Error verifying serial key:', err);
+    return res.status(500).json({
+      success: false,
+      message: 'เกิดข้อผิดพลาดในระบบ'
+    });
+  }
+});
+
+// เพิ่มเส้นทางสำหรับบันทึกความพยายามที่ล้มเหลว
+router.post('/log-failed-attempt', async (req, res) => {
+  const { refCode, attemptedKey } = req.body;
+  console.log('📩 Log failed attempt request received:', JSON.stringify(req.body));
+  
+  if (!refCode) {
+    return res.status(400).json({
+      success: false,
+      message: 'ข้อมูลไม่ครบถ้วน'
+    });
+  }
+  
+  try {
+    // ค้นหา session ด้วย ref_code
+    const session = await db.findSessionByRefCode(refCode);
+    
+    if (!session) {
+      return res.status(404).json({
+        success: false,
+        message: 'ไม่พบ Ref.Code'
+      });
+    }
+    
+    // เพิ่มจำนวนครั้งที่พยายาม
+    const failedAttempts = (session.failed_attempts === null ? 0 : session.failed_attempts) + 1;
+    
+    // อัปเดตสถานะและจำนวนครั้งที่พยายาม
+    const now = new Date().toTimeString().split(' ')[0] + '+07';
+    let updateData = {
+      failed_attempts: failedAttempts,
+      updated_at: now
+    };
+    
+    // ถ้าล้มเหลว 3 ครั้ง ให้ล็อคบัญชี
+    if (failedAttempts >= 3) {
+      updateData.status = 'BLOCKED';
+      
+      // ส่งข้อความแจ้งเตือนไปยังผู้ใช้ LINE
+      const userId = session.line_user_id;
+      if (userId) {
+        await pushText(userId, `⚠️ มีการพยายามใช้ Ref.Code ${refCode} ของคุณกรอก Serial Key ผิด 3 ครั้ง ระบบได้ระงับการใช้งานแล้ว`);
+      }
+    }
+    
+    await db.updateSessionByRefCode(refCode, updateData);
+    
+    return res.json({
+      success: true,
+      message: 'บันทึกความพยายามเรียบร้อย',
+      failedAttempts: failedAttempts,
+      isBlocked: failedAttempts >= 3
+    });
+  } catch (err) {
+    console.error('❌ Error logging failed attempt:', err);
     return res.status(500).json({
       success: false,
       message: 'เกิดข้อผิดพลาดในระบบ'
