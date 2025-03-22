@@ -1,5 +1,5 @@
 /**
- * controllers/webhookController.js
+ * controllers/lineWebhookController.js
  * ตัวควบคุมสำหรับการจัดการ webhook จาก LINE
  */
 
@@ -62,7 +62,6 @@ const handleEvent = async (event) => {
     return handleRefCodeRequest(userId, event.replyToken);
   }
 
-  // ใส่คำสั่งพิเศษเพื่อดึง User ID สำหรับผู้ดูแลระบบ
   if (messageText === 'myid') {
     return lineService.replyMessage(event.replyToken, {
       type: 'text',
@@ -83,11 +82,19 @@ const handleEvent = async (event) => {
  */
 const handleRefCodeRequest = async (userId, replyToken) => {
   try {
+    // ตรวจสอบว่าเคยลงทะเบียนสำเร็จแล้วหรือไม่
+    const hasVerified = await authService.checkVerifiedSession(userId);
+    if (hasVerified) {
+      return lineService.replyMessage(replyToken, {
+        type: 'text',
+        text: '✅ คุณได้ลงทะเบียนสำเร็จแล้ว\nไม่จำเป็นต้องขอ Ref.Code ใหม่อีกครับ'
+      });
+    }
+
     // ตรวจสอบว่ามี Ref.Code ที่ยังไม่หมดอายุหรือไม่
     const existingRefCode = await authService.checkActiveRefCode(userId);
 
     if (existingRefCode) {
-      // คำนวณเวลาที่เหลือก่อนหมดอายุ
       const remainingTime = new Date(existingRefCode.expires_at) - new Date();
       const remainingMinutes = Math.ceil(remainingTime / (1000 * 60));
 
@@ -107,7 +114,6 @@ const handleRefCodeRequest = async (userId, replyToken) => {
       });
     }
 
-    // ข้อความที่จะส่งไปยังผู้ใช้
     const messageText = `รหัสอ้างอิง (Ref.Code) ของคุณคือ: ${result.refCode}\nกรุณานำรหัสนี้ไปกรอกในฟอร์ม VBA และกด Verify`;
 
     return lineService.replyMessage(replyToken, {
