@@ -25,6 +25,12 @@ router.post('/webhook', async (req, res) => {
     const messageType = event.message?.type;
     const messageText = event.message?.text;
     
+    // ตรวจสอบว่า replyToken ถูกต้องหรือไม่
+    if (!replyToken || replyToken === '00000000000000000000000000000000') {
+      console.log('⚠️ ไม่มี replyToken หรือเป็น token สำหรับ webhook verification');
+      continue; // ข้ามไปยังเหตุการณ์ถัดไป
+    }
+    
     console.log(`✅ Received from ${userId}: ${messageText}`);
     console.log(`📊 Event type: ${event.type}, Message type: ${messageType}`);
     
@@ -40,7 +46,7 @@ router.post('/webhook', async (req, res) => {
           console.log(`📌 Found existing session: ${JSON.stringify(existingSession)}`);
           await replyText(replyToken, `📌 คุณมี Ref.Code ที่ยังใช้งานได้
 รหัสคือ: ${existingSession.ref_code}`);
-          return;
+          continue;
         }
         
         // สร้าง Ref.Code และ Serial Key ใหม่
@@ -74,7 +80,7 @@ router.post('/webhook', async (req, res) => {
         if (error) {
           console.error('❌ Failed to create session:', error);
           await replyText(replyToken, 'เกิดข้อผิดพลาดในการสร้างรหัส กรุณาลองใหม่ภายหลัง');
-          return;
+          continue;
         }
         
         console.log('✅ Session created successfully:', data);
@@ -100,6 +106,12 @@ router.post('/webhook', async (req, res) => {
 
 async function replyText(replyToken, text) {
   try {
+    // ตรวจสอบ replyToken ก่อนส่ง
+    if (!replyToken || replyToken === '00000000000000000000000000000000') {
+      console.log('⚠️ ไม่สามารถตอบกลับได้: replyToken ไม่ถูกต้อง');
+      return false;
+    }
+    
     console.log('📤 Sending reply with text:', text);
     
     const response = await axios.post(
@@ -120,7 +132,13 @@ async function replyText(replyToken, text) {
     return true;
   } catch (err) {
     console.error('❌ Error replying to LINE:', err.response?.data || err.message);
-    console.error('❌ Full error:', err);
+    
+    // จำกัดข้อมูล error log เพื่อไม่ให้เต็มพื้นที่
+    if (err.response) {
+      console.error('❌ Status:', err.response.status);
+      console.error('❌ Data:', JSON.stringify(err.response.data));
+    }
+    
     return false;
   }
 }
