@@ -15,7 +15,7 @@ console.log('🔌 เชื่อมต่อกับ Supabase URL:', supabaseU
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 // ชื่อตาราง
-const SESSIONS_TABLE = 'bot_sessions';
+const SESSIONS_TABLE = 'auth_sessions';
 
 /**
  * ค้นหา session ที่ยังใช้งานได้ของผู้ใช้
