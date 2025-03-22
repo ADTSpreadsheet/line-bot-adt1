@@ -21,20 +21,33 @@ function generateRefCode() {
 }
 
 /**
- * สร้าง Serial Key แบบสุ่ม
- * @returns {string} - Serial Key ที่สร้างขึ้น (รูปแบบ: XXXX-XXXX-XXXX-XXXX)
+ * สร้าง Serial Key แบบสุ่ม 6 หลัก (ตัวเลข 4 หลักและตัวอักษร 2 หลัก สลับกัน)
+ * @returns {string} - Serial Key ที่สร้างขึ้น (รูปแบบ: 6 หลัก)
  */
 function generateSerialKey() {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  const numbers = '0123456789';
   
-  let key = '';
-  for (let i = 0; i < 4; i++) {
-    let segment = '';
-    for (let j = 0; j < 4; j++) {
-      segment += chars.charAt(Math.floor(Math.random() * chars.length));
+  // สร้างตำแหน่งสุ่มสำหรับตัวอักษร 2 ตัว
+  // เช่น [0, 3] หมายถึงตำแหน่งที่ 0 และ 3 จะเป็นตัวอักษร ส่วนที่เหลือเป็นตัวเลข
+  let letterPositions = [];
+  while (letterPositions.length < 2) {
+    const pos = Math.floor(Math.random() * 6);
+    if (!letterPositions.includes(pos)) {
+      letterPositions.push(pos);
     }
-    key += segment;
-    if (i < 3) key += '-';
+  }
+  
+  // สร้าง Serial Key
+  let key = '';
+  for (let i = 0; i < 6; i++) {
+    if (letterPositions.includes(i)) {
+      // ตำแหน่งนี้เป็นตัวอักษร
+      key += letters.charAt(Math.floor(Math.random() * letters.length));
+    } else {
+      // ตำแหน่งนี้เป็นตัวเลข
+      key += numbers.charAt(Math.floor(Math.random() * numbers.length));
+    }
   }
   
   console.log(`🔑 สร้าง Serial Key: ${key}`);
