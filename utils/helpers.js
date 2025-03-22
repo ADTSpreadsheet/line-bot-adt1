@@ -60,38 +60,27 @@ function calculateExpiryTime(minutes) {
 }
 
 /**
- * ตรวจสอบว่าเวลาหมดอายุหรือยัง สำหรับประเภทข้อมูล timetz
- * @param {string} expiryTime - เวลาหมดอายุในรูปแบบ HH:MM:SS+07
- * @param {string} currentTime - เวลาปัจจุบันในรูปแบบ HH:MM:SS+07
- * @returns {boolean} - true ถ้าหมดอายุแล้ว, false ถ้ายังไม่หมดอายุ
+ * แปลงวันที่เป็นรูปแบบ ISO String (YYYY-MM-DD)
+ * @param {Date} date - วันที่ที่ต้องการแปลง
+ * @returns {string} - วันที่ในรูปแบบ YYYY-MM-DD
  */
-function isExpired(expiryTime, currentTime) {
-  // แปลงเวลาเป็นนาที เพื่อเปรียบเทียบ
-  function timeToMinutes(timeStr) {
-    const timePart = timeStr.split('+')[0]; // ตัด timezone ออก
-    const [hours, minutes, seconds] = timePart.split(':').map(Number);
-    return hours * 60 + minutes;
-  }
-  
-  const expiryMinutes = timeToMinutes(expiryTime);
-  const currentMinutes = timeToMinutes(currentTime);
-  
-  // ถ้าเวลาหมดอายุน้อยกว่าเวลาปัจจุบัน และไม่ได้ข้ามวัน
-  if (expiryMinutes < currentMinutes) {
-    return true;
-  }
-  
-  // ถ้าเวลาหมดอายุมากกว่าเวลาปัจจุบันมาก (เช่น 23:00 vs 01:00) อาจหมายถึงข้ามวัน
-  if (expiryMinutes > currentMinutes + 22 * 60) {
-    return true;
-  }
-  
-  return false;
+function formatDateToISOString(date) {
+  return date.toISOString().split('T')[0];
+}
+
+/**
+ * แปลงเวลาเป็นรูปแบบ HH:MM:SS+07 สำหรับ timetz
+ * @param {Date} date - วันที่และเวลาที่ต้องการแปลง
+ * @returns {string} - เวลาในรูปแบบ HH:MM:SS+07
+ */
+function formatTimeForTimetz(date) {
+  return date.toTimeString().split(' ')[0] + '+07';
 }
 
 module.exports = {
   generateRefCode,
   generateSerialKey,
   calculateExpiryTime,
-  isExpired
+  formatDateToISOString,
+  formatTimeForTimetz
 };
