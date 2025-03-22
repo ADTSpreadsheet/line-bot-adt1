@@ -30,7 +30,7 @@ const verifyRefCode = async (req, res) => {
     const { error: updateError } = await supabase
       .from('auth_sessions')
       .update({ 
-        serail_key: serialKey, 
+        serial_key: serialKey, 
         status: 'VERIFIED',
         verify_count: data.verify_count + 1,
         verify_at: new Date().toISOString()
@@ -56,7 +56,7 @@ const verifySerialKey = async (req, res) => {
     const { data, error } = await supabase
       .from('auth_sessions')
       .select('*')
-      .eq('serail_key', serialKey)
+      .eq('serial_key', serialKey)
       .eq('status', 'VERIFIED')
       .gt('expires_at', new Date().toISOString())
       .single();
@@ -96,7 +96,7 @@ const sendSerialKey = async (req, res) => {
 
     res.status(200).json({ 
       message: 'Serial key sent successfully',
-      serialKey: data.serail_key
+      serialKey: data.serial_key
     });
 
   } catch (error) {
