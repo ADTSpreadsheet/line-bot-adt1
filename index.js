@@ -1,6 +1,6 @@
-// นำเข้าตัวแปรสภาพแวดล้อมจากไฟล์ .env
+// index.js - Bot ตัวที่ 1 แบบสะอาด ไม่มีการปนของ Bot2
+
 require('dotenv').config();
-// นำเข้าโมดูลที่จำเป็น
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
@@ -8,7 +8,7 @@ const crypto = require('crypto');
 const indexRouter = require('./routes/index');
 const { line } = require('@line/bot-sdk');
 
-// ตรวจสอบตัวแปรสภาพแวดล้อมที่จำเป็น
+// ตรวจสอบตัวแปรที่จำเป็น
 const requiredEnvVars = [
   'LINE_BOT1_ACCESS_TOKEN',
   'LINE_BOT1_CHANNEL_SECRET',
@@ -21,50 +21,37 @@ requiredEnvVars.forEach(envVar => {
     process.exit(1);
   }
 });
-// สร้างแอปพลิเคชัน Express
+
 const app = express();
-// กำหนดค่า LINE SDK
+
+// LINE SDK Config สำหรับ Bot1
 const lineConfig = {
   channelAccessToken: process.env.LINE_BOT1_ACCESS_TOKEN,
   channelSecret: process.env.LINE_BOT1_CHANNEL_SECRET
 };
 
-// กำหนดค่า LINE SDK สำหรับ Bot 2
-const lineConfig2 = {
-  channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN_BOT2 || 'VcdMebbh7xEnFBj3t58u/vjAOfjBbrelQs0pLGPTUmvrc3wHYjyWhAA98hy/SkWE1Tj4HjRxMzQu0V9eFYXH78QVYfxLftp6uqyzZsLACPZMbXIkjxqyqJPVYbcg507U3TwgUjZh+Y/7zpy/IzmZpQdB04t89/1O/w1cDnyilFU=',
-  channelSecret: process.env.LINE_CHANNEL_SECRET_BOT2 || '3558642df20f8e7e357c70c5ffd826f4'
-};
-
-// ติดตั้ง middleware
+// เปิด CORS
 app.use(cors());
 
-// เพิ่ม debug logging สำหรับทุก request
+// Logging ทุก request
 app.use((req, res, next) => {
   console.log(`[DEBUG] Incoming request: ${req.method} ${req.url} - Headers: ${JSON.stringify(req.headers)}`);
   next();
 });
 
-// Simple test endpoint
-app.get('/test2', (req, res) => {
+// ทดสอบเส้นทาง
+app.get('/test', (req, res) => {
   res.status(200).json({
     success: true,
-    message: 'Test endpoint is working'
+    message: 'Bot1 is alive'
   });
 });
 
-// Simple webhook2 handler - ตอบกลับทันทีด้วย 200 OK
-app.post('/webhook2', (req, res) => {
-  console.log('[ROOT] Webhook2 verification request received');
-  return res.status(200).end();
-});
-
-// Middleware สำหรับตรวจสอบลายเซ็น LINE สำหรับ Bot 1
+// Middleware ตรวจสอบลายเซ็นของ LINE
 app.use('/webhook', (req, res, next) => {
   const signature = req.headers['x-line-signature'];
-  
-  // ถ้าไม่มี body หรือไม่ได้ส่ง signature มา ให้ผ่านไป
+
   if (!signature || !req.body) {
-    // ใช้ body-parser แบบ raw ก่อนเพื่อให้ได้ข้อมูลดิบ
     bodyParser.json({
       verify: (req, res, buf) => {
         req.rawBody = buf.toString();
@@ -72,45 +59,40 @@ app.use('/webhook', (req, res, next) => {
     })(req, res, next);
     return;
   }
-  
-  // ตรวจสอบลายเซ็น (ถ้ามี signature)
+
   bodyParser.json({
     verify: (req, res, buf) => {
       req.rawBody = buf.toString();
-      const signature = req.headers['x-line-signature'];
       const hmac = crypto.createHmac('sha256', lineConfig.channelSecret)
         .update(req.rawBody)
         .digest('base64');
-      
-      // ถ้าลายเซ็นไม่ตรงกัน
+
       if (hmac !== signature) {
         console.error('❌ Signature ไม่ถูกต้อง');
         return res.status(401).json({ error: 'Invalid signature' });
       }
-      
+
       console.log('✅ Signature ถูกต้อง');
     }
   })(req, res, next);
 });
 
-// ใช้ body-parser สำหรับเส้นทางอื่นๆ
+// Body Parser
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-// ใช้เส้นทางหลัก
+// เส้นทางหลัก
 app.use('/', indexRouter);
 
-console.log(`🤖 Webhook2 URL: ${process.env.SERVER_URL}/webhook2`);
-
-// กำหนดพอร์ตและเริ่มเซิร์ฟเวอร์
+// Start Server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`🚀 เซิร์ฟเวอร์ทำงานที่พอร์ต ${PORT}`);
+  console.log(`🚀 เซิร์ฟเวอร์ Bot1 ทำงานที่พอร์ต ${PORT}`);
   console.log(`🌎 URL เซิร์ฟเวอร์: ${process.env.SERVER_URL}`);
   console.log(`🤖 Webhook URL: ${process.env.SERVER_URL}/webhook`);
 });
 
-// จัดการข้อผิดพลาด
+// Error handler
 app.use((err, req, res, next) => {
   console.error(`[ERROR] Unhandled error in main app: ${err.stack}`);
   res.status(500).json({ error: 'Internal server error' });
