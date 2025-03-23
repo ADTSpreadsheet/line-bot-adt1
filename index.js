@@ -45,27 +45,11 @@ app.use((req, res, next) => {
   next();
 });
 
-// เพิ่มหลังจาก app.use(cors());
+// จัดการกับ webhook2 verification โดยตรง (รวมจาก 2 handler ที่ซ้ำกันให้เป็นอันเดียว)
 app.post('/webhook2', (req, res) => {
-  console.log('Webhook2 verification request received');
+  console.log('[ROOT] Webhook2 verification request received');
   // ตอบกลับทันทีด้วย 200 OK
   return res.status(200).end();
-});
-
-// จัดการกับ webhook2 verification โดยตรงที่นี่
-app.post('/webhook2', (req, res) => {
-  console.log('[ROOT] Direct webhook2 verification handler activated');
-  // รับ raw body สำหรับตรวจสอบ signature
-  let rawBody = '';
-  req.on('data', chunk => {
-    rawBody += chunk.toString();
-  });
-
-  req.on('end', () => {
-    console.log('[ROOT] Webhook2 request body:', rawBody);
-    // ตอบกลับทันที
-    res.status(200).end();
-  });
 });
 
 // Middleware สำหรับตรวจสอบลายเซ็น LINE สำหรับ Bot 1
