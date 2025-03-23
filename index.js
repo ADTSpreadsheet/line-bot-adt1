@@ -7,8 +7,7 @@ const bodyParser = require('body-parser');
 const crypto = require('crypto');
 const indexRouter = require('./routes/index');
 const { line } = require('@line/bot-sdk');
-// นำเข้า router ของ Webhook2 (เพิ่มใหม่)
-const webhook2Router = require('./webhook2/index');
+
 // ตรวจสอบตัวแปรสภาพแวดล้อมที่จำเป็น
 const requiredEnvVars = [
   'LINE_BOT1_ACCESS_TOKEN',
@@ -45,10 +44,17 @@ app.use((req, res, next) => {
   next();
 });
 
-// จัดการกับ webhook2 verification โดยตรง (รวมจาก 2 handler ที่ซ้ำกันให้เป็นอันเดียว)
+// Simple test endpoint
+app.get('/test2', (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: 'Test endpoint is working'
+  });
+});
+
+// Simple webhook2 handler - ตอบกลับทันทีด้วย 200 OK
 app.post('/webhook2', (req, res) => {
   console.log('[ROOT] Webhook2 verification request received');
-  // ตอบกลับทันทีด้วย 200 OK
   return res.status(200).end();
 });
 
@@ -91,25 +97,8 @@ app.use('/webhook', (req, res, next) => {
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-// สร้าง test endpoint ที่ root level
-app.get('/test', (req, res) => {
-  res.status(200).json({
-    success: true,
-    message: 'Root test endpoint is working'
-  });
-});
-
 // ใช้เส้นทางหลัก
 app.use('/', indexRouter);
-
-// เพิ่มเส้นทางของ Webhook2 (เพิ่มใหม่) - ยกเว้น POST '/webhook2'
-app.use('/webhook2', (req, res, next) => {
-  if (req.method === 'POST' && req.path === '/') {
-    console.log('[ROOT] Skipping webhook2Router for POST /webhook2');
-    return;
-  }
-  webhook2Router(req, res, next);
-});
 
 console.log(`🤖 Webhook2 URL: ${process.env.SERVER_URL}/webhook2`);
 
