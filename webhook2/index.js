@@ -10,6 +10,22 @@ router.use((req, res, next) => {
   next();
 });
 
+// จัดการกับ LINE webhook verification
+router.post('/', (req, res) => {
+  console.log('[Webhook2] Webhook verification handler called');
+  console.log('[Webhook2] Request body:', req.body);
+  // ตอบกลับ LINE ด้วย 200 OK
+  res.status(200).end();
+});
+
+// เส้นทางทดสอบ
+router.get('/test', (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: 'Webhook2 test endpoint is working'
+  });
+});
+
 // Middleware สำหรับการ parse body
 router.use(express.json());
 router.use(express.urlencoded({ extended: true }));
@@ -24,13 +40,15 @@ router.get('/', (req, res) => {
     version: '1.0.0',
     endpoints: {
       register: '/webhook2/register',
-      healthcheck: '/webhook2/healthcheck'
+      healthcheck: '/webhook2/healthcheck',
+      test: '/webhook2/test'
     }
   });
 });
 
 // Handler สำหรับเส้นทางที่ไม่มี
 router.use('*', (req, res) => {
+  console.log('[Webhook2] 404 Not Found:', req.originalUrl);
   res.status(404).json({
     success: false,
     message: 'Endpoint not found'
