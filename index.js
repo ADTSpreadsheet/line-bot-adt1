@@ -39,6 +39,28 @@ const lineConfig2 = {
 // ติดตั้ง middleware
 app.use(cors());
 
+// เพิ่ม debug logging สำหรับทุก request
+app.use((req, res, next) => {
+  console.log(`[DEBUG] Incoming request: ${req.method} ${req.url} - Headers: ${JSON.stringify(req.headers)}`);
+  next();
+});
+
+// จัดการกับ webhook2 verification โดยตรงที่นี่
+app.post('/webhook2', (req, res) => {
+  console.log('[ROOT] Direct webhook2 verification handler activated');
+  // รับ raw body สำหรับตรวจสอบ signature
+  let rawBody = '';
+  req.on('data', chunk => {
+    rawBody += chunk.toString();
+  });
+
+  req.on('end', () => {
+    console.log('[ROOT] Webhook2 request body:', rawBody);
+    // ตอบกลับทันที
+    res.status(200).end();
+  });
+});
+
 // Middleware สำหรับตรวจสอบลายเซ็น LINE สำหรับ Bot 1
 app.use('/webhook', (req, res, next) => {
   const signature = req.headers['x-line-signature'];
@@ -74,50 +96,30 @@ app.use('/webhook', (req, res, next) => {
   })(req, res, next);
 });
 
-// Middleware สำหรับตรวจสอบลายเซ็น LINE สำหรับ Bot 2
-app.use('/webhook2', (req, res, next) => {
-  const signature = req.headers['x-line-signature'];
-  
-  // ถ้าไม่มี body หรือไม่ได้ส่ง signature มา ให้ผ่านไป
-  if (!signature || !req.body) {
-    // ใช้ body-parser แบบ raw ก่อนเพื่อให้ได้ข้อมูลดิบ
-    bodyParser.json({
-      verify: (req, res, buf) => {
-        req.rawBody = buf.toString();
-      }
-    })(req, res, next);
-    return;
-  }
-  
-  // ตรวจสอบลายเซ็น (ถ้ามี signature)
-  bodyParser.json({
-    verify: (req, res, buf) => {
-      req.rawBody = buf.toString();
-      const signature = req.headers['x-line-signature'];
-      const hmac = crypto.createHmac('sha256', lineConfig2.channelSecret)
-        .update(req.rawBody)
-        .digest('base64');
-      
-      // ถ้าลายเซ็นไม่ตรงกัน
-      if (hmac !== signature) {
-        console.error('❌ [Webhook2] Signature ไม่ถูกต้อง');
-        return res.status(401).json({ error: 'Invalid signature' });
-      }
-      
-      console.log('✅ [Webhook2] Signature ถูกต้อง');
-    }
-  })(req, res, next);
-});
-
 // ใช้ body-parser สำหรับเส้นทางอื่นๆ
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
+// สร้าง test endpoint ที่ root level
+app.get('/test', (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: 'Root test endpoint is working'
+  });
+});
+
 // ใช้เส้นทางหลัก
 app.use('/', indexRouter);
 
-// เพิ่มเส้นทางของ Webhook2 (เพิ่มใหม่)
-app.use('/webhook2', webhook2Router);
+// เพิ่มเส้นทางของ Webhook2 (เพิ่มใหม่) - ยกเว้น POST '/webhook2'
+app.use('/webhook2', (req, res, next) => {
+  if (req.method === 'POST' && req.path === '/') {
+    console.log('[ROOT] Skipping webhook2Router for POST /webhook2');
+    return;
+  }
+  webhook2Router(req, res, next);
+});
+
 console.log(`🤖 Webhook2 URL: ${process.env.SERVER_URL}/webhook2`);
 
 // กำหนดพอร์ตและเริ่มเซิร์ฟเวอร์
@@ -129,6 +131,11 @@ app.listen(PORT, () => {
 });
 
 // จัดการข้อผิดพลาด
+app.use((err, req, res, next) => {
+  console.error(`[ERROR] Unhandled error in main app: ${err.stack}`);
+  res.status(500).json({ error: 'Internal server error' });
+});
+
 process.on('uncaughtException', (err) => {
   console.error('❌ Uncaught Exception:', err);
 });
