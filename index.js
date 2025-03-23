@@ -7,10 +7,8 @@ const bodyParser = require('body-parser');
 const crypto = require('crypto');
 const indexRouter = require('./routes/index');
 const { line } = require('@line/bot-sdk');
-
 // นำเข้า router ของ Webhook2 (เพิ่มใหม่)
 const webhook2Router = require('./webhook2/index');
-
 // ตรวจสอบตัวแปรสภาพแวดล้อมที่จำเป็น
 const requiredEnvVars = [
   'LINE_BOT1_ACCESS_TOKEN',
@@ -31,9 +29,17 @@ const lineConfig = {
   channelAccessToken: process.env.LINE_BOT1_ACCESS_TOKEN,
   channelSecret: process.env.LINE_BOT1_CHANNEL_SECRET
 };
+
+// กำหนดค่า LINE SDK สำหรับ Bot 2
+const lineConfig2 = {
+  channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN_BOT2 || 'VcdMebbh7xEnFBj3t58u/vjAOfjBbrelQs0pLGPTUmvrc3wHYjyWhAA98hy/SkWE1Tj4HjRxMzQu0V9eFYXH78QVYfxLftp6uqyzZsLACPZMbXIkjxqyqJPVYbcg507U3TwgUjZh+Y/7zpy/IzmZpQdB04t89/1O/w1cDnyilFU=',
+  channelSecret: process.env.LINE_CHANNEL_SECRET_BOT2 || '3558642df20f8e7e357c70c5ffd826f4'
+};
+
 // ติดตั้ง middleware
 app.use(cors());
-// Middleware สำหรับตรวจสอบลายเซ็น LINE
+
+// Middleware สำหรับตรวจสอบลายเซ็น LINE สำหรับ Bot 1
 app.use('/webhook', (req, res, next) => {
   const signature = req.headers['x-line-signature'];
   
@@ -67,9 +73,46 @@ app.use('/webhook', (req, res, next) => {
     }
   })(req, res, next);
 });
+
+// Middleware สำหรับตรวจสอบลายเซ็น LINE สำหรับ Bot 2
+app.use('/webhook2', (req, res, next) => {
+  const signature = req.headers['x-line-signature'];
+  
+  // ถ้าไม่มี body หรือไม่ได้ส่ง signature มา ให้ผ่านไป
+  if (!signature || !req.body) {
+    // ใช้ body-parser แบบ raw ก่อนเพื่อให้ได้ข้อมูลดิบ
+    bodyParser.json({
+      verify: (req, res, buf) => {
+        req.rawBody = buf.toString();
+      }
+    })(req, res, next);
+    return;
+  }
+  
+  // ตรวจสอบลายเซ็น (ถ้ามี signature)
+  bodyParser.json({
+    verify: (req, res, buf) => {
+      req.rawBody = buf.toString();
+      const signature = req.headers['x-line-signature'];
+      const hmac = crypto.createHmac('sha256', lineConfig2.channelSecret)
+        .update(req.rawBody)
+        .digest('base64');
+      
+      // ถ้าลายเซ็นไม่ตรงกัน
+      if (hmac !== signature) {
+        console.error('❌ [Webhook2] Signature ไม่ถูกต้อง');
+        return res.status(401).json({ error: 'Invalid signature' });
+      }
+      
+      console.log('✅ [Webhook2] Signature ถูกต้อง');
+    }
+  })(req, res, next);
+});
+
 // ใช้ body-parser สำหรับเส้นทางอื่นๆ
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
+
 // ใช้เส้นทางหลัก
 app.use('/', indexRouter);
 
@@ -84,11 +127,14 @@ app.listen(PORT, () => {
   console.log(`🌎 URL เซิร์ฟเวอร์: ${process.env.SERVER_URL}`);
   console.log(`🤖 Webhook URL: ${process.env.SERVER_URL}/webhook`);
 });
+
 // จัดการข้อผิดพลาด
 process.on('uncaughtException', (err) => {
   console.error('❌ Uncaught Exception:', err);
 });
+
 process.on('unhandledRejection', (reason, promise) => {
   console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
 });
+
 module.exports = app;
