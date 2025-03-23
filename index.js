@@ -1,6 +1,5 @@
 // นำเข้าตัวแปรสภาพแวดล้อมจากไฟล์ .env
 require('dotenv').config();
-
 // นำเข้าโมดูลที่จำเป็น
 const express = require('express');
 const cors = require('cors');
@@ -9,6 +8,9 @@ const crypto = require('crypto');
 const indexRouter = require('./routes/index');
 const { line } = require('@line/bot-sdk');
 
+// นำเข้า router ของ Webhook2 (เพิ่มใหม่)
+const webhook2Router = require('./webhook2/index');
+
 // ตรวจสอบตัวแปรสภาพแวดล้อมที่จำเป็น
 const requiredEnvVars = [
   'LINE_BOT1_ACCESS_TOKEN',
@@ -16,26 +18,21 @@ const requiredEnvVars = [
   'SUPABASE_URL',
   'SUPABASE_KEY'
 ];
-
 requiredEnvVars.forEach(envVar => {
   if (!process.env[envVar]) {
     console.error(`❌ ไม่พบตัวแปรสภาพแวดล้อม: ${envVar}`);
     process.exit(1);
   }
 });
-
 // สร้างแอปพลิเคชัน Express
 const app = express();
-
 // กำหนดค่า LINE SDK
 const lineConfig = {
   channelAccessToken: process.env.LINE_BOT1_ACCESS_TOKEN,
   channelSecret: process.env.LINE_BOT1_CHANNEL_SECRET
 };
-
 // ติดตั้ง middleware
 app.use(cors());
-
 // Middleware สำหรับตรวจสอบลายเซ็น LINE
 app.use('/webhook', (req, res, next) => {
   const signature = req.headers['x-line-signature'];
@@ -70,13 +67,15 @@ app.use('/webhook', (req, res, next) => {
     }
   })(req, res, next);
 });
-
 // ใช้ body-parser สำหรับเส้นทางอื่นๆ
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
-
 // ใช้เส้นทางหลัก
 app.use('/', indexRouter);
+
+// เพิ่มเส้นทางของ Webhook2 (เพิ่มใหม่)
+app.use('/webhook2', webhook2Router);
+console.log(`🤖 Webhook2 URL: ${process.env.SERVER_URL}/webhook2`);
 
 // กำหนดพอร์ตและเริ่มเซิร์ฟเวอร์
 const PORT = process.env.PORT || 3000;
@@ -85,14 +84,11 @@ app.listen(PORT, () => {
   console.log(`🌎 URL เซิร์ฟเวอร์: ${process.env.SERVER_URL}`);
   console.log(`🤖 Webhook URL: ${process.env.SERVER_URL}/webhook`);
 });
-
 // จัดการข้อผิดพลาด
 process.on('uncaughtException', (err) => {
   console.error('❌ Uncaught Exception:', err);
 });
-
 process.on('unhandledRejection', (reason, promise) => {
   console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
 });
-
 module.exports = app;
