@@ -45,6 +45,13 @@ app.use((req, res, next) => {
   next();
 });
 
+// เพิ่มหลังจาก app.use(cors());
+app.post('/webhook2', (req, res) => {
+  console.log('Webhook2 verification request received');
+  // ตอบกลับทันทีด้วย 200 OK
+  return res.status(200).end();
+});
+
 // จัดการกับ webhook2 verification โดยตรงที่นี่
 app.post('/webhook2', (req, res) => {
   console.log('[ROOT] Direct webhook2 verification handler activated');
