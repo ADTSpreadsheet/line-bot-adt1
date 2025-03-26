@@ -85,8 +85,8 @@ app.use(bodyParser.urlencoded({ extended: true }));
 // เส้นทางหลัก
 app.use('/', indexRouter);
 
-app.use('/webhook', verifyOtpRoute);
-const verifyOTPRouter = require('./routes/verifyOTP');
+app.use('/webhook', verifyRoute);
+const verifyRouter = require('./routes/verifyOTP');
 
 // Start Server
 const PORT = process.env.PORT || 3000;
