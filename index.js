@@ -1,11 +1,11 @@
-// index.js - Bot ตัวที่ 1 แบบสะอาด ไม่มีการปนของ Bot2
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const crypto = require('crypto');
 const indexRouter = require('./routes/index');
-const verifyOtpRoute = require('./routes/verifyOTP');
+const otpReadyRoute = require('./routes/otpready');       // ✅ เพิ่มเข้ามา
+const verifyOtpRoute = require('./routes/verifyOTP');     // ✅ มีอยู่แล้ว
 const { line } = require('@line/bot-sdk');
 const { createClient } = require('@supabase/supabase-js');
 
@@ -49,7 +49,7 @@ app.use((req, res, next) => {
 // Logging ทุก response
 app.use((req, res, next) => {
   const originalSend = res.send;
-  res.send = function(body) {
+  res.send = function (body) {
     console.log(`[RESPONSE] ${req.method} ${req.url} - Status: ${res.statusCode}`);
     console.log(`[RESPONSE BODY] ${body}`);
     return originalSend.call(this, body);
@@ -65,7 +65,7 @@ app.get('/test', (req, res) => {
   });
 });
 
-// Middleware ตรวจสอบลายเซ็นของ LINE
+// Middleware ตรวจสอบลายเซ็นของ LINE (เฉพาะ /webhook)
 app.use('/webhook', (req, res, next) => {
   const signature = req.headers['x-line-signature'];
   if (!signature || !req.body) {
@@ -95,6 +95,7 @@ app.use('/webhook', (req, res, next) => {
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
+// Endpoint ตรวจสอบ Machine ID (จาก VBA)
 app.get('/webhook/check-machine-id', async (req, res) => {
   console.log('✅ Endpoint check-machine-id was called directly from index.js');
   const machineID = req.query.machine_id;
@@ -104,28 +105,25 @@ app.get('/webhook/check-machine-id', async (req, res) => {
   }
   try {
     console.log(`🔍 Checking Machine ID: ${machineID}`);
-    // ตรวจสอบใน Supabase - ใช้ .select().eq() แต่ไม่ใช้ .single()
     const { data, error } = await supabase
       .from('user_registrations')
       .select('ref_code, status')
       .eq('machine_id', machineID);
-      
+
     console.log('Supabase Response:', { data, error });
-    
+
     if (error) {
       console.log(`❌ Supabase error: ${JSON.stringify(error)}`);
       return res.status(500).json({ error: 'Database query error' });
     }
-    
-    // ตรวจสอบว่าพบข้อมูลหรือไม่
+
     if (!data || data.length === 0) {
       console.log(`❌ No data found for Machine ID: ${machineID}`);
       return res.status(404).json({ error: 'Machine ID not found' });
     }
-    
-    // ใช้ข้อมูลแถวแรกที่พบ
+
     const record = data[0];
-    
+
     if (record.status === 'ACTIVE') {
       console.log(`✅ Found ACTIVE Machine ID: ${machineID}, Ref.Code: ${record.ref_code}`);
       return res.status(200).json({
@@ -142,9 +140,10 @@ app.get('/webhook/check-machine-id', async (req, res) => {
   }
 });
 
-// เส้นทางหลัก
+// เส้นทางหลักทั้งหมด
 app.use('/', indexRouter);
-app.use('/webhook', verifyOtpRoute);
+app.use('/webhook', otpReadyRoute);      // ✅ เพิ่มให้รู้จัก /webhook/otp-ready
+app.use('/webhook', verifyOtpRoute);     // ✅ รู้จัก /webhook/verify-otp
 
 // Start Server
 const PORT = process.env.PORT || 3000;
