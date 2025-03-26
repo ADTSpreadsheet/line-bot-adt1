@@ -86,7 +86,6 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use('/', indexRouter);
 
 app.use('/webhook', verifyOtpRoute);
-const verifyRouter = require('./routes/verifyOTP');
 
 // Start Server
 const PORT = process.env.PORT || 3000;
