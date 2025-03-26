@@ -1,13 +1,13 @@
 // index.js - Bot ตัวที่ 1 แบบสะอาด ไม่มีการปนของ Bot2
-
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const crypto = require('crypto');
 const indexRouter = require('./routes/index');
-const verifyOtpRoute = require('./routes/verifyOTP'); // ✅ เพิ่มบรรทัดนี้
+const verifyOtpRoute = require('./routes/verifyOTP');
 const { line } = require('@line/bot-sdk');
+const { createClient } = require('@supabase/supabase-js');
 
 // ตรวจสอบตัวแปรที่จำเป็น
 const requiredEnvVars = [
@@ -25,6 +25,12 @@ requiredEnvVars.forEach(envVar => {
 
 const app = express();
 
+// สร้าง Supabase client
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_KEY
+);
+
 // LINE SDK Config สำหรับ Bot1
 const lineConfig = {
   channelAccessToken: process.env.LINE_BOT1_ACCESS_TOKEN,
@@ -40,6 +46,17 @@ app.use((req, res, next) => {
   next();
 });
 
+// Logging ทุก response
+app.use((req, res, next) => {
+  const originalSend = res.send;
+  res.send = function(body) {
+    console.log(`[RESPONSE] ${req.method} ${req.url} - Status: ${res.statusCode}`);
+    console.log(`[RESPONSE BODY] ${body}`);
+    return originalSend.call(this, body);
+  };
+  next();
+});
+
 // ทดสอบเส้นทาง
 app.get('/test', (req, res) => {
   res.status(200).json({
@@ -51,7 +68,6 @@ app.get('/test', (req, res) => {
 // Middleware ตรวจสอบลายเซ็นของ LINE
 app.use('/webhook', (req, res, next) => {
   const signature = req.headers['x-line-signature'];
-
   if (!signature || !req.body) {
     bodyParser.json({
       verify: (req, res, buf) => {
@@ -60,19 +76,16 @@ app.use('/webhook', (req, res, next) => {
     })(req, res, next);
     return;
   }
-
   bodyParser.json({
     verify: (req, res, buf) => {
       req.rawBody = buf.toString();
       const hmac = crypto.createHmac('sha256', lineConfig.channelSecret)
         .update(req.rawBody)
         .digest('base64');
-
       if (hmac !== signature) {
         console.error('❌ Signature ไม่ถูกต้อง');
         return res.status(401).json({ error: 'Invalid signature' });
       }
-
       console.log('✅ Signature ถูกต้อง');
     }
   })(req, res, next);
@@ -82,9 +95,53 @@ app.use('/webhook', (req, res, next) => {
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
+// เส้นทาง check-machine-id โดยตรงในไฟล์หลัก
+app.get('/webhook/check-machine-id', async (req, res) => {
+  console.log('✅ Endpoint check-machine-id was called directly from index.js');
+  const machineID = req.query.machine_id;
+  if (!machineID) {
+    console.log('❌ Missing machine_id in request');
+    return res.status(400).json({ error: 'Missing machine_id' });
+  }
+  try {
+    console.log(`🔍 Checking Machine ID: ${machineID}`);
+    // ตรวจสอบใน Supabase
+    const { data, error } = await supabase
+      .from('auth_sessions') // ปรับชื่อตารางตามที่คุณใช้
+      .select('ref_code, status')
+      .eq('machine_id', machineID)
+      .single();
+      
+    console.log('Supabase Response:', { data, error });
+    
+    if (error) {
+      console.log(`❌ Supabase error: ${JSON.stringify(error)}`);
+      return res.status(500).json({ error: 'Database query error' });
+    }
+    
+    if (!data) {
+      console.log(`❌ No data found for Machine ID: ${machineID}`);
+      return res.status(404).json({ error: 'Machine ID not found' });
+    }
+    
+    if (data.status === 'ACTIVE') {
+      console.log(`✅ Found ACTIVE Machine ID: ${machineID}, Ref.Code: ${data.ref_code}`);
+      return res.status(200).json({
+        status: 'ACTIVE',
+        ref_code: data.ref_code
+      });
+    } else {
+      console.log(`❌ Machine ID found but status is not ACTIVE: ${data.status}`);
+      return res.status(403).json({ error: 'Machine ID is not ACTIVE' });
+    }
+  } catch (err) {
+    console.error('❌ Error checking machine ID:', err);
+    return res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
 // เส้นทางหลัก
 app.use('/', indexRouter);
-
 app.use('/webhook', verifyOtpRoute);
 
 // Start Server
