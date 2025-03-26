@@ -107,7 +107,7 @@ app.get('/webhook/check-machine-id', async (req, res) => {
     console.log(`🔍 Checking Machine ID: ${machineID}`);
     // ตรวจสอบใน Supabase
     const { data, error } = await supabase
-      .from('auth_sessions') // ปรับชื่อตารางตามที่คุณใช้
+      .from('user_registrations') // ปรับชื่อตารางตามที่คุณใช้
       .select('ref_code, status')
       .eq('machine_id', machineID)
       .single();
