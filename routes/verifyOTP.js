@@ -70,14 +70,14 @@ router.post('/otp-ready', async (req, res) => {
   }
   
   try {
-    // 1. ค้นหา line_user_id จาก ref_code
+    // 1. ค้นหา line_user_id จาก ref_code ในตาราง auth_sessions
     const { data, error } = await supabase
-      .from('user_registrations')
+      .from('auth_sessions')
       .select('line_user_id')
       .eq('ref_code', ref_code)
       .single();
       
-    console.log(`🔍 Supabase lookup result:`, { data, error });
+    console.log(`🔍 Supabase lookup result for auth_sessions:`, { data, error });
     
     if (error || !data || !data.line_user_id) {
       console.log(`❌ Could not find line_user_id for ref_code: ${ref_code}`);
@@ -149,9 +149,9 @@ router.post('/verify-otp', async (req, res) => {
   otpStore.delete(ref_code); // ลบออกทันทีหลังใช้
   
   try {
-    // ดึง line_user_id เพื่อส่งข้อความ LINE
+    // ดึง line_user_id เพื่อส่งข้อความ LINE จากตาราง auth_sessions
     const { data, error } = await supabase
-      .from('user_registrations')
+      .from('auth_sessions')
       .select('line_user_id')
       .eq('ref_code', ref_code)
       .single();
