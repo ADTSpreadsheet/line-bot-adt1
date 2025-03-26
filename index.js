@@ -6,6 +6,7 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const crypto = require('crypto');
 const indexRouter = require('./routes/index');
+const verifyOtpRoute = require('./routes/verifyOTP'); // ✅ เพิ่มบรรทัดนี้
 const { line } = require('@line/bot-sdk');
 
 // ตรวจสอบตัวแปรที่จำเป็น
@@ -83,6 +84,8 @@ app.use(bodyParser.urlencoded({ extended: true }));
 
 // เส้นทางหลัก
 app.use('/', indexRouter);
+
+app.use('/webhook', verifyOtpRoute);
 
 // Start Server
 const PORT = process.env.PORT || 3000;
