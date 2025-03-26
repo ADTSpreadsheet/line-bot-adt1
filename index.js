@@ -85,7 +85,7 @@ app.use(bodyParser.urlencoded({ extended: true }));
 // เส้นทางหลัก
 app.use('/', indexRouter);
 
-app.use('/webhook', verifyRoute);
+app.use('/webhook', verifyOTPRouter);
 const verifyRouter = require('./routes/verifyOTP');
 
 // Start Server
