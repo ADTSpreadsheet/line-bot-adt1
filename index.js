@@ -95,7 +95,6 @@ app.use('/webhook', (req, res, next) => {
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-// เส้นทาง check-machine-id โดยตรงในไฟล์หลัก
 app.get('/webhook/check-machine-id', async (req, res) => {
   console.log('✅ Endpoint check-machine-id was called directly from index.js');
   const machineID = req.query.machine_id;
@@ -105,12 +104,11 @@ app.get('/webhook/check-machine-id', async (req, res) => {
   }
   try {
     console.log(`🔍 Checking Machine ID: ${machineID}`);
-    // ตรวจสอบใน Supabase
+    // ตรวจสอบใน Supabase - ใช้ .select().eq() แต่ไม่ใช้ .single()
     const { data, error } = await supabase
-      .from('user_registrations') // ปรับชื่อตารางตามที่คุณใช้
+      .from('user_registrations')
       .select('ref_code, status')
-      .eq('machine_id', machineID)
-      .single();
+      .eq('machine_id', machineID);
       
     console.log('Supabase Response:', { data, error });
     
@@ -119,19 +117,23 @@ app.get('/webhook/check-machine-id', async (req, res) => {
       return res.status(500).json({ error: 'Database query error' });
     }
     
-    if (!data) {
+    // ตรวจสอบว่าพบข้อมูลหรือไม่
+    if (!data || data.length === 0) {
       console.log(`❌ No data found for Machine ID: ${machineID}`);
       return res.status(404).json({ error: 'Machine ID not found' });
     }
     
-    if (data.status === 'ACTIVE') {
-      console.log(`✅ Found ACTIVE Machine ID: ${machineID}, Ref.Code: ${data.ref_code}`);
+    // ใช้ข้อมูลแถวแรกที่พบ
+    const record = data[0];
+    
+    if (record.status === 'ACTIVE') {
+      console.log(`✅ Found ACTIVE Machine ID: ${machineID}, Ref.Code: ${record.ref_code}`);
       return res.status(200).json({
         status: 'ACTIVE',
-        ref_code: data.ref_code
+        ref_code: record.ref_code
       });
     } else {
-      console.log(`❌ Machine ID found but status is not ACTIVE: ${data.status}`);
+      console.log(`❌ Machine ID found but status is not ACTIVE: ${record.status}`);
       return res.status(403).json({ error: 'Machine ID is not ACTIVE' });
     }
   } catch (err) {
