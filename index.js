@@ -4,7 +4,6 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const crypto = require('crypto');
 const indexRouter = require('./routes/index');
-const otpReadyRoute = require('./routes/otpready');       // ✅ เพิ่มเข้ามา
 const verifyOtpRoute = require('./routes/verifyOTP');     // ✅ มีอยู่แล้ว
 const { line } = require('@line/bot-sdk');
 const { createClient } = require('@supabase/supabase-js');
