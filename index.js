@@ -8,6 +8,7 @@ const otpReadyRoute = require('./routes/otpready');       // ✅ เพิ่ม
 const verifyOtpRoute = require('./routes/verifyOTP');     // ✅ มีอยู่แล้ว
 const { line } = require('@line/bot-sdk');
 const { createClient } = require('@supabase/supabase-js');
+const registerSessionRoute = require("./routes/registerSession");
 
 // ตรวจสอบตัวแปรที่จำเป็น
 const requiredEnvVars = [
@@ -144,6 +145,7 @@ app.get('/webhook/check-machine-id', async (req, res) => {
 app.use('/', indexRouter);
 app.use('/webhook', otpReadyRoute);      // ✅ เพิ่มให้รู้จัก /webhook/otp-ready
 app.use('/webhook', verifyOtpRoute);     // ✅ รู้จัก /webhook/verify-otp
+app.use('/register-session', registerSessionRoute);
 
 // Start Server
 const PORT = process.env.PORT || 3000;
