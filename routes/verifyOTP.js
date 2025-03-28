@@ -201,4 +201,4 @@ process.on('unhandledRejection', (reason, promise) => {
   console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
 });
 
-module.exports = app;
+module.exports = router; // ✅ ใช้ router เท่านั้น
