@@ -8,7 +8,7 @@ const otpReadyRoute = require('./otpready');       // ✅ เพิ่มเข�
 const verifyOtpRoute = require('./verifyOTP');     // ✅ มีอยู่แล้ว
 const { line } = require('@line/bot-sdk');
 const { createClient } = require('@supabase/supabase-js');
-const registerSessionRoute = require("./routes/registerSession");
+const registerSessionRoute = require("./registerSession");
 
 // ตรวจสอบตัวแปรที่จำเป็น
 const requiredEnvVars = [
