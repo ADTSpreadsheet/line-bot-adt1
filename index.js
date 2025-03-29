@@ -1,75 +1,95 @@
-// index.js
+// index.js - LINE Bot ตัวที่ 1 (ฉบับใหม่ล่าสุด เชื่อมกับ registration.js อย่างถูกต้อง)
+
 const express = require('express');
-const dotenv = require('dotenv');
+const bodyParser = require('body-parser');
+const line = require('@line/bot-sdk');
 const registrationRoutes = require('./routes/registration');
-const otpRoutes = require('./routes/otp');
-const statusRoutes = require('./routes/status');
-const lineWebhookRoutes = require('./routes/linewebhook');
-const pdpaTextRouter = require('./routes/pdpaText'); // นำเข้า PDPA router
-const { saveRawBody } = require('./middlewares/lineWebhookValidator');
+const { validateLineWebhook } = require('./middlewares/lineWebhookValidator');
+require('dotenv').config();
 
-// Load environment variables
-dotenv.config();
-
-// Initialize express app
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// LINE config
+const config = {
+  channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN,
+  channelSecret: process.env.LINE_CHANNEL_SECRET
+};
+
+const client = new line.Client(config);
+
 // Middleware
-// ต้องตั้งค่า express.json() ให้เก็บ rawBody ไว้ (สำคัญสำหรับการตรวจสอบลายเซ็น LINE)
-app.use(express.json({
-  verify: saveRawBody
-}));
-app.use(express.urlencoded({ extended: true })); // เพิ่มการรองรับ URL-encoded bodies
+app.use(bodyParser.json());
+app.use('/api/registration', registrationRoutes); // ✅ เส้นทาง API registration
 
-// Routes
-app.use('/api/registration', registrationRoutes);
-app.use('/api/otp', otpRoutes);
-app.use('/api/status', statusRoutes);
-app.use('/', lineWebhookRoutes);
-app.use('/api/pdpa', pdpaTextRouter); // เพิ่ม PDPA router
+// ✅ LINE Webhook - ต้อนรับผู้ใช้ใหม่
+app.post('/webhook', validateLineWebhook(config.channelSecret), async (req, res) => {
+  try {
+    const events = req.body.events;
+    res.status(200).end(); // ตอบกลับ LINE Platform ทันที
 
-// Root route
-app.get('/', (req, res) => {
+    if (!events || events.length === 0) return;
+
+    for (const event of events) {
+      if (event.type === 'follow') {
+        const lineUserId = event.source.userId;
+        // ตอบกลับข้อความต้อนรับ
+        await client.replyMessage(event.replyToken, {
+          type: 'text',
+          text: '👋 สวัสดีครับ! กรุณาพิมพ์คำว่า REQ_REFCODE เพื่อรับรหัสลงทะเบียนของคุณครับ'
+        });
+      }
+
+      if (event.type === 'message' && event.message.type === 'text') {
+        const userMessage = event.message.text.trim();
+        const lineUserId = event.source.userId;
+
+        if (userMessage.toUpperCase() === 'REQ_REFCODE') {
+          // ส่งต่อให้ registrationController.createRefCode
+          const axios = require('axios');
+          try {
+            const response = await axios.post(
+              `${process.env.API_BASE_URL}/api/registration/create-ref`,
+              { line_user_id: lineUserId }
+            );
+
+            if (response.data && response.data.ref_code) {
+              await client.replyMessage(event.replyToken, {
+                type: 'text',
+                text: `🔐 Ref.Code ของคุณคือ: ${response.data.ref_code}`
+              });
+            } else {
+              await client.replyMessage(event.replyToken, {
+                type: 'text',
+                text: '❌ ไม่สามารถสร้าง Ref.Code ได้ กรุณาลองใหม่ครับ'
+              });
+            }
+          } catch (err) {
+            console.error('❌ Error calling create-ref API:', err);
+            await client.replyMessage(event.replyToken, {
+              type: 'text',
+              text: '⚠️ เกิดข้อผิดพลาดจากระบบ กรุณาลองใหม่ภายหลังครับ'
+            });
+          }
+        }
+      }
+    }
+  } catch (error) {
+    console.error('❌ Webhook error:', error);
+    res.status(500).end();
+  }
+});
+
+// ✅ Health check
+app.get('/webhook', (req, res) => {
   res.status(200).json({
-    status: 'success',
-    message: 'Welcome to ADT API 1 - Verification Service',
-    version: '1.0'
-  });
-});
-
-// Error handling middleware
-app.use((err, req, res, next) => {
-  console.error(`❌ ERROR: ${err.stack}`);
-  res.status(500).json({
-    status: 'error',
-    message: 'Internal Server Error'
-  });
-});
-
-// Not found middleware
-app.use((req, res) => {
-  res.status(404).json({
-    status: 'error',
-    message: 'Route not found'
+    status: 'ok',
+    message: 'LINE webhook is running',
+    version: 'updated-march-2025'
   });
 });
 
 // Start server
 app.listen(PORT, () => {
-  console.log(`✅ API 1 is running on port ${PORT}`);
-  console.log(`📝 Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`🚀 LINE Bot Server running on port ${PORT}`);
 });
-
-// Handle uncaught exceptions
-process.on('uncaughtException', (err) => {
-  console.error('❌ UNCAUGHT EXCEPTION:', err);
-  process.exit(1);
-});
-
-// Handle unhandled promise rejections
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('❌ UNHANDLED REJECTION:', reason);
-});
-
-module.exports = app; // สำหรับการทดสอบหรือการนำไปใช้ในไฟล์อื่น
