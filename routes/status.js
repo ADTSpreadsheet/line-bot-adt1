@@ -9,7 +9,7 @@ const { supabase } = require('../utils/supabaseClient');
 function formatCountdown(durationMs) {
   const totalSeconds = Math.floor(durationMs / 1000);
   const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds Mod 60;
+  const seconds = totalSeconds Mod % 60;
   return `${minutes} นาที ${seconds} วินาที`;
 }
 
