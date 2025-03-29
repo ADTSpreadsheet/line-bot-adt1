@@ -1,0 +1,49 @@
+// routes/lineWebhook.js
+const express = require('express');
+const router = express.Router();
+const line = require('@line/bot-sdk');
+
+// LINE config
+const client = new line.Client({
+  channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN
+});
+
+// สุ่ม Ref.Code (4 ตัวอักษรพิมพ์ใหญ่+ตัวเลข)
+function generateRefCode(length = 4) {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let result = '';
+  for (let i = 0; i < length; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+}
+
+// Webhook endpoint
+router.post('/webhook', line.middleware({
+  channelSecret: process.env.LINE_CHANNEL_SECRET
+}), async (req, res) => {
+  const events = req.body.events;
+
+  for (const event of events) {
+    if (event.type === 'message' && event.message.type === 'text') {
+      const userMessage = event.message.text.trim();
+
+      if (userMessage === 'REQ_REFCODE') {
+        const lineUserId = event.source.userId;
+        const refCode = generateRefCode();
+
+        console.log('📩 LINE USER ID:', lineUserId);
+        console.log('🔐 REF.CODE:', refCode);
+
+        await client.replyMessage(event.replyToken, {
+          type: 'text',
+          text: `🔐 Ref.Code ของคุณคือ: ${refCode}`
+        });
+      }
+    }
+  }
+
+  return res.status(200).end();
+});
+
+module.exports = router;
