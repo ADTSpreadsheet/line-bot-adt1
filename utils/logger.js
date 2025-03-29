@@ -1,5 +1,5 @@
 // utils/logger.js
-const chalk = require('chalk');
+// const chalk = require('chalk'); // ปิดการใช้งาน chalk
 
 // ระดับของ log
 const LOG_LEVELS = {
@@ -15,61 +15,36 @@ const currentLogLevel = process.env.LOG_LEVEL
   ? LOG_LEVELS[process.env.LOG_LEVEL.toUpperCase()] || LOG_LEVELS.INFO
   : LOG_LEVELS.INFO;
 
-/**
- * แสดงข้อความดีบัก (DEBUG)
- * @param  {...any} args - ข้อความที่ต้องการแสดง
- */
 const debug = (...args) => {
   if (currentLogLevel <= LOG_LEVELS.DEBUG) {
-    console.log(chalk.blue('[DEBUG]'), ...args);
+    console.log('[DEBUG]', ...args);
   }
 };
 
-/**
- * แสดงข้อความข้อมูลปกติ (INFO)
- * @param  {...any} args - ข้อความที่ต้องการแสดง
- */
 const info = (...args) => {
   if (currentLogLevel <= LOG_LEVELS.INFO) {
-    console.log(chalk.cyan('[INFO]'), ...args);
+    console.log('[INFO]', ...args);
   }
 };
 
-/**
- * แสดงข้อความเตือน (WARNING)
- * @param  {...any} args - ข้อความที่ต้องการแสดง
- */
 const warn = (...args) => {
   if (currentLogLevel <= LOG_LEVELS.WARN) {
-    console.warn(chalk.yellow('[WARN]'), ...args);
+    console.warn('[WARN]', ...args);
   }
 };
 
-/**
- * แสดงข้อความผิดพลาด (ERROR)
- * @param  {...any} args - ข้อความที่ต้องการแสดง
- */
 const error = (...args) => {
   if (currentLogLevel <= LOG_LEVELS.ERROR) {
-    console.error(chalk.red('[ERROR]'), ...args);
+    console.error('[ERROR]', ...args);
   }
 };
 
-/**
- * แสดงข้อความสำเร็จ (SUCCESS)
- * @param  {...any} args - ข้อความที่ต้องการแสดง
- */
 const success = (...args) => {
   if (currentLogLevel <= LOG_LEVELS.INFO) {
-    console.log(chalk.green('[SUCCESS]'), ...args);
+    console.log('[SUCCESS]', ...args);
   }
 };
 
-/**
- * สร้าง log ที่มีการระบุโมดูล
- * @param {string} moduleName - ชื่อโมดูล
- * @returns {Object} - Object ที่มีฟังก์ชัน log สำหรับโมดูลนั้น
- */
 const createModuleLogger = (moduleName) => {
   return {
     debug: (...args) => debug(`[${moduleName}]`, ...args),
@@ -80,20 +55,10 @@ const createModuleLogger = (moduleName) => {
   };
 };
 
-/**
- * บันทึก log ลงในไฟล์ (ถ้าต้องการเพิ่มในอนาคต)
- * @param {string} level - ระดับของ log
- * @param {string} message - ข้อความ
- */
 const logToFile = (level, message) => {
   // ในอนาคตอาจเพิ่มการบันทึกลงไฟล์ได้ที่นี่
-  // เช่น ใช้ winston หรือ other logging libraries
 };
 
-/**
- * แสดงเวลาปัจจุบัน สำหรับเพิ่มใน log
- * @returns {string} - เวลาปัจจุบันในรูปแบบ ISO
- */
 const getTimestamp = () => {
   return new Date().toISOString();
 };
