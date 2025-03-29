@@ -80,29 +80,28 @@ router.post('/webhook', validateLineWebhook(process.env.LINE_CHANNEL_SECRET), as
         
         if (userMessage === 'REQ_REFCODE') {
           try {
-            // ดึง Ref.Code จาก Supabase
+            // ดึง Ref.Code จาก Supabase (แก้ไขโดยลบ .single() ออก)
             const { data, error } = await supabase
               .from('auth_sessions')
               .select('ref_code')
-              .eq('line_user_id', lineUserId)
-              .single();
+              .eq('line_user_id', lineUserId);
               
             if (error) {
               console.error('❌ Supabase Error:', error.message);
               throw error;
             }
             
-            if (!data || !data.ref_code) {
+            if (!data || data.length === 0) {
               await client.replyMessage(event.replyToken, {
                 type: 'text',
                 text: '❌ ไม่พบรหัส Ref.Code ของคุณ กรุณาสแกน QR เพื่อเริ่มต้นใหม่ครับ'
               });
             } else {
               console.log('📩 LINE USER ID:', lineUserId);
-              console.log('🔐 ส่ง REF.CODE:', data.ref_code);
+              console.log('🔐 ส่ง REF.CODE:', data[0].ref_code);
               await client.replyMessage(event.replyToken, {
                 type: 'text',
-                text: `🔐 Ref.Code ของคุณคือ: ${data.ref_code}`
+                text: `🔐 Ref.Code ของคุณคือ: ${data[0].ref_code}`
               });
             }
           } catch (error) {
