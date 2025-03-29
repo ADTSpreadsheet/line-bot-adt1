@@ -1,11 +1,9 @@
 // index.js - LINE Bot ตัวที่ 1 (เวอร์ชันสมบูรณ์ รองรับ rawBody แล้ว)
-
 const express = require('express');
 const line = require('@line/bot-sdk');
 const bodyParser = require('body-parser');
 const registrationRoutes = require('./routes/registration');
 require('dotenv').config();
-
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -14,17 +12,23 @@ const config = {
   channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN,
   channelSecret: process.env.LINE_CHANNEL_SECRET
 };
-
 const client = new line.Client(config);
 
 // ✅ LINE Webhook ต้องใช้ express.raw() เพื่อให้ SDK ตรวจสอบ Signature ได้
 app.post('/webhook', express.raw({ type: 'application/json' }), line.middleware(config), async (req, res) => {
   try {
-    const events = JSON.parse(req.body.toString()).events;
+    // แก้ไขส่วนนี้: ตรวจสอบว่า req.body เป็น Buffer หรือไม่ก่อนเรียก toString()
+    let events;
+    if (Buffer.isBuffer(req.body)) {
+      events = JSON.parse(req.body.toString()).events;
+    } else {
+      events = req.body.events;
+    }
+    
     res.status(200).end();
-
+    
     if (!events || events.length === 0) return;
-
+    
     for (const event of events) {
       if (event.type === 'follow') {
         const lineUserId = event.source.userId;
@@ -33,11 +37,11 @@ app.post('/webhook', express.raw({ type: 'application/json' }), line.middleware(
           text: '👋 สวัสดีครับ! กรุณาพิมพ์คำว่า REQ_REFCODE เพื่อรับรหัสลงทะเบียนของคุณครับ'
         });
       }
-
+      
       if (event.type === 'message' && event.message.type === 'text') {
         const userMessage = event.message.text.trim();
         const lineUserId = event.source.userId;
-
+        
         if (userMessage.toUpperCase() === 'REQ_REFCODE') {
           const axios = require('axios');
           try {
@@ -45,7 +49,7 @@ app.post('/webhook', express.raw({ type: 'application/json' }), line.middleware(
               `${process.env.API_BASE_URL}/api/registration/create-ref`,
               { line_user_id: lineUserId }
             );
-
+            
             if (response.data && response.data.ref_code) {
               await client.replyMessage(event.replyToken, {
                 type: 'text',
