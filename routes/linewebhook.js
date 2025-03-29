@@ -7,7 +7,7 @@ const { validateLineWebhook, bypassValidation } = require('../middlewares/lineWe
 
 // LINE config
 const config = {
-  channelSecret: process.env.LINE_BOT1_CHANNEL_SECRET,
+  channelSecret: process.env.LINE_CHANNEL_SECRET,
   channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN
 };
 
@@ -26,7 +26,7 @@ function generateRefCode(length = 4) {
 }
 
 // Webhook endpoint - ใช้ middleware ของเราเอง (แทนที่ line.middleware)
-router.post('/webhook', validateLineWebhook(process.env.LINE_BOT1_CHANNEL_SECRET), async (req, res) => {
+router.post('/webhook', validateLineWebhook(process.env.LINE_CHANNEL_SECRET), async (req, res) => {
   try {
     // ส่ง response กลับทันทีเพื่อให้ LINE platform รู้ว่าเราได้รับ webhook แล้ว
     res.status(200).end();
@@ -143,8 +143,8 @@ router.get('/webhook', (req, res) => {
     status: 'ok', 
     message: 'LINE webhook is accessible',
     config: {
-      hasChannelSecret: Boolean(process.env.LINE_BOT1_CHANNEL_SECRET),
-      hasAccessToken: Boolean(process.env.LINE_BOT1_ACCESS_TOKEN)
+      hasChannelSecret: Boolean(process.env.LINE_CHANNEL_SECRET),
+      hasAccessToken: Boolean(process.env.LINE_CHANNEL_ACCESS_TOKEN)
     }
   });
 });
