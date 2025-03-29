@@ -4,7 +4,7 @@ const dotenv = require('dotenv');
 const registrationRoutes = require('./routes/registration');
 const otpRoutes = require('./routes/otp');
 const statusRoutes = require('./routes/status');
-const lineWebhookRoutes = require('./routes/line_webhook');
+const lineWebhookRoutes = require('./routes/linewebhook');
 
 // Load environment variables
 dotenv.config();
