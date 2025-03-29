@@ -3,14 +3,17 @@ const express = require('express');
 const router = express.Router();
 const line = require('@line/bot-sdk');
 const { supabase } = require('../utils/supabaseClient');
+const { validateLineWebhook, bypassValidation } = require('../middlewares/lineWebhookValidator');
 
 // LINE config
 const config = {
-  channelSecret: process.env.LINE_CHANNEL_SECRET,
-  channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN
+  channelSecret: process.env.LINE_BOT1_CHANNEL_SECRET,
+  channelAccessToken: process.env.LINE_BOT1_ACCESS_TOKEN
 };
 
-const client = new line.Client(config);
+const client = new line.Client({
+  channelAccessToken: process.env.LINE_BOT1_ACCESS_TOKEN
+});
 
 // สุ่ม Ref.Code (4 ตัวอักษรพิมพ์ใหญ่+ตัวเลข)
 function generateRefCode(length = 4) {
@@ -22,11 +25,20 @@ function generateRefCode(length = 4) {
   return result;
 }
 
-// Webhook endpoint
-router.post('/webhook', line.middleware(config), async (req, res) => {
+// Webhook endpoint - ใช้ middleware ของเราเอง (แทนที่ line.middleware)
+router.post('/webhook', validateLineWebhook(process.env.LINE_BOT1_CHANNEL_SECRET), async (req, res) => {
   try {
+    // ส่ง response กลับทันทีเพื่อให้ LINE platform รู้ว่าเราได้รับ webhook แล้ว
+    res.status(200).end();
+    
     const events = req.body.events;
     
+    // ถ้าไม่มี events ไม่ต้องทำอะไรต่อ
+    if (!events || events.length === 0) {
+      return;
+    }
+    
+    // ประมวลผล events
     for (const event of events) {
       // ✅ 1. ผู้ใช้เริ่มแชทกับบอท (follow)
       if (event.type === 'follow') {
@@ -59,11 +71,10 @@ router.post('/webhook', line.middleware(config), async (req, res) => {
         } catch (error) {
           console.error('❌ Error handling follow event:', error);
         }
-        continue;
       }
       
       // ✅ 2. ตรวจสอบข้อความจากผู้ใช้
-      if (event.type === 'message' && event.message.type === 'text') {
+      else if (event.type === 'message' && event.message.type === 'text') {
         const userMessage = event.message.text.trim();
         const lineUserId = event.source.userId;
         
@@ -107,20 +118,38 @@ router.post('/webhook', line.middleware(config), async (req, res) => {
               console.error('❌ Error sending error message:', replyError);
             }
           }
-          continue;
         }
       }
     }
-    
-    // ส่งคำตอบกลับ LINE Platform
-    return res.status(200).json({ success: true });
   } catch (error) {
     console.error('❌ Webhook Error:', error);
-    return res.status(500).json({ success: false, error: error.message });
+    // response ส่งไปแล้ว ไม่ต้องส่งอีก
+  }
+});
+
+// Webhook endpoint - เวอร์ชัน Bypass Validation สำหรับการทดสอบ
+router.post('/webhook-test', bypassValidation(), async (req, res) => {
+  try {
+    res.status(200).end();
+    console.log('📝 Test webhook received:', req.body);
+  } catch (error) {
+    console.error('❌ Test webhook error:', error);
   }
 });
 
 // Health check endpoint
+router.get('/webhook', (req, res) => {
+  res.status(200).json({ 
+    status: 'ok', 
+    message: 'LINE webhook is accessible',
+    config: {
+      hasChannelSecret: Boolean(process.env.LINE_BOT1_CHANNEL_SECRET),
+      hasAccessToken: Boolean(process.env.LINE_BOT1_ACCESS_TOKEN)
+    }
+  });
+});
+
+// Health check endpoint (backward compatibility)
 router.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok', message: 'LINE webhook is healthy' });
 });
