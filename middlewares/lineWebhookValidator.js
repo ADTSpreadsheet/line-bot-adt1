@@ -8,6 +8,12 @@ const crypto = require('crypto');
  */
 const validateLineWebhook = (channelSecret) => (req, res, next) => {
   try {
+    // เพิ่มการตรวจสอบ channelSecret
+    if (!channelSecret) {
+      console.warn('⚠️ Channel Secret is missing or empty, skipping signature validation');
+      return next();
+    }
+
     // 1. ตรวจสอบว่ามี X-Line-Signature header หรือไม่
     const signature = req.headers['x-line-signature'];
     if (!signature) {
@@ -17,7 +23,7 @@ const validateLineWebhook = (channelSecret) => (req, res, next) => {
         message: 'Missing signature'
       });
     }
-
+    
     // 2. ตรวจสอบ rawBody (ต้องตั้งค่า express.json() ให้เก็บ rawBody)
     if (!req.rawBody) {
       console.error('❌ Missing rawBody - Make sure express.json() is configured correctly');
@@ -26,12 +32,12 @@ const validateLineWebhook = (channelSecret) => (req, res, next) => {
         message: 'Internal server error: Missing rawBody'
       });
     }
-
+    
     // 3. คำนวณ HMAC-SHA256 จาก Channel Secret และ rawBody
     const hmac = crypto.createHmac('sha256', channelSecret);
     hmac.update(req.rawBody);
     const calculatedSignature = hmac.digest('base64');
-
+    
     // 4. เปรียบเทียบ signature ที่คำนวณได้กับที่ LINE ส่งมา
     if (signature !== calculatedSignature) {
       console.error('❌ Invalid signature');
@@ -42,7 +48,7 @@ const validateLineWebhook = (channelSecret) => (req, res, next) => {
         message: 'Invalid signature'
       });
     }
-
+    
     // 5. ตรวจสอบโครงสร้างของ request body
     if (!req.body || !req.body.events || !Array.isArray(req.body.events)) {
       console.error('❌ Invalid request body structure');
@@ -51,7 +57,7 @@ const validateLineWebhook = (channelSecret) => (req, res, next) => {
         message: 'Invalid request body'
       });
     }
-
+    
     // ผ่านการตรวจสอบทั้งหมด
     console.log('✅ Webhook signature verified');
     next();
