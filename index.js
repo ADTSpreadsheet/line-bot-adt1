@@ -5,6 +5,7 @@ const registrationRoutes = require('./routes/registration');
 const otpRoutes = require('./routes/otp');
 const statusRoutes = require('./routes/status');
 const lineWebhookRoutes = require('./routes/linewebhook');
+const pdpaTextRouter = require('./routes/pdpaText'); // นำเข้า PDPA router
 const { saveRawBody } = require('./middlewares/lineWebhookValidator');
 
 // Load environment variables
@@ -26,6 +27,7 @@ app.use('/api/registration', registrationRoutes);
 app.use('/api/otp', otpRoutes);
 app.use('/api/status', statusRoutes);
 app.use('/', lineWebhookRoutes);
+app.use('/api/pdpa', pdpaTextRouter); // เพิ่ม PDPA router
 
 // Root route
 app.get('/', (req, res) => {
