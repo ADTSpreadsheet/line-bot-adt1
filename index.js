@@ -1,10 +1,9 @@
-// index.js - LINE Bot ตัวที่ 1 (ฉบับใหม่ล่าสุด เชื่อมกับ registration.js อย่างถูกต้อง)
+// index.js - LINE Bot ตัวที่ 1 (เวอร์ชันสมบูรณ์ รองรับ rawBody แล้ว)
 
 const express = require('express');
-const bodyParser = require('body-parser');
 const line = require('@line/bot-sdk');
+const bodyParser = require('body-parser');
 const registrationRoutes = require('./routes/registration');
-const { validateLineWebhook } = require('./middlewares/lineWebhookValidator');
 require('dotenv').config();
 
 const app = express();
@@ -18,22 +17,17 @@ const config = {
 
 const client = new line.Client(config);
 
-// Middleware
-app.use(bodyParser.json());
-app.use('/api/registration', registrationRoutes); // ✅ เส้นทาง API registration
-
-// ✅ LINE Webhook - ต้อนรับผู้ใช้ใหม่
-app.post('/webhook', validateLineWebhook(config.channelSecret), async (req, res) => {
+// ✅ LINE Webhook ต้องใช้ express.raw() เพื่อให้ SDK ตรวจสอบ Signature ได้
+app.post('/webhook', express.raw({ type: 'application/json' }), line.middleware(config), async (req, res) => {
   try {
-    const events = req.body.events;
-    res.status(200).end(); // ตอบกลับ LINE Platform ทันที
+    const events = JSON.parse(req.body.toString()).events;
+    res.status(200).end();
 
     if (!events || events.length === 0) return;
 
     for (const event of events) {
       if (event.type === 'follow') {
         const lineUserId = event.source.userId;
-        // ตอบกลับข้อความต้อนรับ
         await client.replyMessage(event.replyToken, {
           type: 'text',
           text: '👋 สวัสดีครับ! กรุณาพิมพ์คำว่า REQ_REFCODE เพื่อรับรหัสลงทะเบียนของคุณครับ'
@@ -45,7 +39,6 @@ app.post('/webhook', validateLineWebhook(config.channelSecret), async (req, res)
         const lineUserId = event.source.userId;
 
         if (userMessage.toUpperCase() === 'REQ_REFCODE') {
-          // ส่งต่อให้ registrationController.createRefCode
           const axios = require('axios');
           try {
             const response = await axios.post(
@@ -80,12 +73,16 @@ app.post('/webhook', validateLineWebhook(config.channelSecret), async (req, res)
   }
 });
 
+// ✅ ใช้ bodyParser.json() หลังจาก Webhook
+app.use(bodyParser.json());
+app.use('/api/registration', registrationRoutes);
+
 // ✅ Health check
 app.get('/webhook', (req, res) => {
   res.status(200).json({
     status: 'ok',
     message: 'LINE webhook is running',
-    version: 'updated-march-2025'
+    version: 'updated-march-2025-rawbody'
   });
 });
 
