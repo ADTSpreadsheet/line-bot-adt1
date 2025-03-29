@@ -8,11 +8,11 @@ const { validateLineWebhook, bypassValidation } = require('../middlewares/lineWe
 // LINE config
 const config = {
   channelSecret: process.env.LINE_BOT1_CHANNEL_SECRET,
-  channelAccessToken: process.env.LINE_BOT1_ACCESS_TOKEN
+  channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN
 };
 
 const client = new line.Client({
-  channelAccessToken: process.env.LINE_BOT1_ACCESS_TOKEN
+  channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN
 });
 
 // สุ่ม Ref.Code (4 ตัวอักษรพิมพ์ใหญ่+ตัวเลข)
