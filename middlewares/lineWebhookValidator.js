@@ -8,20 +8,18 @@ const crypto = require('crypto');
  */
 const validateLineWebhook = (channelSecret) => (req, res, next) => {
   try {
-    // เพิ่มการตรวจสอบ channelSecret
+    // ตรวจสอบว่ามี x-line-signature header ก่อน
+    const signature = req.headers['x-line-signature'];
+    if (!signature) {
+      // ถ้าไม่มี signature header แสดงว่าไม่ใช่ request จาก LINE
+      // ไม่ต้องแสดงคำเตือน และปล่อยให้ทำงานต่อไป
+      return next();
+    }
+    
+    // เพิ่มการตรวจสอบ channelSecret เฉพาะเมื่อมี signature
     if (!channelSecret) {
       console.warn('⚠️ Channel Secret is missing or empty, skipping signature validation');
       return next();
-    }
-
-    // 1. ตรวจสอบว่ามี X-Line-Signature header หรือไม่
-    const signature = req.headers['x-line-signature'];
-    if (!signature) {
-      console.error('❌ Missing X-Line-Signature header');
-      return res.status(401).json({
-        status: 'error',
-        message: 'Missing signature'
-      });
     }
     
     // 2. ตรวจสอบ rawBody (ต้องตั้งค่า express.json() ให้เก็บ rawBody)
