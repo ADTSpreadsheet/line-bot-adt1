@@ -5,7 +5,10 @@ const line = require('@line/bot-sdk');
 const { supabase } = require('../utils/supabaseClient');
 const { validateLineWebhook, bypassValidation } = require('../middlewares/lineWebhookValidator');
 
-// LINE config
+
+
+//__________________________________________________________________________________________________________________________________________
+// LINE config (คือการแจ้ง Bot ว่าเราคือเจ้าของ Bot ตัวนี้)
 const config = {
   channelSecret: process.env.LINE_CHANNEL_SECRET,
   channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN
@@ -55,7 +58,7 @@ function generateSerialKey() {
 }
 //__________________________________________________________________________________________________________________________________________
 
-// การส่งข้อความ ref.code ไ
+// ผู้ใช้ทำการส่งข้อความเข้าแชทไลน์คำว่า  REQ_REFCODE เพื่อทำการขอรหัส ref.code 
 async function sendSerialKey(lineUserId, refCode) {
   try {
     // ค้นหา serial key จาก ref_code
@@ -187,6 +190,7 @@ router.post('/webhook', validateLineWebhook(process.env.LINE_CHANNEL_SECRET), as
     // response ส่งไปแล้ว ไม่ต้องส่งอีก
   }
 });
+//__________________________________________________________________________________________________________________________________________
 
 // API endpoint สำหรับตรวจสอบ Ref Code
 router.post('/verify-refcode', async (req, res) => {
@@ -221,36 +225,37 @@ router.post('/verify-refcode', async (req, res) => {
         message: 'Invalid ref code or LINE user ID' 
       });
     }
+    //__________________________________________________________________________________________________________________________________________
     
     // ส่ง serial key ไปที่ไลน์
-    const sent = await sendSerialKey(lineUserId, refCode);
-    
-    if (!sent) {
-      return res.status(500).json({ 
-        success: false, 
-        message: 'Failed to send serial key' 
-      });
-    }
-    
-    // อัปเดตสถานะ
-    await supabase
-      .from('auth_sessions')
-      .update({ status: 'REFCODE_VERIFIED' })
-      .eq('ref_code', refCode)
-      .eq('line_user_id', lineUserId);
-    
-    return res.status(200).json({ 
-      success: true, 
-      message: 'Ref code verified and serial key sent' 
-    });
-  } catch (error) {
-    console.error('❌ Error in verify-refcode endpoint:', error);
-    return res.status(500).json({ 
-      success: false, 
-      message: 'Server error' 
-    });
-  }
+const sent = await sendSerialKey(lineUserId, refCode);
+
+if (!sent) {
+  return res.status(500).json({ 
+    success: false, 
+    message: 'Failed to send serial key' 
+  });
+}
+
+// อัปเดตสถานะ
+await supabase
+  .from('auth_sessions')
+  .update({ status: 'REFCODE_VERIFIED' })
+  .eq('ref_code', refCode)
+  .eq('line_user_id', lineUserId);
+
+// ส่งข้อความแจ้งเตือนให้ผู้ใช้ว่า Ref.Code ได้รับการยืนยันแล้ว
+await client.pushMessage(lineUserId, {
+  type: 'text',
+  text: `🔐 Ref.Code ของคุณได้รับการยืนยันเรียบร้อยแล้ว\n🔑 Serial Key ของคุณคือ: ${data[0].serial_key}`
 });
+
+// ส่งผลลัพธ์กลับ API
+return res.status(200).json({ 
+  success: true, 
+  message: 'Ref code verified and serial key sent' 
+});
+//__________________________________________________________________________________________________________________________________________
 
 // API endpoint สำหรับตรวจสอบ Serial Key
 router.post('/verify-serialkey', async (req, res) => {
@@ -309,7 +314,55 @@ router.post('/verify-serialkey', async (req, res) => {
     });
   }
 });
+//__________________________________________________________________________________________________________________________________________
+// ฟังก์ชันสำหรับบันทึกข้อมูลจากฟอร์ม REGISTER และ Machine ID
+async function saveRegistrationData(lineUserId, userData) {
+  try {
+    // บันทึกข้อมูลทั้งหมดลงในตาราง auth_sessions
+    const { data, error } = await supabase
+      .from('auth_sessions')
+      .upsert({ 
+        line_user_id: lineUserId,
+        ...userData,  // ข้อมูลจากฟอร์ม REGISTER รวมถึง Machine ID
+        created_at: new Date().toISOString(),
+      });
 
+    if (error) {
+      console.error('❌ Error saving registration data:', error);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('❌ Error saving registration data:', error);
+    return false;
+  }
+}
+//__________________________________________________________________________________________________________________________________________
+// ตรวจสอบสถานะ PDPA และกำหนดระยะเวลาใช้งาน
+const status = data[0].status;  // 'ACCEPTED' หรือ 'DECLINED'
+let usageDays = 1;  // ค่าเริ่มต้นเป็น 1 วัน
+
+if (status === 'ACCEPTED') {
+  usageDays = 7; // ถ้าผู้ใช้ยอมรับ PDPA ให้ใช้ได้ 7 วัน
+} 
+
+// อัปเดตวันหมดอายุใน Supabase
+const expiryDate = new Date();
+expiryDate.setDate(expiryDate.getDate() + usageDays);  // เพิ่ม 7 หรือ 1 วัน
+await supabase
+  .from('auth_sessions')
+  .update({ expires_at: expiryDate.toISOString() })
+  .eq('line_user_id', lineUserId);
+
+// ส่งข้อความแจ้งให้ผู้ใช้ทราบ
+await client.pushMessage(lineUserId, {
+  type: 'text',
+  text: `🎉 การลงทะเบียนของคุณสำเร็จแล้ว! คุณได้รับสิทธิ์ใช้งาน ${usageDays} วัน`
+});
+
+ //__________________________________________________________________________________________________________________________________________   
+    
 // API endpoint สำหรับบันทึกข้อมูลเพิ่มเติมจาก VBA
 router.post('/complete-registration', async (req, res) => {
   try {
@@ -335,24 +388,60 @@ router.post('/complete-registration', async (req, res) => {
       
     if (error) {
       console.error('❌ Error completing registration:', error);
+
+      // บันทึก log ข้อผิดพลาดใน activity_logs
+      await supabase
+        .from('activity_logs')
+        .insert({
+          ref_code: refCode,
+          action: 'Error completing registration',
+          error_message: error.message,
+          timestamp: new Date().toISOString(),
+        });
+
       return res.status(500).json({ 
         success: false, 
         message: 'Database error' 
       });
     }
-    
+
+    // บันทึก log เมื่อการลงทะเบียนเสร็จสมบูรณ์
+    await supabase
+      .from('activity_logs')
+      .insert({
+        ref_code: refCode,
+        action: 'Registration completed successfully',
+        line_user_id: userData.line_user_id,
+        status: 'COMPLETED',
+        timestamp: new Date().toISOString(),
+      });
+
+    // ส่งผลลัพธ์กลับ API
     return res.status(200).json({ 
       success: true, 
       message: 'Registration completed successfully' 
     });
   } catch (error) {
     console.error('❌ Error in complete-registration endpoint:', error);
+
+    // บันทึก log ข้อผิดพลาดใน activity_logs
+    await supabase
+      .from('activity_logs')
+      .insert({
+        ref_code: refCode,
+        action: 'Error in complete-registration',
+        error_message: error.message,
+        timestamp: new Date().toISOString(),
+      });
+
     return res.status(500).json({ 
       success: false, 
       message: 'Server error' 
     });
   }
 });
+
+//__________________________________________________________________________________________________________________________________________
 
 // Webhook endpoint - เวอร์ชัน Bypass Validation สำหรับการทดสอบ
 router.post('/webhook-test', bypassValidation(), async (req, res) => {
