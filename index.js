@@ -32,19 +32,19 @@ app.use(bodyParser.urlencoded({ extended: true }));
 // ROUTES
 // ==============================================
 // ส่วนที่ 1: PDPA Routes
-app.use('/', pdpaRoutes);
+app.use('/router', pdpaRoutes);
 
 // ส่วนที่ 2: Line Webhook Routes
-app.use('/', lineWebhookRoutes);
+app.use('/router', lineWebhookRoutes);
 
 // ส่วนที่ 3: UserForm Label Routes (สำหรับ Label 5 และ 6)
-app.use('/', userform3labelRoutes);
+app.use('/router', userform3labelRoutes);
 
 // ส่วนที่ 4: Status Routes
-app.use('/', statusRoutes);
+app.use('/router', statusRoutes);
 
 // ส่วนที่ 5: Registration Confirmation Routes (สำหรับการลงทะเบียน)
-app.use('/api/registration', confirmRegistrationRoutes);
+app.use('/router/api/registration', confirmRegistrationRoutes);
 
 // ==============================================
 // API ENDPOINTS FOR VBA INTEGRATION (เก็บไว้เป็น fallback)
