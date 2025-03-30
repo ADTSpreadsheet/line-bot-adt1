@@ -5,8 +5,6 @@ const line = require('@line/bot-sdk');
 const { supabase } = require('../utils/supabaseClient');
 const { validateLineWebhook, bypassValidation } = require('../middlewares/lineWebhookValidator');
 
-
-
 //__________________________________________________________________________________________________________________________________________
 // LINE config (คือการแจ้ง Bot ว่าเราคือเจ้าของ Bot ตัวนี้)
 const config = {
@@ -85,6 +83,67 @@ async function sendSerialKey(lineUserId, refCode) {
     return false;
   }
 }
+
+//__________________________________________________________________________________________________________________________________________
+// ฟังก์ชันสำหรับบันทึกข้อมูลจากฟอร์ม REGISTER และ Machine ID
+async function saveRegistrationData(lineUserId, userData) {
+  try {
+    // บันทึกข้อมูลทั้งหมดลงในตาราง auth_sessions
+    const { data, error } = await supabase
+      .from('auth_sessions')
+      .upsert({ 
+        line_user_id: lineUserId,
+        ...userData,  // ข้อมูลจากฟอร์ม REGISTER รวมถึง Machine ID
+        created_at: new Date().toISOString(),
+      });
+
+    if (error) {
+      console.error('❌ Error saving registration data:', error);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('❌ Error saving registration data:', error);
+    return false;
+  }
+}
+
+//__________________________________________________________________________________________________________________________________________
+// ฟังก์ชันสำหรับตรวจสอบสถานะ PDPA และกำหนดระยะเวลาใช้งาน
+async function updateUsagePeriod(lineUserId, status) {
+  try {
+    let usageDays = 1;  // ค่าเริ่มต้นเป็น 1 วัน
+
+    if (status === 'ACCEPTED') {
+      usageDays = 7; // ถ้าผู้ใช้ยอมรับ PDPA ให้ใช้ได้ 7 วัน
+    } 
+
+    // อัปเดตวันหมดอายุใน Supabase
+    const expiryDate = new Date();
+    expiryDate.setDate(expiryDate.getDate() + usageDays);  // เพิ่ม 7 หรือ 1 วัน
+    
+    await supabase
+      .from('auth_sessions')
+      .update({ expires_at: expiryDate.toISOString() })
+      .eq('line_user_id', lineUserId);
+
+    // ส่งข้อความแจ้งให้ผู้ใช้ทราบ
+    await client.pushMessage(lineUserId, {
+      type: 'text',
+      text: `🎉 การลงทะเบียนของคุณสำเร็จแล้ว! คุณได้รับสิทธิ์ใช้งาน ${usageDays} วัน`
+    });
+
+    return true;
+  } catch (error) {
+    console.error('❌ Error updating usage period:', error);
+    return false;
+  }
+}
+
+//__________________________________________________________________________________________________________________________________________
+// ROUTES & ENDPOINTS
+//__________________________________________________________________________________________________________________________________________
 
 // Webhook endpoint - ใช้ middleware ของเราเอง (แทนที่ line.middleware)
 router.post('/webhook', validateLineWebhook(process.env.LINE_CHANNEL_SECRET), async (req, res) => {
@@ -190,8 +249,8 @@ router.post('/webhook', validateLineWebhook(process.env.LINE_CHANNEL_SECRET), as
     // response ส่งไปแล้ว ไม่ต้องส่งอีก
   }
 });
-//__________________________________________________________________________________________________________________________________________
 
+//__________________________________________________________________________________________________________________________________________
 // API endpoint สำหรับตรวจสอบ Ref Code
 router.post('/verify-refcode', async (req, res) => {
   try {
@@ -207,7 +266,7 @@ router.post('/verify-refcode', async (req, res) => {
     // ตรวจสอบว่า ref_code มีอยู่จริงและตรงกับ lineUserId หรือไม่
     const { data, error } = await supabase
       .from('auth_sessions')
-      .select('id')
+      .select('id, serial_key')  // เพิ่ม serial_key ในการเลือก
       .eq('ref_code', refCode)
       .eq('line_user_id', lineUserId);
       
@@ -225,38 +284,45 @@ router.post('/verify-refcode', async (req, res) => {
         message: 'Invalid ref code or LINE user ID' 
       });
     }
-    //__________________________________________________________________________________________________________________________________________
     
     // ส่ง serial key ไปที่ไลน์
-const sent = await sendSerialKey(lineUserId, refCode);
-
-if (!sent) {
-  return res.status(500).json({ 
-    success: false, 
-    message: 'Failed to send serial key' 
-  });
-}
-
-// อัปเดตสถานะ
-await supabase
-  .from('auth_sessions')
-  .update({ status: 'REFCODE_VERIFIED' })
-  .eq('ref_code', refCode)
-  .eq('line_user_id', lineUserId);
-
-// ส่งข้อความแจ้งเตือนให้ผู้ใช้ว่า Ref.Code ได้รับการยืนยันแล้ว
-await client.pushMessage(lineUserId, {
-  type: 'text',
-  text: `🔐 Ref.Code ของคุณได้รับการยืนยันเรียบร้อยแล้ว\n🔑 Serial Key ของคุณคือ: ${data[0].serial_key}`
+    const sent = await sendSerialKey(lineUserId, refCode);
+    
+    if (!sent) {
+      return res.status(500).json({ 
+        success: false, 
+        message: 'Failed to send serial key' 
+      });
+    }
+    
+    // อัปเดตสถานะ
+    await supabase
+      .from('auth_sessions')
+      .update({ status: 'REFCODE_VERIFIED' })
+      .eq('ref_code', refCode)
+      .eq('line_user_id', lineUserId);
+    
+    // ส่งข้อความแจ้งเตือนให้ผู้ใช้ว่า Ref.Code ได้รับการยืนยันแล้ว
+    await client.pushMessage(lineUserId, {
+      type: 'text',
+      text: `🔐 Ref.Code ของคุณได้รับการยืนยันเรียบร้อยแล้ว\n🔑 Serial Key ของคุณคือ: ${data[0].serial_key}`
+    });
+    
+    // ส่งผลลัพธ์กลับ API
+    return res.status(200).json({ 
+      success: true, 
+      message: 'Ref code verified and serial key sent' 
+    });
+  } catch (error) {
+    console.error('❌ Error in verify-refcode endpoint:', error);
+    return res.status(500).json({ 
+      success: false, 
+      message: 'Server error' 
+    });
+  }
 });
 
-// ส่งผลลัพธ์กลับ API
-return res.status(200).json({ 
-  success: true, 
-  message: 'Ref code verified and serial key sent' 
-});
 //__________________________________________________________________________________________________________________________________________
-
 // API endpoint สำหรับตรวจสอบ Serial Key
 router.post('/verify-serialkey', async (req, res) => {
   try {
@@ -314,55 +380,8 @@ router.post('/verify-serialkey', async (req, res) => {
     });
   }
 });
+
 //__________________________________________________________________________________________________________________________________________
-// ฟังก์ชันสำหรับบันทึกข้อมูลจากฟอร์ม REGISTER และ Machine ID
-async function saveRegistrationData(lineUserId, userData) {
-  try {
-    // บันทึกข้อมูลทั้งหมดลงในตาราง auth_sessions
-    const { data, error } = await supabase
-      .from('auth_sessions')
-      .upsert({ 
-        line_user_id: lineUserId,
-        ...userData,  // ข้อมูลจากฟอร์ม REGISTER รวมถึง Machine ID
-        created_at: new Date().toISOString(),
-      });
-
-    if (error) {
-      console.error('❌ Error saving registration data:', error);
-      return false;
-    }
-
-    return true;
-  } catch (error) {
-    console.error('❌ Error saving registration data:', error);
-    return false;
-  }
-}
-//__________________________________________________________________________________________________________________________________________
-// ตรวจสอบสถานะ PDPA และกำหนดระยะเวลาใช้งาน
-const status = data[0].status;  // 'ACCEPTED' หรือ 'DECLINED'
-let usageDays = 1;  // ค่าเริ่มต้นเป็น 1 วัน
-
-if (status === 'ACCEPTED') {
-  usageDays = 7; // ถ้าผู้ใช้ยอมรับ PDPA ให้ใช้ได้ 7 วัน
-} 
-
-// อัปเดตวันหมดอายุใน Supabase
-const expiryDate = new Date();
-expiryDate.setDate(expiryDate.getDate() + usageDays);  // เพิ่ม 7 หรือ 1 วัน
-await supabase
-  .from('auth_sessions')
-  .update({ expires_at: expiryDate.toISOString() })
-  .eq('line_user_id', lineUserId);
-
-// ส่งข้อความแจ้งให้ผู้ใช้ทราบ
-await client.pushMessage(lineUserId, {
-  type: 'text',
-  text: `🎉 การลงทะเบียนของคุณสำเร็จแล้ว! คุณได้รับสิทธิ์ใช้งาน ${usageDays} วัน`
-});
-
- //__________________________________________________________________________________________________________________________________________   
-    
 // API endpoint สำหรับบันทึกข้อมูลเพิ่มเติมจาก VBA
 router.post('/complete-registration', async (req, res) => {
   try {
@@ -372,6 +391,21 @@ router.post('/complete-registration', async (req, res) => {
       return res.status(400).json({ 
         success: false, 
         message: 'Missing required fields' 
+      });
+    }
+    
+    // ดึงข้อมูล line_user_id และ status จากฐานข้อมูล
+    const { data: userData2, error: fetchError } = await supabase
+      .from('auth_sessions')
+      .select('line_user_id, status')
+      .eq('ref_code', refCode)
+      .single();
+      
+    if (fetchError || !userData2) {
+      console.error('❌ Error fetching user data:', fetchError);
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Ref code not found' 
       });
     }
     
@@ -404,6 +438,9 @@ router.post('/complete-registration', async (req, res) => {
         message: 'Database error' 
       });
     }
+    
+    // อัปเดตระยะเวลาการใช้งานตาม PDPA status
+    await updateUsagePeriod(userData2.line_user_id, userData2.status);
 
     // บันทึก log เมื่อการลงทะเบียนเสร็จสมบูรณ์
     await supabase
@@ -411,7 +448,7 @@ router.post('/complete-registration', async (req, res) => {
       .insert({
         ref_code: refCode,
         action: 'Registration completed successfully',
-        line_user_id: userData.line_user_id,
+        line_user_id: userData2.line_user_id,
         status: 'COMPLETED',
         timestamp: new Date().toISOString(),
       });
@@ -428,7 +465,7 @@ router.post('/complete-registration', async (req, res) => {
     await supabase
       .from('activity_logs')
       .insert({
-        ref_code: refCode,
+        ref_code: req.body?.refCode || 'unknown',
         action: 'Error in complete-registration',
         error_message: error.message,
         timestamp: new Date().toISOString(),
@@ -441,6 +478,8 @@ router.post('/complete-registration', async (req, res) => {
   }
 });
 
+//__________________________________________________________________________________________________________________________________________
+// TEST & HEALTH CHECK ENDPOINTS
 //__________________________________________________________________________________________________________________________________________
 
 // Webhook endpoint - เวอร์ชัน Bypass Validation สำหรับการทดสอบ
@@ -469,6 +508,5 @@ router.get('/webhook', (req, res) => {
 router.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok', message: 'LINE webhook is healthy' });
 });
-
 
 module.exports = router;
