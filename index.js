@@ -32,7 +32,7 @@ app.use(bodyParser.urlencoded({ extended: true }));
 // ROUTES
 // ==============================================
 // ส่วนที่ 1: PDPA Routes
-app.use('/router', pdpaRoutes);
+app.use('/pdpa-textr', pdpaRoutes);
 
 // ส่วนที่ 2: Line Webhook Routes
 app.use('/router', lineWebhookRoutes);
