@@ -26,7 +26,7 @@ const pdpaText = `
 `;
 
 // ส่งข้อความ PDPA
-router.get('/', (req, res) => {
+router.get('/pdpa-text', (req, res) => {
     res.type('text/plain; charset=utf-8');
     res.send(pdpaText);
 });
