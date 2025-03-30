@@ -15,29 +15,47 @@ const client = new line.Client({
   channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN
 });
 
-// สุ่ม Ref.Code (4 ตัวอักษรพิมพ์ใหญ่+ตัวเลข)
-function generateRefCode(length = 4) {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-  let result = '';
-  for (let i = 0; i < length; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return result;
+//__________________________________________________________________________________________________________________________________________
+// การสร้างรหัส ref.Code  format = อักษร2ตัว + ตัวเลข2ตัว
+function generateRefCode() {
+  const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  const digits = '0123456789';
+
+  const randLetter1 = letters.charAt(Math.floor(Math.random() * letters.length));
+  const randLetter2 = letters.charAt(Math.floor(Math.random() * letters.length));
+  const randDigit1 = digits.charAt(Math.floor(Math.random() * digits.length));
+  const randDigit2 = digits.charAt(Math.floor(Math.random() * digits.length));
+
+  const patterns = [
+    randLetter1 + randLetter2 + randDigit1 + randDigit2, // AB01
+    randDigit1 + randDigit2 + randLetter1 + randLetter2, // 01AB
+    randLetter1 + randDigit1 + randDigit2 + randLetter2, // A01B
+    randDigit1 + randLetter1 + randDigit2 + randLetter2  // 0A1B
+  ];
+
+  return patterns[Math.floor(Math.random() * patterns.length)];
 }
 
-// สร้าง serial_key
+// การสร้างรหัส serial key  format = อักษร2ตัว + ตัวเลข6ตัว
 function generateSerialKey() {
-  // ตัวอย่างการสร้าง serial key
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-  let result = '';
-  for (let i = 0; i < 16; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
-    if (i === 3 || i === 7 || i === 11) result += '-';
-  }
-  return result;
-}
+  const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  const digits = '0123456789';
 
-// ส่งข้อความ Serial Key ไปที่ผู้ใช้
+  let numericPart = '';
+  let letterPart = '';
+
+  for (let i = 0; i < 4; i++) {
+    numericPart += digits.charAt(Math.floor(Math.random() * digits.length));
+  }
+  for (let i = 0; i < 2; i++) {
+    letterPart += letters.charAt(Math.floor(Math.random() * letters.length));
+  }
+
+  return numericPart + letterPart; // เช่น 9382KX
+}
+//__________________________________________________________________________________________________________________________________________
+
+// การส่งข้อความ ref.code ไ
 async function sendSerialKey(lineUserId, refCode) {
   try {
     // ค้นหา serial key จาก ref_code
