@@ -11,6 +11,7 @@ const pdpaRoutes = require('./routes/pdpaText');
 const userform3labelRoutes = require('./routes/userform3label');
 const lineWebhookRoutes = require('./routes/linewebhook');
 const statusRoutes = require('./routes/status');
+const confirmRegistrationRoutes = require('./routes/ConfirmRegistration');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -42,10 +43,13 @@ app.use('/', userform3labelRoutes);
 // ส่วนที่ 4: Status Routes
 app.use('/', statusRoutes);
 
+// ส่วนที่ 5: Registration Confirmation Routes (สำหรับการลงทะเบียน)
+app.use('/api/registration', confirmRegistrationRoutes);
+
 // ==============================================
-// API ENDPOINTS FOR VBA INTEGRATION (ถ้ายังไม่ได้อยู่ใน userform3labelRoutes)
+// API ENDPOINTS FOR VBA INTEGRATION (เก็บไว้เป็น fallback)
 // ==============================================
-// ถ้า endpoints เหล่านี้อยู่ใน userform3labelRoutes แล้ว สามารถลบส่วนนี้ได้
+// หมายเหตุ: endpoints เหล่านี้อาจถูกแทนที่ด้วย endpoints ใน confirmRegistrationRoutes
 app.get('/get-message', (req, res) => {
   res.json({
     message: "กรุณากรอก Ref.Code เพื่อตรวจสอบและรับ Serial Key ผ่านแชทไลน์"
