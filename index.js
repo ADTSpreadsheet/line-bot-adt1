@@ -7,11 +7,11 @@ const bodyParser = require('body-parser');
 require('dotenv').config();
 
 // Import Routes ที่มีอยู่จริง
-const pdpaRoutes = require('./routes/pdpaText');
-const userform3labelRoutes = require('./routes/userform3label');
-const lineWebhookRoutes = require('./routes/linewebhook');
-const statusRoutes = require('./routes/status');
-const confirmRegistrationRoutes = require('./routes/ConfirmRegistration');
+const pdpaRoutes = require('./pdpaText');
+const userform3labelRoutes = require('./userform3label');
+const lineWebhookRoutes = require('./linewebhook');
+const statusRoutes = require('./status');
+const confirmRegistrationRoutes = require('./ConfirmRegistration');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
