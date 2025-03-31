@@ -30,6 +30,12 @@ const lineConfig = {
 // ==============================================
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
+// ส่วนที่ 6: Logs สำหรับตรวจสอบข้อผิดพลาด
+app.use((req, res, next) => {
+  indexLog.debug(`📡 ${req.method} ${req.originalUrl}`);
+  next();
+});
+
 
 // ==============================================
 // ROUTES
@@ -49,11 +55,6 @@ app.use('/router', statusRoutes);
 // ส่วนที่ 5: Registration Confirmation Routes (สำหรับการลงทะเบียน)
 app.use('/router/api/registration', confirmRegistrationRoutes);
 
-// ส่วนที่ 6: Logs สำหรับตรวจสอบข้อผิดพลาด
-app.use((req, res, next) => {
-  indexLog.debug(`📡 ${req.method} ${req.originalUrl}`);
-  next();
-});
 
 // ==============================================
 // API ENDPOINTS FOR VBA INTEGRATION (เก็บไว้เป็น fallback)
