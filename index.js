@@ -12,6 +12,7 @@ const userform3labelRoutes = require('./routes/userform3label');
 const lineWebhookRoutes = require('./routes/linewebhook');
 const statusRoutes = require('./routes/status');
 const confirmRegistrationRoutes = require('./routes/ConfirmRegistration');
+const userform3labelRoutes = require('./routes/userform3label');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
