@@ -14,6 +14,14 @@ const handleFollow = async (event) => {
   const userId = event.source.userId;
   const timestamp = new Date().toISOString();
 
+  await supabase.from('auth_sessions').upsert({
+    line_user_id: lineUserId,
+    ref_code: refCode,
+    serial_key: serialKey,
+    status: 'PENDING',
+    created_at: timestamp
+  });
+
   // บันทึกผู้ใช้ใหม่ลงฐานข้อมูล
   await supabase.from('auth_sessions').upsert({
     line_user_id: userId,
