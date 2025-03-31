@@ -13,6 +13,8 @@ const lineWebhookRoutes = require('./routes/linewebhook');
 const statusRoutes = require('./routes/status');
 const confirmRegistrationRoutes = require('./routes/ConfirmRegistration');
 const userform3labelRoutes = require('./routes/userform3label');
+const { createModuleLogger } = require('./utils/logger');
+const indexLog = createModuleLogger('Index');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -46,6 +48,12 @@ app.use('/router', statusRoutes);
 
 // ส่วนที่ 5: Registration Confirmation Routes (สำหรับการลงทะเบียน)
 app.use('/router/api/registration', confirmRegistrationRoutes);
+
+// ส่วนที่ 6: Logs สำหรับตรวจสอบข้อผิดพลาด
+app.use((req, res, next) => {
+  indexLog.debug(`📡 ${req.method} ${req.originalUrl}`);
+  next();
+});
 
 // ==============================================
 // API ENDPOINTS FOR VBA INTEGRATION (เก็บไว้เป็น fallback)
