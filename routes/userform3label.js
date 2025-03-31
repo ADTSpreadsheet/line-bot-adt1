@@ -11,7 +11,7 @@ router.post('/get-message', async (req, res) => {
   log.debug('lineUserId:', lineUserId || '[Not Provided]');
 
   const responseMessage = {
-    stage1: 'ขั้นตอนที่ 1  คุณพี่ทำการ Scan QR-CODE เพื่อท ADTLine-Bot เป็นเพื่อนก่อนนะครับ จากนั้นพิมพ์ข้อความในแชทว่า.. REQ_REFCODE เดี๋ยวน้อง ADTLine-Bot เค้าจะส่งรหัส Ref.Code มาให้ครับ',
+    stage1: 'ขั้นตอนที่ 1  คุณพี่ทำการ Scan QR-CODE เพื่อเพิ่ม ADTLine-Bot เป็นเพื่อนก่อนนะครับ จากนั้นพิมพ์ข้อความในแชทว่า.. REQ_REFCODE เดี๋ยวน้อง ADTLine-Bot เค้าจะส่งรหัส Ref.Code มาให้ครับ',
     stage2: 'ขั้นตอนที่ 2  คุณพี่ได้รหัส Ref.Codeมาแล้ว ให้เอามากรอกลงในชอง Ref.Code เช็คให้ดี กรอกให้ถูกนะครับ !  กรอกเสร็จพี่กดปุ่ม Verify Code ได้เลยครับ  เดี๋ยวน้อง ADTLine-Bot เค้าจะส่งรหัส Serial key มาให้ยืนยันตัวตนครับ',
     stage3: 'ขั้นตอนที่ 3  ตอนนี้สำคัญมากนะครับ ! พี่ต้องกรอกให้ถูก เพราะถ้าผิด เกิน 3 รอบเครื่องพี่จะถูกล๊อคและเข้าระบบไม่ได้ครับผม ได้รหัส Serial key มาแล้ว กรอกให้เรียบร้อยแล้วกดปุ่ม Confirm ขอให้โชคดีนะครับ '
   };
