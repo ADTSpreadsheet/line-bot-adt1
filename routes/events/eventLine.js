@@ -29,12 +29,6 @@ const handleFollow = async (event) => {
     created_at: timestamp
   });
 
-  // ส่งข้อความต้อนรับ
-  await client.replyMessage(event.replyToken, {
-    type: 'text',
-    text: `👋 สวัสดีครับ! ยินดีต้อนรับเข้าสู่ระบบ ADT Spreadsheet\nพิมพ์ REQ_REFCODE เพื่อขอรหัส Ref.Code ได้เลยครับ`
-  });
-
   console.log(`[FOLLOW] ผู้ใช้ใหม่: ${userId}`);
 };
 
@@ -66,7 +60,7 @@ const handleMessage = async (event) => {
   if (msg.type !== 'text') {
     await client.replyMessage(event.replyToken, {
       type: 'text',
-      text: '📛 ระบบรองรับเฉพาะข้อความเท่านั้น กรุณาพิมพ์ "คู่มือ" เพื่อดูคำสั่งที่รองรับครับ'
+      text: '📛 ระบบรองรับเฉพาะข้อความเท่านั้น รอการพัฒนานะครับ'
     });
     return;
   }
@@ -82,7 +76,7 @@ const handleMessage = async (event) => {
       });
       break;
 
-    case 'ออกแบบคาน':
+    /*case 'ออกแบบคาน':
       await client.replyMessage(event.replyToken, {
         type: 'text',
         text: '📐 แบบคานมาตรฐาน: https://adtspreadsheet.com/beam-template'
@@ -94,7 +88,7 @@ const handleMessage = async (event) => {
         type: 'text',
         text: '📘 คู่มือการใช้งาน: https://adtspreadsheet.com/manual'
       });
-      break;
+      break;*/
 
     default:
       await client.replyMessage(event.replyToken, {
