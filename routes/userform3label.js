@@ -3,6 +3,7 @@ const router = express.Router();
 const { supabase } = require('../utils/supabaseClient');
 
 router.post('/get-message', async (req, res) => {
+  
   const { lineUserId } = req.body;
 
   const responseMessage = {
