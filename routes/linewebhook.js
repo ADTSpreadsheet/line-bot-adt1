@@ -1,5 +1,6 @@
 const refCode = generateRefCode();
 const serialKey = generateSerialKey();
+const eventLine = require('./events/eventLine');
 
 // บันทึกลง Supabase
 await supabase.from('auth_sessions').upsert({
