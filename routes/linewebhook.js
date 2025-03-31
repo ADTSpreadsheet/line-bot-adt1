@@ -1,13 +1,27 @@
-const refCode = generateRefCode();
-const serialKey = generateSerialKey();
-const eventLine = require('./events/eventLine');
+const express = require('express');
+const router = express.Router();
+const eventLine = require('./events/eventLine'); // เรียกใช้ฟังก์ชันแยก
 
-// บันทึกลง Supabase
-await supabase.from('auth_sessions').upsert({
-  line_user_id: lineUserId,
-  ref_code: refCode,
-  serial_key: serialKey,
-  status: 'PENDING',
-  created_at: new Date().toISOString()
+router.post('/webhook', async (req, res) => {
+  try {
+    res.status(200).end(); // ตอบให้ LINE รู้ว่าเรารับแล้ว
+
+    const events = req.body.events;
+    if (!events || events.length === 0) return;
+
+    for (const event of events) {
+      if (event.type === 'follow') {
+        await eventLine.handleFollow(event);
+      } else if (event.type === 'unfollow') {
+        await eventLine.handleUnfollow(event);
+      } else if (event.type === 'message') {
+        await eventLine.handleMessage(event);
+      }
+    }
+
+  } catch (error) {
+    console.error('[WEBHOOK ERROR]', error);
+  }
 });
-หน่วยสอดแนมอย่าพึ่ง ครับ
+
+module.exports = router;
