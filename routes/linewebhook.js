@@ -74,8 +74,8 @@ async function sendSerialKey(lineUserId, refCode) {
     // ส่ง serial key ไปที่ไลน์
     await client.pushMessage(lineUserId, {
       type: 'text',
-      text: 🔑 Serial Key ของคุณคือ: ${data[0].serial_key}
-    });
+      text: 🔑 Serial Key ของคุณคือ: ${data[0].serial_key}`
+      });
     
     return true;
   } catch (error) {
