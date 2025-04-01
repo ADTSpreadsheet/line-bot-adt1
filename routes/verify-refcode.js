@@ -1,18 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const { pool } = require('../db/postgres');
-const line = require('@line/bot-sdk');
+const { sendSerialKeyToLine } = require('../routes/events/eventLine'); // เรียกใช้ฟังก์ชันจาก eventLine.js
 
 // Logger สำหรับการบันทึกข้อมูล
 const { createModuleLogger } = require('../utils/logger');
 const verifyLog = createModuleLogger('VerifyRefcode');
-
-// ตั้งค่า LINE API
-const config = {
-  channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN,
-  channelSecret: process.env.LINE_CHANNEL_SECRET
-};
-const client = new line.Client(config);
 
 // POST: /verify-refcode
 router.post('/', async (req, res) => {
@@ -61,12 +54,9 @@ router.post('/', async (req, res) => {
       verifyLog.error(`Error updating verify_count in auth_sessions: ${updateError.message}`);
     }
 
-    // ส่ง Serial Key ไปที่ LINE
+    // ส่ง Serial Key ไปที่ LINE (เรียกฟังก์ชันจาก eventLine.js)
     try {
-      await client.pushMessage(userData.line_user_id, {
-        type: 'text',
-        text: `🔐 Serial Key ของคุณคือ: ${userData.serial_key}`
-      });
+      await sendSerialKeyToLine(userData.line_user_id, userData.serial_key);
       verifyLog.info(`Sent Serial Key to Line User ID: ${userData.line_user_id}`);
     } catch (lineError) {
       verifyLog.error(`Error sending Serial Key to Line: ${lineError.message}`);
