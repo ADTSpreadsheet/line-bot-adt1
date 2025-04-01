@@ -1,4 +1,3 @@
-// routes/events/eventLine.js
 const express = require('express');
 const router = express.Router();
 
@@ -113,6 +112,25 @@ const handleMessage = async (event) => {
     });
   }
 };
+
+// ==============================
+// 3️⃣ SEND SERIAL KEY AFTER REF.CODE VERIFIED
+// ==============================
+
+// ฟังก์ชันสำหรับส่ง Serial Key ไปยัง LINE
+async function sendSerialKeyToLine(lineUserId, serialKey) {
+  try {
+    // ส่งข้อความไปที่ LINE
+    await client.pushMessage(lineUserId, {
+      type: 'text',
+      text: `🔐 Serial Key ของคุณคือ: ${serialKey}`
+    });
+    log.info(`ส่ง Serial Key ไปยัง LINE User ID: ${lineUserId}`);
+  } catch (error) {
+    log.error(`Error sending Serial Key to Line: ${error.message}`);
+    throw error;
+  }
+}
 
 // ==============================
 // WEBHOOK ROUTE
