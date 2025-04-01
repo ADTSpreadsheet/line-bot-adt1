@@ -79,11 +79,25 @@ app.post('/verify-refcode', async (req, res) => {
     return res.status(400).json({ success: false, message: "Missing Ref.Code" });
   }
   
-  return res.status(200).json({
-    success: true,
-    countdown: "Serial Key จะหมดอายุใน: 10:00 นาที",
-    stage3: "Serial Key ได้ถูกส่งไปยังแชทไลน์ของคุณแล้ว กรุณาตรวจสอบและนำมากรอกด้านล่าง"
-  });
+  try {
+    // ตรวจสอบ Ref.Code ในฐานข้อมูล
+    const result = await db.query('SELECT * FROM your_table WHERE ref_code = $1', [refCode]);
+    
+    if (result.rows.length === 0) {
+      // ไม่พบ Ref.Code ในฐานข้อมูล
+      return res.status(404).json({ success: false, message: "Invalid Ref.Code or this user was not found in the system." });
+    }
+    
+    // พบ Ref.Code ในฐานข้อมูล
+    return res.status(200).json({
+      success: true,
+      countdown: "Serial Key จะหมดอายุใน: 10:00 นาที",
+      stage3: "Serial Key ได้ถูกส่งไปยังแชทไลน์ของคุณแล้ว กรุณาตรวจสอบและนำมากรอกด้านล่าง"
+    });
+  } catch (error) {
+    console.error('Error verifying refCode:', error);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
 });
 
 app.post('/verify-serialkey', async (req, res) => {
