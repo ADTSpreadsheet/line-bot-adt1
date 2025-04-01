@@ -56,89 +56,43 @@ const handleFollow = async (event) => {
     status: 'PENDING',
     created_at: timestamp
   });
-
-  // บันทึกผู้ใช้ใหม่ลงฐานข้อมูล
-  await supabase.from('auth_sessions').upsert({
-    line_user_id: userId,
-    status: 'NEW',
-    created_at: timestamp
-  });
-
-  console.log(`[FOLLOW] ผู้ใช้ใหม่: ${userId}`);
-};
-
-// ==============================
-// 2️⃣ UNFOLLOW EVENT
-// ==============================
-const handleUnfollow = async (event) => {
-  const userId = event.source.userId;
-
-  // อัปเดตสถานะในฐานข้อมูล
-  await supabase.from('auth_sessions')
-    .update({
-      status: 'BLOCKED',
-      unfollowed_at: new Date().toISOString()
-    })
-    .eq('line_user_id', userId);
-
-  console.log(`[UNFOLLOW] ผู้ใช้บล็อกบอท: ${userId}`);
-};
-
-// ==============================
-// 3️⃣ MESSAGE EVENT
+  // ==============================
+// 2️⃣ MESSAGE EVENT
 // ==============================
 const handleMessage = async (event) => {
   const userId = event.source.userId;
   const msg = event.message;
 
-  // กรองเฉพาะข้อความเท่านั้น
-  if (msg.type !== 'text') {
-    await client.replyMessage(event.replyToken, {
-      type: 'text',
-      text: '📛 ระบบรองรับเฉพาะข้อความเท่านั้น รอการพัฒนานะครับ'
-    });
-    return;
-  }
+  if (msg.type !== 'text') return; // กรองไว้ก่อน
 
   const text = msg.text.trim().toLowerCase();
 
-  switch (text) {
-    case 'req_refcode':
-      // ให้ไปเขียน handler จริงในภายหลัง
-      await client.replyMessage(event.replyToken, {
-        type: 'text',
-        text: '🔐 โปรดกรอก Ref.Code ของคุณในช่อง Excel เพื่อดำเนินการต่อครับ'
-      });
-      break;
+  if (text === 'req_refcode') {
+    const { data, error } = await supabase
+      .from('auth_sessions')
+      .select('ref_code')
+      .eq('line_user_id', userId)
+      .single();
 
-    /*case 'ออกแบบคาน':
+    if (error || !data || !data.ref_code) {
       await client.replyMessage(event.replyToken, {
         type: 'text',
-        text: '📐 แบบคานมาตรฐาน: https://adtspreadsheet.com/beam-template'
+        text: '❌ ไม่พบ Ref.Code ของคุณ กรุณาสแกน QR ใหม่ก่อนใช้งานครับ'
       });
-      break;
+      return;
+    }
 
-    case 'คู่มือ':
-      await client.replyMessage(event.replyToken, {
-        type: 'text',
-        text: '📘 คู่มือการใช้งาน: https://adtspreadsheet.com/manual'
-      });
-      break;*/
-
-    default:
-      await client.replyMessage(event.replyToken, {
-        type: 'text',
-        text: '❓ คำสั่งไม่ถูกต้อง กรุณาพิมพ์ "คู่มือ" เพื่อดูคำสั่งที่รองรับครับ'
-      });
-      break;
+    await client.replyMessage(event.replyToken, {
+      type: 'text',
+      text: `🔐 Ref.Code ของคุณคือ: ${data.ref_code}`
+    });
   }
-
-  console.log(`[MESSAGE] จากผู้ใช้ ${userId}: ${text}`);
 };
 
+
+  
 // ==============================
 module.exports = {
   handleFollow,
-  handleUnfollow,
   handleMessage
 };
