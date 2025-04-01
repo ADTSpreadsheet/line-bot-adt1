@@ -2,19 +2,26 @@
 // IMPORTS & REQUIREMENTS
 // ==============================================
 const express = require('express');
-const line = require('@line/bot-sdk');
 const bodyParser = require('body-parser');
 require('dotenv').config();
 
-// Import Routes ที่มีอยู่จริง
+// LINE SDK
+const line = require('@line/bot-sdk');
+
+// Logger
+const { createModuleLogger } = require('./utils/logger');
+const indexLog = createModuleLogger('Index');
+
+// ==============================================
+// ROUTES
+// ==============================================
 const pdpaRoutes = require('./routes/pdpaText');
 const userform3labelRoutes = require('./routes/userform3label');
 const statusRoutes = require('./routes/status');
 const confirmRegistrationRoutes = require('./routes/ConfirmRegistration');
-const { createModuleLogger } = require('./utils/logger');
-const indexLog = createModuleLogger('Index');
 const eventLineRoutes = require('./routes/events/eventLine');
 
+// ==============================================
 const app = express();
 const PORT = process.env.PORT || 3000;
 
