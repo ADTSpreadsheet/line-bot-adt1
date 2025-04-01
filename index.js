@@ -100,15 +100,6 @@ app.post('/verify-refcode', async (req, res) => {
   }
 });
 
-app.post('/verify-serialkey', async (req, res) => {
-  const { refCode, serialKey } = req.body;
-  
-  if (!refCode || !serialKey) {
-    return res.status(400).json({ success: false, message: "Missing Ref.Code or Serial Key" });
-  }
-  
-  return res.status(200).json({ success: true, message: "Serial Key verified successfully" });
-});
 
 // ==============================================
 // ERROR HANDLING
