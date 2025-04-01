@@ -2,6 +2,9 @@
 // const chalk = require('chalk'); // ปิดการใช้งาน chalk
 
 // ระดับของ log
+// utils/logger.js
+
+// ระดับของ log
 const LOG_LEVELS = {
   DEBUG: 0,
   INFO: 1,
@@ -10,57 +13,66 @@ const LOG_LEVELS = {
   NONE: 4
 };
 
-// ตั้งค่าระดับ log จาก environment variable หรือค่าเริ่มต้น
-const currentLogLevel = process.env.LOG_LEVEL 
+// กำหนดระดับ log จาก ENV หรือใช้ค่า default
+const currentLogLevel = process.env.LOG_LEVEL
   ? LOG_LEVELS[process.env.LOG_LEVEL.toUpperCase()] || LOG_LEVELS.INFO
   : LOG_LEVELS.INFO;
 
+const getTimestamp = () => {
+  return new Date().toISOString();
+};
+
+// ฟังก์ชันกลางสำหรับแสดง log แบบมี timestamp
+const logWithLevel = (levelTag, moduleName, ...args) => {
+  const prefix = `[${levelTag}]${moduleName ? ` [${moduleName}]` : ''} ${getTimestamp()}`;
+  console.log(prefix, ...args);
+};
+
+// ฟังก์ชันสำหรับ log แต่ละระดับ
 const debug = (...args) => {
-  if (currentLogLevel <= LOG_LEVELS.DEBUG) {
-    console.log('[DEBUG]', ...args);
-  }
+  if (currentLogLevel <= LOG_LEVELS.DEBUG) logWithLevel('DEBUG', null, ...args);
 };
 
 const info = (...args) => {
-  if (currentLogLevel <= LOG_LEVELS.INFO) {
-    console.log('[INFO]', ...args);
-  }
+  if (currentLogLevel <= LOG_LEVELS.INFO) logWithLevel('INFO', null, ...args);
 };
 
 const warn = (...args) => {
-  if (currentLogLevel <= LOG_LEVELS.WARN) {
-    console.warn('[WARN]', ...args);
-  }
+  if (currentLogLevel <= LOG_LEVELS.WARN) logWithLevel('WARN', null, ...args);
 };
 
 const error = (...args) => {
-  if (currentLogLevel <= LOG_LEVELS.ERROR) {
-    console.error('[ERROR]', ...args);
-  }
+  if (currentLogLevel <= LOG_LEVELS.ERROR) logWithLevel('ERROR', null, ...args);
 };
 
 const success = (...args) => {
-  if (currentLogLevel <= LOG_LEVELS.INFO) {
-    console.log('[SUCCESS]', ...args);
-  }
+  if (currentLogLevel <= LOG_LEVELS.INFO) logWithLevel('SUCCESS', null, ...args);
 };
 
+// สำหรับสร้าง logger ของแต่ละโมดูล
 const createModuleLogger = (moduleName) => {
   return {
-    debug: (...args) => debug(`[${moduleName}]`, ...args),
-    info: (...args) => info(`[${moduleName}]`, ...args),
-    warn: (...args) => warn(`[${moduleName}]`, ...args),
-    error: (...args) => error(`[${moduleName}]`, ...args),
-    success: (...args) => success(`[${moduleName}]`, ...args)
+    debug: (...args) => {
+      if (currentLogLevel <= LOG_LEVELS.DEBUG) logWithLevel('DEBUG', moduleName, ...args);
+    },
+    info: (...args) => {
+      if (currentLogLevel <= LOG_LEVELS.INFO) logWithLevel('INFO', moduleName, ...args);
+    },
+    warn: (...args) => {
+      if (currentLogLevel <= LOG_LEVELS.WARN) logWithLevel('WARN', moduleName, ...args);
+    },
+    error: (...args) => {
+      if (currentLogLevel <= LOG_LEVELS.ERROR) logWithLevel('ERROR', moduleName, ...args);
+    },
+    success: (...args) => {
+      if (currentLogLevel <= LOG_LEVELS.INFO) logWithLevel('SUCCESS', moduleName, ...args);
+    }
   };
 };
 
+// Placeholder สำหรับ log ลงไฟล์ในอนาคต
 const logToFile = (level, message) => {
-  // ในอนาคตอาจเพิ่มการบันทึกลงไฟล์ได้ที่นี่
-};
-
-const getTimestamp = () => {
-  return new Date().toISOString();
+  // ยังไม่ implement
 };
 
 module.exports = {
@@ -72,3 +84,4 @@ module.exports = {
   createModuleLogger,
   LOG_LEVELS
 };
+
