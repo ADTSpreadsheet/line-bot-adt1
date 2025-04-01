@@ -59,7 +59,7 @@ app.use('/router', userform3labelRoutes);
 app.use('/verify-refcode', verifyRefcodeRoutes);
 
 // ส่วนที่ 5: Registration Confirmation Routes (สำหรับการลงทะเบียน)
-app.use('/router/api/registration', confirmRegistrationRoutes);
+/*app.use('/router/api/registration', confirmRegistrationRoutes);*/
 
 
 // ==============================================
