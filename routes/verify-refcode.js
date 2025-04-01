@@ -44,9 +44,6 @@ router.post('/', async (req, res) => {
     }
 
     // ส่งข้อมูล Serial Key กลับไป
-    return res.status(200).json({ success: true, serial_key: data.serial_key });
-
-    // ส่ง Serial Key ไปที่ไลน์
     const serialKey = data.serial_key;
     await client.pushMessage(lineUserId, {
       type: 'text',
@@ -62,7 +59,7 @@ router.post('/', async (req, res) => {
 
     // Log & Response
     log.success(`✅ ยืนยัน Ref.Code เรียบร้อย: ${refCode}`);
-    res.status(200).json({ 
+    return res.status(200).json({ 
       success: true, 
       message: 'ยืนยัน Ref.Code สำเร็จ และส่ง Serial Key ไปทางไลน์แล้ว' 
     });
@@ -75,6 +72,5 @@ router.post('/', async (req, res) => {
     });
   }
 });
-
 
 module.exports = router;
