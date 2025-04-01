@@ -1,10 +1,13 @@
 // routes/events/eventLine.js
+const express = require('express');
+const router = express.Router();
+
 const { supabase } = require('../../utils/supabaseClient');
 const line = require('@line/bot-sdk');
 const { createModuleLogger } = require('../../utils/logger');
-
 const log = createModuleLogger('ADTLine-Bot');
 
+// LINE CONFIG
 const config = {
   channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN,
   channelSecret: process.env.LINE_CHANNEL_SECRET
@@ -112,7 +115,24 @@ const handleMessage = async (event) => {
 };
 
 // ==============================
-module.exports = {
-  handleFollow,
-  handleMessage
-};
+// WEBHOOK ROUTE
+// ==============================
+router.post('/', async (req, res) => {
+  const events = req.body.events;
+
+  if (!events || events.length === 0) {
+    return res.status(200).end();
+  }
+
+  for (const event of events) {
+    if (event.type === 'follow') {
+      await handleFollow(event);
+    } else if (event.type === 'message') {
+      await handleMessage(event);
+    }
+  }
+
+  res.status(200).end();
+});
+
+module.exports = router;
