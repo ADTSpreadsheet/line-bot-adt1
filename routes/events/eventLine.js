@@ -46,8 +46,11 @@ const handleFollow = async (event) => {
   const userId = event.source.userId;
   const timestamp = new Date().toISOString();
 
-  await supabase.from('auth_sessions').upsert({
-    line_user_id: lineUserId,
+  const refCode = generateRefCode();       // ✅ สร้าง Ref.Code
+  const serialKey = generateSerialKey();   // ✅ สร้าง Serial Key
+
+  const { error } = await supabase.from('auth_sessions').upsert({
+    line_user_id: userId,
     ref_code: refCode,
     serial_key: serialKey,
     status: 'PENDING',
