@@ -14,6 +14,7 @@ const statusRoutes = require('./routes/status');
 const confirmRegistrationRoutes = require('./routes/ConfirmRegistration');
 const { createModuleLogger } = require('./utils/logger');
 const indexLog = createModuleLogger('Index');
+const eventLineRoutes = require('./routes/events/eventLine');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -43,7 +44,7 @@ app.use((req, res, next) => {
 app.use('/router', pdpaRoutes);
 
 // ส่วนที่ 2: Line Webhook Routes
-app.use('./routes/linewebhook', lineWebhookRoutes);
+app.use('/webhook', eventLineRoutes);
 
 // ส่วนที่ 3: UserForm Label Routes (สำหรับ Label 5 และ 6)
 app.use('/router', userform3labelRoutes);
