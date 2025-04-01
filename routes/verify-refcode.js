@@ -24,19 +24,32 @@ router.post('/', async (req, res) => {
   }
 
   try {
-    // ค้นหา Ref.Code และ Serial Key
-    const { data, error } = await supabase
-      .from('auth_sessions')
-      .select('serial_key')
-      .eq('ref_code', refCode)
-      .single();
+  // ค้นหา Ref.Code และ Serial Key
+  const { data, error } = await supabase
+    .from('auth_sessions')
+    .select('serial_key')
+    .eq('ref_code', refCode)
+    .single();
 
-    if (error || !data) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'ไม่พบข้อมูล Ref.Code หรือไม่ตรงกับผู้ใช้' 
-      });
-    }
+  // ตรวจสอบข้อผิดพลาด
+  if (error) {
+    console.log('Error:', error); // log ข้อผิดพลาด
+    return res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาดในการดึงข้อมูล' });
+  }
+
+  // เช็คผลลัพธ์จากฐานข้อมูล
+  if (!data) {
+    console.log('No data found for refCode:', refCode);  // log เมื่อไม่พบข้อมูล
+    return res.status(404).json({ success: false, message: 'ไม่พบข้อมูล Ref.Code นี้' });
+  }
+
+  // ส่งข้อมูล Serial Key กลับไป
+  return res.status(200).json({ success: true, serial_key: data.serial_key });
+
+} catch (err) {
+  console.log('Unexpected error:', err);  // log ข้อผิดพลาดที่ไม่คาดคิด
+  return res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาด' });
+}
 
     // ส่ง Serial Key ไปที่ไลน์
     const serialKey = data.serial_key;
