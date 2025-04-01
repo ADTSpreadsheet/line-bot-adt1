@@ -1,15 +1,18 @@
 // routes/events/eventLine.js
 const { supabase } = require('../../utils/supabaseClient');
 const line = require('@line/bot-sdk');
+const { createModuleLogger } = require('../../utils/logger');
+
+const log = createModuleLogger('ADTLine-Bot');
+
 const config = {
   channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN,
   channelSecret: process.env.LINE_CHANNEL_SECRET
 };
+
 const client = new line.Client(config);
 
-
-// 📌  ฟังก์ชันสร้าง Ref.Code + Serial Key
-// ==============================
+// 📌 ฟังก์ชันสร้าง Ref.Code + Serial Key
 function generateRefCode() {
   const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
   const digits = '0123456789';
@@ -39,15 +42,15 @@ function generateSerialKey() {
   }
   return numericPart + letterPart;
 }
+
 // ==============================
 // 1️⃣ FOLLOW EVENT
 // ==============================
 const handleFollow = async (event) => {
   const userId = event.source.userId;
   const timestamp = new Date().toISOString();
-
-  const refCode = generateRefCode();       // ✅ สร้าง Ref.Code
-  const serialKey = generateSerialKey();   // ✅ สร้าง Serial Key
+  const refCode = generateRefCode();
+  const serialKey = generateSerialKey();
 
   const { error } = await supabase.from('auth_sessions').upsert({
     line_user_id: userId,
@@ -56,18 +59,33 @@ const handleFollow = async (event) => {
     status: 'PENDING',
     created_at: timestamp
   });
-  // ==============================
+
+  if (error) {
+    log.error('[FOLLOW] บันทึก Supabase ล้มเหลว:', error);
+    return;
+  }
+
+  log.info('[FOLLOW] ผู้ใช้รายใหม่เพิ่ม ADTLine-Bot เป็นเพื่อน');
+  log.info(`LINE USER ID: ${userId}`);
+  log.info(`🔐 Ref.Code: ${refCode}`);
+  log.info(`🔑 Serial Key: ${serialKey}`);
+  log.success('✅ บันทึกลง Supabase เรียบร้อยแล้ว');
+};
+
+// ==============================
 // 2️⃣ MESSAGE EVENT
 // ==============================
 const handleMessage = async (event) => {
   const userId = event.source.userId;
   const msg = event.message;
 
-  if (msg.type !== 'text') return; // กรองไว้ก่อน
+  if (msg.type !== 'text') return;
 
   const text = msg.text.trim().toLowerCase();
 
   if (text === 'req_refcode') {
+    log.info(`ให้ผู้ใช้: ${userId} ขอ [REQ_REFCODE]`);
+
     const { data, error } = await supabase
       .from('auth_sessions')
       .select('ref_code')
@@ -75,12 +93,16 @@ const handleMessage = async (event) => {
       .single();
 
     if (error || !data || !data.ref_code) {
+      log.warn(`[REQ_REFCODE] ไม่พบ Ref.Code สำหรับ: ${userId}`);
       await client.replyMessage(event.replyToken, {
         type: 'text',
         text: '❌ ไม่พบ Ref.Code ของคุณ กรุณาสแกน QR ใหม่ก่อนใช้งานครับ'
       });
       return;
     }
+
+    log.info(`🔐 Ref.Code: ${data.ref_code}`);
+    log.success('ส่ง Ref.Code สำเร็จ');
 
     await client.replyMessage(event.replyToken, {
       type: 'text',
@@ -89,8 +111,6 @@ const handleMessage = async (event) => {
   }
 };
 
-
-  
 // ==============================
 module.exports = {
   handleFollow,
