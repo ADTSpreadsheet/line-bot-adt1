@@ -14,12 +14,13 @@ const client = new line.Client(config);
 
 // Verify RefCode
 router.post('/', async (req, res) => {
-  const { refCode, lineUserId } = req.body;
+  const { refCode } = req.body;
 
-  if (!refCode || !lineUserId) {
+  // ตรวจสอบว่ามี refCode หรือไม่
+  if (!refCode) {
     return res.status(400).json({ 
       success: false, 
-      message: 'กรุณาระบุ Ref.Code และ Line User ID ให้ครบถ้วน' 
+      message: 'กรุณาระบุ Ref.Code ให้ครบถ้วน' 
     });
   }
 
@@ -44,33 +45,16 @@ router.post('/', async (req, res) => {
     }
 
     // ส่งข้อมูล Serial Key กลับไป
-    const serialKey = data.serial_key;
-    await client.pushMessage(lineUserId, {
-      type: 'text',
-      text: `🔐 Serial Key ของคุณคือ: ${serialKey}`
-    });
-
-    // อัปเดตสถานะในฐานข้อมูล
-    await supabase
-      .from('auth_sessions')
-      .update({ status: 'REFCODE_VERIFIED' })
-      .eq('ref_code', refCode)
-      .eq('line_user_id', lineUserId);
-
-    // Log & Response
-    log.success(`✅ ยืนยัน Ref.Code เรียบร้อย: ${refCode}`);
-    return res.status(200).json({ 
-      success: true, 
-      message: 'ยืนยัน Ref.Code สำเร็จ และส่ง Serial Key ไปทางไลน์แล้ว' 
-    });
+    return res.status(200).json({ success: true, serial_key: data.serial_key });
 
   } catch (err) {
-    log.error('เกิดข้อผิดพลาดใน /verify-refcode:', err);
+    console.log('Unexpected error:', err); // log ข้อผิดพลาดที่ไม่คาดคิด
     res.status(500).json({ 
       success: false, 
       message: 'เกิดข้อผิดพลาดในระบบ กรุณาลองใหม่อีกครั้ง' 
     });
   }
 });
+
 
 module.exports = router;
