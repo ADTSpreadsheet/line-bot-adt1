@@ -46,10 +46,10 @@ router.post('/', async (req, res) => {
   // ส่งข้อมูล Serial Key กลับไป
   return res.status(200).json({ success: true, serial_key: data.serial_key });
 
-} catch (err) {
+  } catch (err) {
   console.log('Unexpected error:', err);  // log ข้อผิดพลาดที่ไม่คาดคิด
   return res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาด' });
-}
+  }
 
     // ส่ง Serial Key ไปที่ไลน์
     const serialKey = data.serial_key;
