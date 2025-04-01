@@ -29,7 +29,6 @@ router.post('/', async (req, res) => {
       .from('auth_sessions')
       .select('serial_key')
       .eq('ref_code', refCode)
-      .eq('line_user_id', lineUserId)
       .single();
 
     if (error || !data) {
