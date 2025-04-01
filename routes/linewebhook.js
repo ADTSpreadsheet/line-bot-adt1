@@ -225,7 +225,7 @@ router.post('/webhook', validateLineWebhook(process.env.LINE_CHANNEL_SECRET), as
               console.log('🔐 ส่ง REF.CODE:', data[0].ref_code);
               await client.replyMessage(event.replyToken, {
                 type: 'text',
-                text: 🔐 Ref.Code ของคุณคือ: ${data[0].ref_code}
+                text: `🔐 Ref.Code ของคุณคือ: ${data[0].ref_code}`
               });
             }
           } catch (error) {
