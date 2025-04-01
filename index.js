@@ -18,8 +18,8 @@ const indexLog = createModuleLogger('Index');
 const pdpaRoutes = require('./routes/pdpaText');
 const userform3labelRoutes = require('./routes/userform3label');
 const statusRoutes = require('./routes/status');
-const confirmRegistrationRoutes = require('./routes/ConfirmRegistration');
 const eventLineRoutes = require('./routes/events/eventLine');
+const verifyRefcodeRoutes = require('./routes/verify-refcode');
 
 // ==============================================
 const app = express();
@@ -55,8 +55,8 @@ app.use('/webhook', eventLineRoutes);
 // ส่วนที่ 3: UserForm Label Routes (สำหรับ Label 5 และ 6)
 app.use('/router', userform3labelRoutes);
 
-// ส่วนที่ 4: Status Routes
-app.use('/router', statusRoutes);
+// ส่วนที่ 4: Verify Ref.Code
+app.use('/verify-refcode', verifyRefcodeRoutes);
 
 // ส่วนที่ 5: Registration Confirmation Routes (สำหรับการลงทะเบียน)
 app.use('/router/api/registration', confirmRegistrationRoutes);
