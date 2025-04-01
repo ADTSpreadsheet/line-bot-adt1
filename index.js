@@ -9,7 +9,6 @@ require('dotenv').config();
 // Import Routes ที่มีอยู่จริง
 const pdpaRoutes = require('./routes/pdpaText');
 const userform3labelRoutes = require('./routes/userform3label');
-const lineWebhookRoutes = require('./routes/linewebhook');
 const statusRoutes = require('./routes/status');
 const confirmRegistrationRoutes = require('./routes/ConfirmRegistration');
 const { createModuleLogger } = require('./utils/logger');
