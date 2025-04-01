@@ -43,7 +43,7 @@ app.use((req, res, next) => {
 app.use('/router', pdpaRoutes);
 
 // ส่วนที่ 2: Line Webhook Routes
-app.use('/router', lineWebhookRoutes);
+app.use('./routes/linewebhook', lineWebhookRoutes);
 
 // ส่วนที่ 3: UserForm Label Routes (สำหรับ Label 5 และ 6)
 app.use('/router', userform3labelRoutes);
