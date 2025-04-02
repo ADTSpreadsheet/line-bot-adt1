@@ -117,16 +117,16 @@ const handleMessage = async (event) => {
 // 3️⃣ SEND SERIAL KEY AFTER REF.CODE VERIFIED
 // ==============================
 
-// ฟังก์ชันสำหรับส่ง Serial Key ไปยัง LINE
-async function sendLineMessage(lineUserId, message) {
+async function sendLineMessage(lineUserId, serialKey, refCode) {
   try {
+    const message = `🔐 สำหรับ Ref.Code: ${refCode}\n➡️ Serial Key คือ   ${serialKey}`;
     await client.pushMessage(lineUserId, {
       type: 'text',
       text: message
     });
-    log.info(`ส่งข้อความไปยัง LINE User ID: ${lineUserId}`);
+    log.info(`✅ ส่ง Serial Key ไปยัง LINE User ID: ${lineUserId}`);
   } catch (error) {
-    log.error(`ส่งข้อความไป LINE ไม่สำเร็จ: ${error.message}`);
+    log.error(`❌ ส่งข้อความไป LINE ไม่สำเร็จ: ${error.message}`);
     throw error;
   }
 }
