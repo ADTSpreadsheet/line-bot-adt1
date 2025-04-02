@@ -118,16 +118,15 @@ const handleMessage = async (event) => {
 // ==============================
 
 // ฟังก์ชันสำหรับส่ง Serial Key ไปยัง LINE
-async function sendSerialKeyToLine(lineUserId, serialKey) {
+async function sendLineMessage(lineUserId, message) {
   try {
-    // ส่งข้อความไปที่ LINE
     await client.pushMessage(lineUserId, {
       type: 'text',
-      text: `🔐 Serial Key ของคุณคือ: ${serialKey}`
+      text: message
     });
-    log.info(`ส่ง Serial Key ไปยัง LINE User ID: ${lineUserId}`);
+    log.info(`ส่งข้อความไปยัง LINE User ID: ${lineUserId}`);
   } catch (error) {
-    log.error(`Error sending Serial Key to Line: ${error.message}`);
+    log.error(`ส่งข้อความไป LINE ไม่สำเร็จ: ${error.message}`);
     throw error;
   }
 }
@@ -153,4 +152,7 @@ router.post('/', async (req, res) => {
   res.status(200).end();
 });
 
-module.exports = router;
+module.exports = {
+  router,
+  sendLineMessage
+};
