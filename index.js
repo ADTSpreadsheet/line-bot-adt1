@@ -20,8 +20,9 @@ const indexLog = createModuleLogger('Index');
 const pdpaRoutes = require('./routes/pdpaText');
 const userform3labelRoutes = require('./routes/userform3label');
 const statusRoutes = require('./routes/status');
-const eventLine = require('./routes/events/eventLine');
 /*const eventLine = require('./routes/events/eventLine');*/
+/*const eventLineRoutes = require('./routes/events/eventLine');*/
+const { router: eventLineRoutes } = require('./routes/events/eventLine');
 const verifyRefcodeRoutes = require('./routes/verify-refcode');
 
 
