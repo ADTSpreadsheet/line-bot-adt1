@@ -1,82 +1,58 @@
 const express = require('express');
 const router = express.Router();
-const { pool } = require('../db/postgres');
-const { sendSerialKeyToLine } = require('../routes/events/eventLine'); // เรียกใช้ฟังก์ชันจาก eventLine.js
+const { createClient } = require('@supabase/supabase-js');
+const sendLineMessage = require('../events/eventLine');
+const logger = require('../utils/logger'); // เผื่อใช้ log ภายหลัง
 
-// Logger สำหรับการบันทึกข้อมูล
-const { createModuleLogger } = require('../utils/logger');
-const verifyLog = createModuleLogger('VerifyRefcode');
+// โหลด ENV ตัวแปร
+require('dotenv').config();
 
-// POST: /verify-refcode
+// สร้าง Supabase client จาก ENV
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_KEY
+);
+
 router.post('/', async (req, res) => {
-  const { refCode } = req.body;
-
-  // Log ข้อมูลการเข้ามาของคำขอ
-  verifyLog.info(`Received verification request with Ref.Code: ${refCode}`);
-
-  // ตรวจสอบว่าได้รับ refCode หรือไม่
-  if (!refCode) {
-    verifyLog.error('Missing Ref.Code in request');
-    return res.status(400).json({ 
-      success: false, 
-      message: 'Missing Ref.Code' 
-    });
-  }
-
   try {
-    // ค้นหาข้อมูลจากฐานข้อมูล
-    const query = 'SELECT * FROM auth_sessions WHERE ref_code = $1';
-    verifyLog.debug(`Executing query: ${query} with params: [${refCode}]`);
+    const { ref_code } = req.body;
 
-    const result = await pool.query(query, [refCode]);
-
-    // ถ้าไม่พบข้อมูล
-    if (result.rows.length === 0) {
-      verifyLog.warn(`Invalid Ref.Code: ${refCode} - not found in auth_sessions table`);
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Invalid Ref.Code or this user was not found in the system.' 
-      });
+    if (!ref_code) {
+      logger.warn('Missing ref_code in request body');
+      return res.status(400).json({ error: 'Missing ref_code in request body' });
     }
 
-    // ข้อมูลผู้ใช้ที่พบ
-    const userData = result.rows[0];
-    verifyLog.info(`Found Ref.Code ${refCode} in auth_sessions table, Line User ID: ${userData.line_user_id}, Serial Key: ${userData.serial_key}`);
+    const { data, error } = await supabase
+      .from('auth_sessions')
+      .select('serial_key, line_user_id')
+      .eq('ref_code', ref_code)
+      .single();
 
-    // อัปเดตข้อมูลการใช้งาน
-    try {
-      await pool.query(
-        'UPDATE auth_sessions SET verify_count = COALESCE(verify_count, 0) + 1, verify_timestamp = NOW() WHERE ref_code = $1', 
-        [refCode]
-      );
-      verifyLog.info(`Updated verify_count for Ref.Code: ${refCode}`);
-    } catch (updateError) {
-      verifyLog.error(`Error updating verify_count in auth_sessions: ${updateError.message}`);
+    if (error || !data) {
+      logger.warn('Ref.Code not found in Supabase', { ref_code });
+      return res.status(404).json({ error: 'Ref.Code not found' });
     }
 
-    // ส่ง Serial Key ไปที่ LINE (เรียกฟังก์ชันจาก eventLine.js)
+    const { serial_key, line_user_id } = data;
+
     try {
-      await sendSerialKeyToLine(userData.line_user_id, userData.serial_key);
-      verifyLog.info(`Sent Serial Key to Line User ID: ${userData.line_user_id}`);
+      const message = `Your Serial Key is: ${serial_key}`;
+      await sendLineMessage(line_user_id, message);
+      logger.info('Serial Key sent via LINE', { ref_code, line_user_id });
     } catch (lineError) {
-      verifyLog.error(`Error sending Serial Key to Line: ${lineError.message}`);
+      logger.error('LINE message failed to send', {
+        ref_code,
+        line_user_id,
+        serial_key,
+        error: lineError.message,
+      });
+      return res.status(500).json({ error: 'Failed to send message via LINE' });
     }
 
-    // ตอบกลับการยืนยันสำเร็จ
-    verifyLog.info(`Verification successful for Ref.Code: ${refCode}`);
-    return res.status(200).json({
-      success: true,
-      serialKey: userData.serial_key,
-      countdown: 'Serial Key จะหมดอายุใน: 10:00 นาที',
-      stage3: 'Serial Key ได้ถูกส่งไปยังแชทไลน์ของคุณแล้ว กรุณาตรวจสอบและนำมากรอกด้านล่าง'
-    });
-
-  } catch (error) {
-    verifyLog.error(`Database error: ${error.message}`);
-    return res.status(500).json({
-      success: false,
-      message: 'Server error while verifying Ref.Code'
-    });
+    return res.status(200).json({ message: 'Serial key sent to LINE successfully' });
+  } catch (err) {
+    logger.error('Unexpected error in verify-refcode', { error: err.message });
+    return res.status(500).json({ error: 'Internal server error' });
   }
 });
 
