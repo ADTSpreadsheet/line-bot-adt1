@@ -19,7 +19,7 @@ const pdpaRoutes = require('./routes/pdpaText');
 const userform3labelRoutes = require('./routes/userform3label');
 const statusRoutes = require('./routes/status');
 const eventLineRoutes = require('./routes/events/eventLine');
-const verifyRefcodeRoutes = require('./routes/verify-refcode');  // เพิ่มการเรียกใช้งาน verify-refcode
+/*const verifyRefcodeRoutes = require('./routes/verify-refcode');  // เพิ่มการเรียกใช้งาน verify-refcode*/
 
 // ==============================================
 const app = express();
@@ -56,7 +56,7 @@ app.use('/webhook', eventLineRoutes);
 app.use('/router', userform3labelRoutes);
 
 // ส่วนที่ 4: Verify Ref.Code
-app.use('/verify-refcode', verifyRefcodeRoutes);  // แก้ไขจากที่ถูกคอมเมนต์ไว้
+/*app.use('/verify-refcode', verifyRefcodeRoutes);  // แก้ไขจากที่ถูกคอมเมนต์ไว้*/
 
 // ส่วนที่ 5: Registration Confirmation Routes (สำหรับการลงทะเบียน)
 // app.use('/router/api/registration', confirmRegistrationRoutes);
