@@ -152,7 +152,7 @@ router.post('/', async (req, res) => {
   res.status(200).end();
 });
 
-module.exports = router;
+
 module.exports = {
   router,
   sendLineMessage
