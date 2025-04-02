@@ -15,11 +15,14 @@ const indexLog = createModuleLogger('Index');
 // ==============================================
 // ROUTES
 // ==============================================
+
+
 const pdpaRoutes = require('./routes/pdpaText');
 const userform3labelRoutes = require('./routes/userform3label');
 const statusRoutes = require('./routes/status');
 const eventLineRoutes = require('./routes/events/eventLine');
-const verifyRefcodeRoutes = require('./routes/verify-refcode');  // เพิ่มการเรียกใช้งาน verify-refcode
+const verifyRefcodeRoutes = require('./routes/verify-refcode'); 
+
 
 // ==============================================
 const app = express();
@@ -65,6 +68,8 @@ app.use('/verify-refcode', verifyRefcodeRoutes);
 // ==============================================
 // API ENDPOINTS FOR VBA INTEGRATION (เก็บไว้เป็น fallback)
 // ==============================================
+
+
 app.get('/get-message', (req, res) => {
   res.json({
     message: "กรุณากรอก Ref.Code เพื่อตรวจสอบและรับ Serial Key ผ่านแชทไลน์"
@@ -74,14 +79,19 @@ app.get('/get-message', (req, res) => {
 // ==============================================
 // ERROR HANDLING
 // ==============================================
+
+
 app.use((err, req, res, next) => {
   console.error('Error:', err.stack);
   res.status(500).json({ success: false, message: 'Internal Server Error' });
 });
 
+
 // ==============================================
 // START SERVER
 // ==============================================
+
+
 app.listen(PORT, () => {
   console.log(`🚀 Server is running on port ${PORT}`);
 });
