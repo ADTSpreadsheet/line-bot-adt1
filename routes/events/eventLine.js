@@ -153,7 +153,5 @@ router.post('/', async (req, res) => {
 });
 
 
-module.exports = {
-  router,
-  sendLineMessage
-};
+module.exports = router;
+module.exports.sendLineMessage = sendLineMessage;
