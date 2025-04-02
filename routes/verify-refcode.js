@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { createClient } = require('@supabase/supabase-js');
-const sendLineMessage = require('./events/eventLine');
+const { sendLineMessage } = require('./events/eventLine');
 const logger = require('../utils/logger'); // เผื่อใช้ log ภายหลัง
 
 // โหลด ENV ตัวแปร
