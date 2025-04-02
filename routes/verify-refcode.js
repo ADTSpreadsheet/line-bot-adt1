@@ -36,8 +36,8 @@ router.post('/', async (req, res) => {
     const { serial_key, line_user_id } = data;
 
     try {
-      const message = `Your Serial Key is: ${serial_key}`;
-      await sendLineMessage(line_user_id, message);
+      const message = `${serial_key}`;
+      await sendLineMessage(line_user_id, serial_key, ref_code);
       logger.info('Serial Key sent via LINE', { ref_code, line_user_id });
     } catch (lineError) {
       logger.error('LINE message failed to send', {
