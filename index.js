@@ -24,6 +24,7 @@ const statusRoutes = require('./routes/status');
 /*const eventLineRoutes = require('./routes/events/eventLine');*/
 const { router: eventLineRoutes } = require('./routes/events/eventLine');
 const verifyRefcodeRoutes = require('./routes/verify-refcode');
+const confirmRegistrationRoutes = require('./routes/ConfirmRegistration');
 
 
 // ==============================================
@@ -65,7 +66,7 @@ app.use('/router', userform3labelRoutes);
 app.use('/verify-refcode', verifyRefcodeRoutes);
 
 // ส่วนที่ 5: Registration Confirmation Routes (สำหรับการลงทะเบียน)
-// app.use('/router/api/registration', confirmRegistrationRoutes);
+app.use('/router/ConfirmRegistration', confirmRegistrationRoutes);
 
 // ==============================================
 // API ENDPOINTS FOR VBA INTEGRATION (เก็บไว้เป็น fallback)
