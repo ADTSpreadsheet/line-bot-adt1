@@ -4,6 +4,10 @@ const router = express.Router();
 const otpController = require('../controllers/otpController');
 const { validateBody, validateQueryParams } = require('../middlewares/validator');
 
+// ==============================================
+// 📌 OTP ROUTES (ใช้ /router เป็น prefix จาก index.js)
+// ==============================================
+
 /**
  * @route POST /router/request
  * @desc ขอ OTP ใหม่
@@ -11,7 +15,7 @@ const { validateBody, validateQueryParams } = require('../middlewares/validator'
 router.post(
   '/request',
   validateBody(['ref_code']),
-  otpController.requestOtp || ((req, res) => res.status(501).json({ status: 'error', message: 'requestOtp ยังไม่ได้สร้าง' }))
+  otpController.requestOtp
 );
 
 /**
@@ -21,7 +25,7 @@ router.post(
 router.post(
   '/verify',
   validateBody(['ref_code', 'otp']),
-  otpController.verifyOtp || ((req, res) => res.status(501).json({ status: 'error', message: 'verifyOtp ยังไม่ได้สร้าง' }))
+  otpController.verifyOtp
 );
 
 /**
@@ -31,7 +35,7 @@ router.post(
 router.get(
   '/status',
   validateQueryParams(['ref_code']),
-  otpController.checkOtpStatus || ((req, res) => res.status(501).json({ status: 'error', message: 'checkOtpStatus ยังไม่ได้สร้าง' }))
+  otpController.checkOtpStatus
 );
 
 /**
@@ -41,7 +45,10 @@ router.get(
 router.post(
   '/resend',
   validateBody(['ref_code']),
-  otpController.resendOtp || ((req, res) => res.status(501).json({ status: 'error', message: 'resendOtp ยังไม่ได้สร้าง' }))
+  otpController.resendOtp
 );
 
+// ==============================================
+// ✅ ส่งออก router
+// ==============================================
 module.exports = router;
