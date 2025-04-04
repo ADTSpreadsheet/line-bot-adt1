@@ -1,3 +1,8 @@
+// controllers/otpController.js
+const { sendLineMessage } = require('../utils/lineBot');
+const { supabase } = require('../utils/supabaseClient');
+const OTP_EXPIRATION_MINUTES = 10; // ตั้งค่าหมดอายุ OTP เป็น 10 นาที
+
 exports.requestOtp = async (req, res) => {
   try {
     const { ref_code } = req.body;
@@ -21,15 +26,16 @@ exports.requestOtp = async (req, res) => {
       });
     }
 
-    // ✅ 3. สร้าง OTP
+    // ✅ 3. สร้าง OTP 6 หลัก และเวลาหมดอายุ
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const now = new Date();
     const expiresAt = new Date(now.getTime() + OTP_EXPIRATION_MINUTES * 60000);
 
+    // ✅ 4. บันทึก OTP ลงใน auth_sessions
     const { error: updateError } = await supabase
       .from('auth_sessions')
       .update({
-        otp: otp,
+        otp, // ← ใช้ชื่อคอลัมน์ตรงกับในฐานข้อมูล
         otp_created_at: now.toISOString(),
         otp_expires_at: expiresAt.toISOString(),
         otp_failed_attempts: 0
@@ -41,7 +47,7 @@ exports.requestOtp = async (req, res) => {
       return res.status(500).json({ status: 'error', message: 'อัปเดต OTP ไม่สำเร็จ' });
     }
 
-    // ✅ 4. ส่ง OTP ไปยัง LINE
+    // ✅ 5. ส่ง OTP ไปยัง LINE
     if (sessionData.line_user_id) {
       await sendLineMessage(sessionData.line_user_id, `
 📌 รหัส OTP สำหรับเข้าใช้งาน ADTSpreadsheet:
@@ -60,6 +66,9 @@ exports.requestOtp = async (req, res) => {
 
   } catch (err) {
     console.error('❌ requestOtp ERROR:', err.message);
-    return res.status(500).json({ status: 'error', message: 'เกิดข้อผิดพลาดในการส่ง OTP' });
+    return res.status(500).json({ 
+      status: 'error', 
+      message: 'เกิดข้อผิดพลาดในการส่ง OTP' 
+    });
   }
 };
