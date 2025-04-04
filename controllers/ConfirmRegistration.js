@@ -79,6 +79,9 @@ const completeRegistration = async (req, res) => {
     const expiryDate = new Date();
     expiryDate.setDate(expiryDate.getDate() + usageDays);
 
+    console.log('📄 pdpa_status received:', pdpa_status);
+    console.log('🕒 usageDays:', usageDays);
+
     const { error: updateError } = await supabase
       .from('auth_sessions')
       .update({
