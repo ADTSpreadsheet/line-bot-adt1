@@ -11,8 +11,9 @@ const config = {
 const client = new line.Client(config);
 
 /**
- * ✅ อัปเดตใหม่: รองรับ JSON แบบ flat ที่ส่งจาก Excel VBA
- * POST /router/ConfirmRegistration/complete-registration
+ * ✅ รองรับ JSON flat จาก Excel VBA
+ * ✅ ใช้ ref_code เพื่อดึง line_user_id จาก Supabase
+ * ✅ เก็บทั้ง line_user_id และ line_id
  */
 const completeRegistration = async (req, res) => {
   try {
@@ -35,14 +36,14 @@ const completeRegistration = async (req, res) => {
       phone_number,
       email,
       facebook_url,
-      line_id
+      line_id // << ผู้ใช้กรอกเอง
     } = req.body;
 
     if (!ref_code || !serial_key || !machine_id) {
       return res.status(400).json({ success: false, message: 'Missing required fields' });
     }
 
-    // ✅ ตรวจสอบ Ref.Code และ Serial Key ว่าจับคู่กันได้หรือไม่
+    // ✅ ดึง line_user_id จาก Supabase โดยใช้ ref_code และ serial_key
     const { data, error } = await supabase
       .from('auth_sessions')
       .select('line_user_id')
@@ -50,27 +51,32 @@ const completeRegistration = async (req, res) => {
       .eq('serial_key', serial_key)
       .single();
 
-    if (error || !data) {
+    if (error || !data || !data.line_user_id) {
       await supabase.from('activity_logs').insert({
         ref_code,
-        line_user_id: line_id || null,
+        line_user_id: null,
+        line_id,
         action: `Ref.Code ${ref_code} ลงทะเบียนไม่สำเร็จ`,
-        machine_id: machine_id || null,
-        pdpa_status: pdpa_status || null,
+        machine_id,
+        pdpa_status,
         timestamp: new Date().toISOString()
       });
 
       try {
-        await client.pushMessage(line_id, {
-          type: 'text',
-          text: `❌ ไม่สามารถลงทะเบียนได้ โปรดติดต่อ Admin ของ ADT`
-        });
+        if (line_id) {
+          await client.pushMessage(line_id, {
+            type: 'text',
+            text: `❌ ไม่สามารถลงทะเบียนได้ โปรดติดต่อ Admin ของ ADT`
+          });
+        }
       } catch (lineError) {
         console.error('❌ Failed to notify user via LINE (fail case):', lineError);
       }
 
       return res.status(404).json({ success: false, message: 'Invalid Ref.Code or Serial Key' });
     }
+
+    const line_user_id = data.line_user_id;
 
     const usageDays = pdpa_status === 'ACCEPTED' ? 7 : 1;
     const expiryDate = new Date();
@@ -91,7 +97,7 @@ const completeRegistration = async (req, res) => {
       phone_number,
       email,
       facebook_url,
-      line_id
+      line_id // ✅ บันทึกไว้ด้วย (ลูกค้ากรอก)
     };
 
     const { error: updateError } = await supabase
@@ -110,17 +116,18 @@ const completeRegistration = async (req, res) => {
     if (updateError) {
       await supabase.from('activity_logs').insert({
         ref_code,
-        line_user_id: data.line_user_id,
-        action: `Ref.Code ${ref_code} ลงทะเบียนไม่สำเร็จ`,
+        line_user_id,
+        line_id,
+        action: `Ref.Code ${ref_code} บันทึกไม่สำเร็จ`,
         machine_id,
         pdpa_status,
         timestamp: new Date().toISOString()
       });
 
       try {
-        await client.pushMessage(data.line_user_id, {
+        await client.pushMessage(line_user_id, {
           type: 'text',
-          text: `❌ ไม่สามารถลงทะเบียนได้ โปรดติดต่อ Admin ของ ADT`
+          text: `❌ ไม่สามารถบันทึกข้อมูลลงทะเบียนได้ โปรดติดต่อ Admin ของ ADT`
         });
       } catch (lineError) {
         console.error('❌ Failed to notify user via LINE (save fail):', lineError);
@@ -135,7 +142,8 @@ const completeRegistration = async (req, res) => {
 
     await supabase.from('activity_logs').insert({
       ref_code,
-      line_user_id: data.line_user_id,
+      line_user_id,
+      line_id,
       action: logMessage,
       machine_id,
       pdpa_status,
@@ -143,9 +151,9 @@ const completeRegistration = async (req, res) => {
     });
 
     try {
-      await client.pushMessage(data.line_user_id, {
+      await client.pushMessage(line_user_id, {
         type: 'text',
-        text: `🎉 ขอแสดงความยินดีด้วยครับ คุณลงทะเบียนสำเร็จ ได้รับสิทธิ์ใช้งาน ADTSpreadsheet เวอร์ชั่นทดลองใช้ฟรี ${usageDays} วัน ขอให้นายช่างสนุกกับการออกแบบนะครับ \n(หมดอายุวันที่ ${expiryDate.toLocaleDateString('th-TH')})`
+        text: `🎉 คุณลงทะเบียนสำเร็จ! ได้รับสิทธิ์ใช้งาน ADTSpreadsheet เวอร์ชั่นทดลองใช้ฟรี ${usageDays} วัน\nหมดอายุวันที่ ${expiryDate.toLocaleDateString('th-TH')} ครับ`
       });
     } catch (err) {
       console.error('⚠️ Failed to send LINE message:', err);
