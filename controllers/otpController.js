@@ -1,6 +1,6 @@
 const { sendLineMessage } = require('../utils/lineBot');
 const { supabase } = require('../utils/supabaseClient');
-const OTP_EXPIRATION_MINUTES = 10; // OTP มีอายุ 10 นาที
+const OTP_EXPIRATION_MINUTES = 10;
 
 exports.requestOtp = async (req, res) => {
   try {
@@ -17,7 +17,7 @@ exports.requestOtp = async (req, res) => {
       return res.status(404).json({ status: 'error', message: 'ไม่พบ Ref.Code นี้ในระบบ' });
     }
 
-    // ✅ 2. ตรวจว่า Ref.Code ผ่านการยืนยัน Serial Key แล้ว
+    // ✅ 2. ตรวจว่า Ref.Code ผ่าน Serial Key แล้ว
     if (!sessionData.is_verified) {
       return res.status(400).json({
         status: 'error',
@@ -25,12 +25,12 @@ exports.requestOtp = async (req, res) => {
       });
     }
 
-    // ✅ 3. สร้าง OTP ใหม่
+    // ✅ 3. สร้าง OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const now = new Date();
     const expiresAt = new Date(now.getTime() + OTP_EXPIRATION_MINUTES * 60000);
 
-    // ✅ 4. อัปเดต Supabase
+    // ✅ 4. อัปเดตใน Supabase
     const { error: updateError } = await supabase
       .from('auth_sessions')
       .update({
@@ -46,7 +46,7 @@ exports.requestOtp = async (req, res) => {
       return res.status(500).json({ status: 'error', message: 'อัปเดต OTP ไม่สำเร็จ' });
     }
 
-    // ✅ 5. ส่ง OTP ไปยังผู้ใช้ผ่าน LINE
+    // ✅ 5. ส่ง OTP ทาง LINE
     if (sessionData.line_user_id) {
       await sendLineMessage(sessionData.line_user_id, `
 📌 รหัส OTP สำหรับเข้าใช้งาน ADTSpreadsheet:
@@ -56,20 +56,18 @@ exports.requestOtp = async (req, res) => {
       `);
     }
 
-    // ✅ 6. ตอบกลับ
     console.log(`✅ สร้างและส่ง OTP สำเร็จ: Ref.Code ${ref_code}`);
     return res.status(200).json({ 
       status: 'success',
       message: 'ส่ง OTP สำเร็จ',
-      expires_in: OTP_EXPIRATION_MINUTES * 60
+      expires_in: OTP_EXPIRATION_MINUTES * 60 
     });
 
   } catch (err) {
     console.error('❌ requestOtp ERROR:', err.message);
     return res.status(500).json({ 
       status: 'error', 
-      message: 'เกิดข้อผิดพลาดในการส่ง OTP',
-      error: err.message
+      message: 'เกิดข้อผิดพลาดในการส่ง OTP' 
     });
   }
 };
