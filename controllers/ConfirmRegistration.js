@@ -12,7 +12,6 @@ const client = new line.Client(config);
  * ✅ รองรับ JSON flat จาก Excel VBA
  * ✅ ใช้ ref_code เพื่อดึง line_user_id จาก Supabase
  * ✅ เก็บทั้ง line_user_id และ line_id (ที่ลูกค้ากรอกเอง)
- * ✅ Debug Logs ครบทุกกรณี
  */
 const completeRegistration = async (req, res) => {
   try {
@@ -68,59 +67,45 @@ const completeRegistration = async (req, res) => {
           });
         }
       } catch (lineError) {
-        console.error('❌ Failed to notify user via LINE (fail case):', lineError);
+        console.error('❌ แจ้งเตือน LINE ไม่สำเร็จ (กรณีล้มเหลว):', lineError);
       }
 
       return res.status(404).json({ success: false, message: 'Invalid Ref.Code or Serial Key' });
     }
 
     const line_user_id = data.line_user_id;
-
     const usageDays = pdpa_status === 'PDPA_ACCEPTED' ? 7 : 1;
     const expiryDate = new Date();
     expiryDate.setDate(expiryDate.getDate() + usageDays);
 
-    // ✅ เตรียมข้อมูลสำหรับอัปเดต
-    const updateData = {
-      machine_id,
-      pdpa_status,
-      gender,
-      first_name,
-      last_name,
-      nickname,
-      age: String(age),
-      occupation,
-      national_id,
-      house_number,
-      district,
-      province,
-      postal_code,
-      phone_number,
-      email,
-      facebook_url,
-      line_id,
-      status: 'COMPLETED',
-      completed_at: new Date().toISOString(),
-      expires_at: expiryDate.toISOString()
-    };
-
-    // 🧪 DEBUG: Log ข้อมูลที่จะอัปเดต
-    console.log('📦 Data to be updated into Supabase:', updateData);
-
-    // ✅ อัปเดตลง Supabase
     const { error: updateError } = await supabase
       .from('auth_sessions')
-      .update(updateData)
+      .update({
+        machine_id,
+        pdpa_status,
+        gender,
+        first_name,
+        last_name,
+        nickname,
+        age,
+        occupation,
+        national_id,
+        house_number,
+        district,
+        province,
+        postal_code,
+        phone_number,
+        email,
+        facebook_url,
+        line_id,
+        status: 'COMPLETED',
+        completed_at: new Date().toISOString(),
+        expires_at: expiryDate.toISOString()
+      })
       .eq('ref_code', ref_code)
       .eq('serial_key', serial_key);
 
     if (updateError) {
-      console.error('❌ UPDATE ERROR (message):', updateError.message);
-      console.error('❌ UPDATE ERROR (details):', updateError.details);
-      console.error('❌ UPDATE ERROR (hint):', updateError.hint);
-      console.error('❌ UPDATE ERROR (code):', updateError.code);
-      console.error('❌ FULL UPDATE ERROR:', updateError);
-
       await supabase.from('activity_logs').insert({
         ref_code,
         line_user_id,
@@ -131,15 +116,7 @@ const completeRegistration = async (req, res) => {
         timestamp: new Date().toISOString()
       });
 
-      try {
-        await client.pushMessage(line_user_id, {
-          type: 'text',
-          text: `❌ ไม่สามารถบันทึกข้อมูลลงทะเบียนได้ โปรดติดต่อ Admin ของ ADT`
-        });
-      } catch (lineError) {
-        console.error('❌ Failed to notify user via LINE (save fail):', lineError);
-      }
-
+      console.error(`❌ บันทึกข้อมูลไม่สำเร็จ: Ref.Code ${ref_code}`);
       return res.status(500).json({ success: false, message: 'Failed to save registration data' });
     }
 
@@ -157,13 +134,15 @@ const completeRegistration = async (req, res) => {
       timestamp: new Date().toISOString()
     });
 
+    console.log(`✅ Ref.Code ${ref_code} บันทึกข้อมูลสำเร็จ`);
+
     try {
       await client.pushMessage(line_user_id, {
         type: 'text',
         text: `🎉 คุณลงทะเบียนสำเร็จ! ได้รับสิทธิ์ใช้งาน ADTSpreadsheet เวอร์ชั่นทดลองใช้ฟรี ${usageDays} วัน\nหมดอายุวันที่ ${expiryDate.toLocaleDateString('th-TH')} ครับ`
       });
     } catch (err) {
-      console.error('⚠️ Failed to send LINE message:', err);
+      console.error('⚠️ แจ้งเตือน LINE ไม่สำเร็จ (กรณีสำเร็จ):', err);
     }
 
     return res.status(200).json({
@@ -173,7 +152,7 @@ const completeRegistration = async (req, res) => {
       usageDays
     });
   } catch (err) {
-    console.error('❌ Server error in completeRegistration:', err);
+    console.error('❌ เกิดข้อผิดพลาดใน completeRegistration:', err);
     return res.status(500).json({ success: false, message: 'Server error' });
   }
 };
