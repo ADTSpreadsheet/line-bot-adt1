@@ -5,8 +5,8 @@ const otpController = require('../controllers/otpController');
 const { validateBody } = require('../middlewares/validator');
 
 /**
- * @route POST /api/otp/request
- * @desc ขอ OTP ใหม่ (ใช้ในกรณียืนยันตัวตนซ้ำช่วงทดลอง)
+ * @route POST /router/request
+ * @desc ขอ OTP ใหม่
  * @access Public
  */
 router.post(
@@ -16,38 +16,36 @@ router.post(
 );
 
 /**
- * @route POST /api/otp/verify
- * @desc ตรวจสอบ OTP ที่ผู้ใช้กรอก
+ * @route POST /router/verify
+ * @desc ตรวจสอบ OTP
  * @access Public
  */
 router.post(
   '/verify',
   validateBody(['ref_code', 'otp']),
-  otpController.verifyOtp
+  otpController.verifyOtp || ((req, res) => res.status(501).json({ status: 'error', message: 'verifyOtp ยังไม่ได้สร้าง' }))
 );
 
 /**
- * @route GET /api/otp/status
- * @desc ตรวจสอบสถานะ OTP ว่ายังมีผลอยู่หรือไม่
+ * @route GET /router/status
+ * @desc เช็คสถานะ OTP
  * @access Public
  */
 router.get(
   '/status',
   validateBody(['ref_code']),
-  otpController.checkOtpStatus
+  otpController.checkOtpStatus || ((req, res) => res.status(501).json({ status: 'error', message: 'checkOtpStatus ยังไม่ได้สร้าง' }))
 );
 
 /**
- * @route POST /api/otp/resend
- * @desc ส่ง OTP ซ้ำไปยังผู้ใช้
+ * @route POST /router/resend
+ * @desc ส่ง OTP ซ้ำ
  * @access Public
  */
 router.post(
   '/resend',
   validateBody(['ref_code']),
-  otpController.resendOtp
+  otpController.resendOtp || ((req, res) => res.status(501).json({ status: 'error', message: 'resendOtp ยังไม่ได้สร้าง' }))
 );
 
-module.exports = {
-  requestOtp
-};
+module.exports = router;
