@@ -48,4 +48,6 @@ router.post(
   otpController.resendOtp
 );
 
-module.exports = router;
+module.exports = {
+  requestOtp
+};
