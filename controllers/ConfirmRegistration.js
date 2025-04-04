@@ -75,7 +75,7 @@ const completeRegistration = async (req, res) => {
 
     const line_user_id = data.line_user_id;
 
-    const usageDays = pdpa_status === 'ACCEPTED' ? 7 : 1;
+    const usageDays = pdpa_status === 'PDPA_ACCEPTED' ? 7 : 1;
     const expiryDate = new Date();
     expiryDate.setDate(expiryDate.getDate() + usageDays);
 
