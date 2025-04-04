@@ -79,7 +79,30 @@ const completeRegistration = async (req, res) => {
     const expiryDate = new Date();
     expiryDate.setDate(expiryDate.getDate() + usageDays);
 
-    console.log('📄 pdpa_status received:', pdpa_status);
+    console.log('📦 Data from VBA to be saved to auth_sessions:');
+    console.log('🔐 ref_code:', ref_code);
+    console.log('🔑 serial_key:', serial_key);
+    console.log('👤 line_user_id (from Supabase):', line_user_id);
+    console.log('🧾 line_id (user input):', line_id);
+    console.log('📄 pdpa_status:', pdpa_status);
+    console.log('🧠 gender:', gender);
+    console.log('📛 first_name:', first_name);
+    console.log('📛 last_name:', last_name);
+    console.log('🏷️ nickname:', nickname);
+    console.log('🎂 age:', age);
+    console.log('💼 occupation:', occupation);
+    console.log('🆔 national_id:', national_id);
+    console.log('🏠 house_number:', house_number);
+    console.log('🏘️ district:', district);
+    console.log('🌆 province:', province);
+    console.log('📮 postal_code:', postal_code);
+    console.log('📞 phone_number:', phone_number);
+    console.log('📧 email:', email);
+    console.log('🌐 facebook_url:', facebook_url);
+    console.log('💻 machine_id:', machine_id);
+    console.log('📅 status: COMPLETED');
+    console.log('⏱️ completed_at:', new Date().toISOString());
+    console.log('📅 expires_at:', expiryDate.toISOString());
     console.log('🕒 usageDays:', usageDays);
 
     const { error: updateError } = await supabase
