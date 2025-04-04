@@ -25,6 +25,7 @@ const statusRoutes = require('./routes/status');
 const { router: eventLineRoutes } = require('./routes/events/eventLine');
 const verifyRefcodeRoutes = require('./routes/verify-refcode');
 const confirmRegistrationRoutes = require('./routes/ConfirmRegistration');
+const otpRoutes = require('./routes/otp');
 
 
 // ==============================================
@@ -67,6 +68,9 @@ app.use('/verify-refcode', verifyRefcodeRoutes);
 
 // ส่วนที่ 5: Registration Confirmation Routes (สำหรับการลงทะเบียน)
 app.use('/router/ConfirmRegistration', confirmRegistrationRoutes);
+
+// ส่วนที่ 6: ระบบออก OTP
+app.use('/router', otpRoutes);
 
 // ==============================================
 // API ENDPOINTS FOR VBA INTEGRATION (เก็บไว้เป็น fallback)
