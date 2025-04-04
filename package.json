@@ -18,7 +18,7 @@
     "express": "^4.18.4",
     "uuid": "^9.0.1",
     "@line/bot-sdk": "^7.5.2",
-    "node-fetch": "^2.6.9"  // ✅ เพิ่มบรรทัดนี้ให้เรียบร้อย!
+    "node-fetch": "^2.6.9"
   },
   "devDependencies": {
     "nodemon": "^3.0.3"
