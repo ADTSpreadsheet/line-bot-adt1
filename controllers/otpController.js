@@ -29,7 +29,7 @@ exports.requestOtp = async (req, res) => {
     const { error: updateError } = await supabase
       .from('auth_sessions')
       .update({
-        otp_code: otp,
+        otp: otp,
         otp_created_at: now.toISOString(),
         otp_expires_at: expiresAt.toISOString(),
         otp_failed_attempts: 0
