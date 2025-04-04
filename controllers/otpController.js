@@ -71,3 +71,11 @@ exports.requestOtp = async (req, res) => {
     });
   }
 };
+
+
+module.exports = {
+  requestOtp,
+  verifyOtp,
+  checkOtpStatus,
+  resendOtp
+};
