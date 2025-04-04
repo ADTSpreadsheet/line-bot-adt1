@@ -1,5 +1,3 @@
-// ✅ FILE: controllers/ConfirmRegistration.js
-
 const { supabase } = require('../utils/supabaseClient');
 const line = require('@line/bot-sdk');
 
@@ -13,7 +11,7 @@ const client = new line.Client(config);
 /**
  * ✅ รองรับ JSON flat จาก Excel VBA
  * ✅ ใช้ ref_code เพื่อดึง line_user_id จาก Supabase
- * ✅ เก็บทั้ง line_user_id และ line_id
+ * ✅ เก็บทั้ง line_user_id และ line_id (ที่ลูกค้ากรอกเอง)
  */
 const completeRegistration = async (req, res) => {
   try {
@@ -36,14 +34,13 @@ const completeRegistration = async (req, res) => {
       phone_number,
       email,
       facebook_url,
-      line_id // << ผู้ใช้กรอกเอง
+      line_id
     } = req.body;
 
     if (!ref_code || !serial_key || !machine_id) {
       return res.status(400).json({ success: false, message: 'Missing required fields' });
     }
 
-    // ✅ ดึง line_user_id จาก Supabase โดยใช้ ref_code และ serial_key
     const { data, error } = await supabase
       .from('auth_sessions')
       .select('line_user_id')
@@ -82,30 +79,26 @@ const completeRegistration = async (req, res) => {
     const expiryDate = new Date();
     expiryDate.setDate(expiryDate.getDate() + usageDays);
 
-    const user_data = {
-      gender,
-      first_name,
-      last_name,
-      nickname,
-      age,
-      occupation,
-      national_id,
-      house_number,
-      district,
-      province,
-      postal_code,
-      phone_number,
-      email,
-      facebook_url,
-      line_id // ✅ บันทึกไว้ด้วย (ลูกค้ากรอก)
-    };
-
     const { error: updateError } = await supabase
       .from('auth_sessions')
       .update({
         machine_id,
         pdpa_status,
-        user_data,
+        gender,
+        first_name,
+        last_name,
+        nickname,
+        age,
+        occupation,
+        national_id,
+        house_number,
+        district,
+        province,
+        postal_code,
+        phone_number,
+        email,
+        facebook_url,
+        line_id,
         status: 'COMPLETED',
         completed_at: new Date().toISOString(),
         expires_at: expiryDate.toISOString()
