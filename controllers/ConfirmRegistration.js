@@ -1,5 +1,8 @@
+// ✅ FILE: controllers/ConfirmRegistration.js
+
 const { supabase } = require('../utils/supabaseClient');
 const line = require('@line/bot-sdk');
+const fetch = require('node-fetch'); // ✅ อย่าลืมใส่ถ้ายังไม่ได้ import
 
 const config = {
   channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN,
@@ -8,11 +11,6 @@ const config = {
 
 const client = new line.Client(config);
 
-/**
- * ✅ รองรับ JSON flat จาก Excel VBA
- * ✅ ใช้ ref_code เพื่อดึง line_user_id จาก Supabase
- * ✅ เก็บทั้ง line_user_id และ line_id (ที่ลูกค้ากรอกเอง)
- */
 const completeRegistration = async (req, res) => {
   try {
     const {
@@ -118,6 +116,43 @@ const completeRegistration = async (req, res) => {
 
       console.error(`❌ บันทึกข้อมูลไม่สำเร็จ: Ref.Code ${ref_code}`);
       return res.status(500).json({ success: false, message: 'Failed to save registration data' });
+    }
+
+    // ✅ เตรียมข้อมูลส่งให้ API2
+    const user_data = {
+      gender,
+      first_name,
+      last_name,
+      nickname,
+      age,
+      occupation,
+      national_id,
+      house_number,
+      district,
+      province,
+      postal_code,
+      phone_number,
+      email,
+      facebook_url,
+      line_id
+    };
+
+    try {
+      await fetch('https://line-bot-adt2.onrender.com/router/register-machine', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ref_code,
+          machine_id,
+          pdpa_status,
+          user_data,
+          expires_at: expiryDate.toISOString()
+        })
+      });
+
+      console.log(`📦 ส่งข้อมูลไป API2 สำเร็จ: Ref.Code ${ref_code}`);
+    } catch (err) {
+      console.error(`⚠️ ไม่สามารถส่งข้อมูลไป API2 ได้: Ref.Code ${ref_code}`, err);
     }
 
     const logMessage = pdpa_status === 'PDPA_ACCEPTED'
