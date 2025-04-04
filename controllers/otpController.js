@@ -1,7 +1,6 @@
-// controllers/otpController.js
 const { sendLineMessage } = require('../utils/lineBot');
 const { supabase } = require('../utils/supabaseClient');
-const OTP_EXPIRATION_MINUTES = 10; // ตั้งค่าหมดอายุ OTP เป็น 10 นาที
+const OTP_EXPIRATION_MINUTES = 10; // OTP มีอายุ 10 นาที
 
 exports.requestOtp = async (req, res) => {
   try {
@@ -18,7 +17,7 @@ exports.requestOtp = async (req, res) => {
       return res.status(404).json({ status: 'error', message: 'ไม่พบ Ref.Code นี้ในระบบ' });
     }
 
-    // ✅ 2. ตรวจว่า Ref.Code ผ่าน Serial Key แล้ว
+    // ✅ 2. ตรวจว่า Ref.Code ผ่านการยืนยัน Serial Key แล้ว
     if (!sessionData.is_verified) {
       return res.status(400).json({
         status: 'error',
@@ -26,16 +25,16 @@ exports.requestOtp = async (req, res) => {
       });
     }
 
-    // ✅ 3. สร้าง OTP 6 หลัก และเวลาหมดอายุ
+    // ✅ 3. สร้าง OTP ใหม่
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const now = new Date();
     const expiresAt = new Date(now.getTime() + OTP_EXPIRATION_MINUTES * 60000);
 
-    // ✅ 4. บันทึก OTP ลงใน auth_sessions
+    // ✅ 4. อัปเดต Supabase
     const { error: updateError } = await supabase
       .from('auth_sessions')
       .update({
-        otp, // ← ใช้ชื่อคอลัมน์ตรงกับในฐานข้อมูล
+        otp,
         otp_created_at: now.toISOString(),
         otp_expires_at: expiresAt.toISOString(),
         otp_failed_attempts: 0
@@ -47,7 +46,7 @@ exports.requestOtp = async (req, res) => {
       return res.status(500).json({ status: 'error', message: 'อัปเดต OTP ไม่สำเร็จ' });
     }
 
-    // ✅ 5. ส่ง OTP ไปยัง LINE
+    // ✅ 5. ส่ง OTP ไปยังผู้ใช้ผ่าน LINE
     if (sessionData.line_user_id) {
       await sendLineMessage(sessionData.line_user_id, `
 📌 รหัส OTP สำหรับเข้าใช้งาน ADTSpreadsheet:
@@ -57,18 +56,20 @@ exports.requestOtp = async (req, res) => {
       `);
     }
 
+    // ✅ 6. ตอบกลับ
     console.log(`✅ สร้างและส่ง OTP สำเร็จ: Ref.Code ${ref_code}`);
     return res.status(200).json({ 
       status: 'success',
       message: 'ส่ง OTP สำเร็จ',
-      expires_in: OTP_EXPIRATION_MINUTES * 60 
+      expires_in: OTP_EXPIRATION_MINUTES * 60
     });
 
   } catch (err) {
     console.error('❌ requestOtp ERROR:', err.message);
     return res.status(500).json({ 
       status: 'error', 
-      message: 'เกิดข้อผิดพลาดในการส่ง OTP' 
+      message: 'เกิดข้อผิดพลาดในการส่ง OTP',
+      error: err.message
     });
   }
 };
