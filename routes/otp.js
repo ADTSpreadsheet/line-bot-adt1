@@ -48,4 +48,6 @@ router.post(
   otpController.resendOtp || ((req, res) => res.status(501).json({ status: 'error', message: 'resendOtp ยังไม่ได้สร้าง' }))
 );
 
-module.exports = router;
+module.exports = {
+  requestOtp
+};
