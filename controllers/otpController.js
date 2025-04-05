@@ -7,24 +7,37 @@ const requestOtp = async (req, res) => {
   try {
     const { ref_code } = req.body;
 
+    // ค้นหาข้อมูลจากฐานข้อมูล auth_sessions ตาม ref_code
     const { data: sessionData, error: sessionError } = await supabase
       .from('auth_sessions')
-      .select('line_user_id, is_verified')
+      .select('line_user_id, status, is_verified')
       .eq('ref_code', ref_code)
       .maybeSingle();
 
+    // ถ้าไม่พบ Ref.Code หรือพบข้อผิดพลาดในการดึงข้อมูล
     if (sessionError || !sessionData) {
       return res.status(404).json({ status: 'error', message: 'ไม่พบ Ref.Code นี้ในระบบ' });
     }
 
+    // ตรวจสอบสถานะว่าเป็น "BLOCK" หรือไม่
+    if (sessionData.status === 'BLOCK') {
+      // ถ้า Ref.Code ถูก Blocked แล้ว
+      return res.status(400).json({ status: 'error', message: 'Ref.Code นี้ถูก BLOCK แล้ว' });
+    }
+
+    // ตรวจสอบว่าผู้ใช้ยืนยัน Serial Key แล้วหรือยัง
     if (!sessionData.is_verified) {
       return res.status(400).json({ status: 'error', message: 'Ref.Code ยังไม่ยืนยัน Serial Key' });
     }
 
+    // สร้าง OTP แบบสุ่ม
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // กำหนดเวลา OTP หมดอายุ
     const now = new Date();
     const expiresAt = new Date(now.getTime() + OTP_EXPIRATION_MINUTES * 60000);
 
+    // อัปเดต OTP ในฐานข้อมูล
     const { error: updateError } = await supabase
       .from('auth_sessions')
       .update({
@@ -35,10 +48,12 @@ const requestOtp = async (req, res) => {
       })
       .eq('ref_code', ref_code);
 
+    // ถ้ามีข้อผิดพลาดในการอัปเดต OTP
     if (updateError) {
       return res.status(500).json({ status: 'error', message: 'อัปเดต OTP ไม่สำเร็จ' });
     }
 
+    // ส่ง OTP ไปยัง LINE ของผู้ใช้
     if (sessionData.line_user_id) {
       await sendLineMessage(sessionData.line_user_id, `
 📌 รหัส OTP สำหรับเข้าใช้งาน ADTSpreadsheet:
@@ -55,15 +70,6 @@ const requestOtp = async (req, res) => {
   }
 };
 
-// ✅ Dummy functions ไว้ก่อน (ยังไม่ใช้)
-const verifyOtp = (req, res) => res.status(501).json({ message: 'ยังไม่ได้ทำ verifyOtp' });
-const checkOtpStatus = (req, res) => res.status(501).json({ message: 'ยังไม่ได้ทำ checkOtpStatus' });
-const resendOtp = (req, res) => res.status(501).json({ message: 'ยังไม่ได้ทำ resendOtp' });
-
-// ✅ export ให้ครบ
 module.exports = {
-  requestOtp,
-  verifyOtp,
-  checkOtpStatus,
-  resendOtp
+  requestOtp
 };
