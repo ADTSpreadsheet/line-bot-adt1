@@ -54,25 +54,50 @@ const handleFollow = async (event) => {
   const refCode = generateRefCode();
   const serialKey = generateSerialKey();
 
-  const { error } = await supabase.from('auth_sessions').upsert({
+  const sessionPayload = {
     line_user_id: userId,
     ref_code: refCode,
     serial_key: serialKey,
     status: 'PENDING',
-    created_at: timestamp
-  });
+    created_at: timestamp,
+    line_status: 'follow' // ✅ เพิ่มตรงนี้
+  };
 
-  if (error) {
-    log.error('[FOLLOW] บันทึก Supabase ล้มเหลว:', error);
+  const machinePayload = {
+    line_user_id: userId,
+    line_status: 'follow' // ✅ เพิ่มตรงนี้
+  };
+
+  // ✅ อัปเดตตาราง auth_sessions
+  const { error: sessionError } = await supabase
+    .from('auth_sessions')
+    .upsert(sessionPayload);
+
+  if (sessionError) {
+    log.error('[FOLLOW] บันทึก auth_sessions ล้มเหลว:', sessionError);
     return;
   }
 
+  // ✅ อัปเดตตาราง registered_machines
+  const { error: machineError } = await supabase
+    .from('registered_machines')
+    .update(machinePayload)
+    .eq('line_user_id', userId);
+
+  if (machineError) {
+    log.warn('[FOLLOW] อัปเดต line_status ใน registered_machines ไม่สำเร็จ:', machineError);
+  } else {
+    log.info(`[FOLLOW] อัปเดต line_status = 'follow' สำเร็จใน registered_machines สำหรับ ${userId}`);
+  }
+
+  // ✅ Log สวย ๆ
   log.info('[FOLLOW] ผู้ใช้รายใหม่เพิ่ม ADTLine-Bot เป็นเพื่อน');
   log.info(`LINE USER ID: ${userId}`);
   log.info(`🔐 Ref.Code: ${refCode}`);
   log.info(`🔑 Serial Key: ${serialKey}`);
-  log.success('✅ บันทึกลง Supabase เรียบร้อยแล้ว');
+  log.success('✅ บันทึกลง Supabase สำเร็จ');
 };
+
 
 // ==============================
 // 2️⃣ MESSAGE EVENT
@@ -112,6 +137,40 @@ const handleMessage = async (event) => {
     });
   }
 };
+
+// ==============================
+// 3️⃣ Unfollow ADTLine-Bot
+// ==============================
+const handleUnfollow = async (event) => {
+  const userId = event.source.userId;
+  const updates = { line_status: 'unfollow' };
+
+  log.warn(`👋 ผู้ใช้ ${userId} เลิกติดตาม ADTLine-Bot แล้ว`);
+
+  const { error: authError } = await supabase
+    .from('auth_sessions')
+    .update(updates)
+    .eq('line_user_id', userId);
+
+  if (authError) {
+    log.error(`❌ อัปเดต line_status (auth_sessions) ล้มเหลว: ${authError.message}`);
+  } else {
+    log.info(`✅ auth_sessions → line_status = 'unfollow' สำเร็จ`);
+  }
+
+  const { error: regError } = await supabase
+    .from('registered_machines')
+    .update(updates)
+    .eq('line_user_id', userId);
+
+  if (regError) {
+    log.error(`❌ อัปเดต line_status (registered_machines) ล้มเหลว: ${regError.message}`);
+  } else {
+    log.info(`✅ registered_machines → line_status = 'unfollow' สำเร็จ`);
+  }
+};
+
+
 
 // ==============================
 // 3️⃣ SEND SERIAL KEY AFTER REF.CODE VERIFIED
