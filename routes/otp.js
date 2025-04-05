@@ -1,6 +1,8 @@
+// routes/otp.js
 const express = require('express');
 const router = express.Router();
-const otpController = require('../controllers/otpController');  // ตรวจสอบให้ import ได้ถูกต้อง
+const otpController = require('../controllers/otpController');
+const confirmOtpController = require('../controllers/confirmOtpController'); // เพิ่มการ import ใหม่
 const { validateBody, validateQueryParams } = require('../middlewares/validator');
 
 // ==============================================
@@ -14,7 +16,7 @@ const { validateBody, validateQueryParams } = require('../middlewares/validator'
 router.post(
   '/request',
   validateBody(['ref_code']),
-  otpController.requestOtp // ตรวจสอบให้เรียกฟังก์ชันที่ชื่อ requestOtp ที่ export จาก otpController
+  otpController.requestOtp
 );
 
 /**
@@ -24,7 +26,7 @@ router.post(
 router.post(
   '/verify',
   validateBody(['ref_code', 'otp']),
-  otpController.verifyOtp // ฟังก์ชันตรวจสอบ OTP
+  confirmOtpController.confirmOtp  // เชื่อมกับฟังก์ชันใหม่ที่เราสร้างขึ้น
 );
 
 /**
@@ -34,7 +36,7 @@ router.post(
 router.get(
   '/status',
   validateQueryParams(['ref_code']),
-  otpController.checkOtpStatus // ฟังก์ชันเช็คสถานะ OTP
+  otpController.checkOtpStatus
 );
 
 /**
@@ -44,7 +46,7 @@ router.get(
 router.post(
   '/resend',
   validateBody(['ref_code']),
-  otpController.resendOtp // ฟังก์ชัน resend OTP
+  otpController.resendOtp
 );
 
 // ==============================================
