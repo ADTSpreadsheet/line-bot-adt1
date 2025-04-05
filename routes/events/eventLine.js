@@ -91,7 +91,7 @@ const handleFollow = async (event) => {
     return;
   }
 
-  // STEP 0.6: ถ้าครบ 3 ครั้ง → ด่าขำ ๆ
+  // STEP 0.6: ถ้าครบ 3 ครั้ง → ด่าขำ ๆ (แบบสุ่ม)
   if (followCount === 3) {
     await supabase
       .from('auth_sessions')
@@ -102,10 +102,12 @@ const handleFollow = async (event) => {
       .eq('line_user_id', userId);
 
     log.info(`[FOLLOW] 🤨 ด่าขำๆ ผู้ใช้ ${userId} (follow ครั้งที่ 3)`);
+
     await client.pushMessage(userId, {
       type: 'text',
-      text: `นี่มันครั้งที่ 3 แล้วนะครับ! จะ follow/block กันไปถึงชาติหน้าเหรอครับ! 😅`
+      text: getRandomAnnoyedMessage()
     });
+
     return;
   }
 
@@ -145,7 +147,7 @@ const handleFollow = async (event) => {
 
     await client.pushMessage(userId, {
       type: 'text',
-      text: `ขอต้อนรับกลับมาอีกครั้ง\nพยายามอย่า Block ผมนะครับ\nเพื่อที่จะไม่พลาดข่าวสารดีๆจาก ADTSpreadsheet ครับ 😊\n\n🔐 Ref.Code ของพี่คือ: ${data.ref_code}`
+      text: `${getRandomWelcomeMessage()}\n\n🔐 Ref.Code ของพี่คือ: ${data.ref_code}`
     });
 
     return;
