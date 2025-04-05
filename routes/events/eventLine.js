@@ -244,8 +244,10 @@ const handleUnfollow = async (event) => {
 
   // อัปเดต line_status ใน auth_sessions
   const { error: authError } = await supabase
-    .from('auth_sessions')
-    .update(updates)
+    .from('registered_machines')
+    .update({
+      line_status: 'Unfollow',
+    })
     .eq('line_user_id', userId);
 
   if (authError) {
