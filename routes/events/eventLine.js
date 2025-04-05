@@ -6,6 +6,11 @@ const line = require('@line/bot-sdk');
 const { createModuleLogger } = require('../../utils/logger');
 const log = createModuleLogger('ADTLine-Bot');
 
+const {
+  getRandomWelcomeMessage,
+  getRandomAnnoyedMessage
+} = require('../../utils/randomMessageGenerator');
+
 // LINE CONFIG
 const config = {
   channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN,
