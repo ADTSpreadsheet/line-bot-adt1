@@ -15,23 +15,18 @@ const indexLog = createModuleLogger('Index');
 // ==============================================
 // ROUTES
 // ==============================================
-
-
 const pdpaRoutes = require('./routes/pdpaText');
 const userform3labelRoutes = require('./routes/userform3label');
 const statusRoutes = require('./routes/status');
-/*const eventLine = require('./routes/events/eventLine');*/
-/*const eventLineRoutes = require('./routes/events/eventLine');*/
 const { router: eventLineRoutes } = require('./routes/events/eventLine');
 const verifyRefcodeRoutes = require('./routes/verify-refcode');
 const confirmRegistrationRoutes = require('./routes/ConfirmRegistration');
 const otpRoutes = require('./routes/otp');
-
+const confirmOtpRoutes = require('./routes/confirmOtp'); // เพิ่มเส้นทางใหม่สำหรับ ConfirmOtp
 
 // ==============================================
 const app = express();
 const PORT = process.env.PORT || 3000;
-
 
 // Line Bot Config
 const lineConfig = {
@@ -72,11 +67,12 @@ app.use('/router/ConfirmRegistration', confirmRegistrationRoutes);
 // ส่วนที่ 6: ระบบออก OTP
 app.use('/router', otpRoutes);
 
+// ส่วนที่ 7: Confirm OTP
+app.use('/router/confirm-otp', confirmOtpRoutes); // เพิ่มเส้นทางสำหรับ Confirm OTP
+
 // ==============================================
 // API ENDPOINTS FOR VBA INTEGRATION (เก็บไว้เป็น fallback)
 // ==============================================
-
-
 app.get('/get-message', (req, res) => {
   res.json({
     message: "กรุณากรอก Ref.Code เพื่อตรวจสอบและรับ Serial Key ผ่านแชทไลน์"
@@ -86,19 +82,14 @@ app.get('/get-message', (req, res) => {
 // ==============================================
 // ERROR HANDLING
 // ==============================================
-
-
 app.use((err, req, res, next) => {
   console.error('Error:', err.stack);
   res.status(500).json({ success: false, message: 'Internal Server Error' });
 });
 
-
 // ==============================================
 // START SERVER
 // ==============================================
-
-
 app.listen(PORT, () => {
   console.log(`🚀 Server is running on port ${PORT}`);
 });
