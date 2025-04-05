@@ -52,10 +52,10 @@ const handleFollow = async (event) => {
   const userId = event.source.userId;
   const timestamp = new Date().toISOString();
 
-  // STEP 1: ตรวจสอบว่ามี Ref.Code อยู่แล้วหรือยัง
+  // STEP 0: ดึงข้อมูลเดิมก่อน
   const { data, error } = await supabase
     .from('auth_sessions')
-    .select('ref_code, expires_at') // ✅ อย่าลืมเลือก expires_at มาด้วย
+    .select('ref_code, expires_at, follow_count, status')
     .eq('line_user_id', userId)
     .maybeSingle();
 
@@ -64,13 +64,58 @@ const handleFollow = async (event) => {
     return;
   }
 
+  let followCount = (data?.follow_count || 0) + 1;
+
+  // STEP 0.5: ถ้าเกิน 5 ครั้ง → BLOCK
+  if (followCount >= 5) {
+    await supabase
+      .from('auth_sessions')
+      .update({
+        follow_count: followCount,
+        status: 'BLOCKED',
+        line_bot_status: 'BLOCKED',
+        line_status: 'follow'
+      })
+      .eq('line_user_id', userId);
+
+    log.warn(`[FOLLOW] 🚫 LINE USER ${userId} ถูก BLOCK เพราะ follow เกิน 5 ครั้ง`);
+    await client.pushMessage(userId, {
+      type: 'text',
+      text: `คุณได้ทำการบล็อก/ปลดบล็อกบ่อยเกินไป\nระบบขอระงับสิทธิ์การใช้งานชั่วคราวครับ 😔`
+    });
+    return;
+  }
+
+  // STEP 0.6: ถ้าครบ 3 ครั้ง → ด่าขำ ๆ
+  if (followCount === 3) {
+    await supabase
+      .from('auth_sessions')
+      .update({
+        follow_count: followCount,
+        line_status: 'follow'
+      })
+      .eq('line_user_id', userId);
+
+    log.info(`[FOLLOW] 🤨 ด่าขำๆ ผู้ใช้ ${userId} (follow ครั้งที่ 3)`);
+    await client.pushMessage(userId, {
+      type: 'text',
+      text: `นี่มันครั้งที่ 3 แล้วนะครับ! จะ follow/block กันไปถึงชาติหน้าเหรอครับ! 😅`
+    });
+    return;
+  }
+
   // ✅ เคยมี Ref.Code แล้ว
   if (data && data.ref_code) {
     const now = new Date().toISOString();
 
-    // STEP 2: เช็คว่า Ref.Code หมดอายุหรือยัง
+    // STEP 1: เช็คว่า Ref.Code หมดอายุหรือยัง
     if (data.expires_at && data.expires_at <= now) {
       log.warn(`[FOLLOW] ⌛ Ref.Code ของผู้ใช้ ${userId} หมดอายุแล้ว`);
+
+      await supabase
+        .from('auth_sessions')
+        .update({ follow_count: followCount, line_status: 'follow' })
+        .eq('line_user_id', userId);
 
       await client.pushMessage(userId, {
         type: 'text',
@@ -83,7 +128,7 @@ const handleFollow = async (event) => {
     // ✅ Ref.Code ยังไม่หมดอายุ → อัปเดตสถานะเป็น follow
     await supabase
       .from('auth_sessions')
-      .update({ line_status: 'follow' })
+      .update({ follow_count: followCount, line_status: 'follow' })
       .eq('line_user_id', userId);
 
     await supabase
@@ -113,7 +158,8 @@ const handleFollow = async (event) => {
       serial_key: serialKey,
       status: 'PENDING',
       created_at: timestamp,
-      line_status: 'follow'
+      line_status: 'follow',
+      follow_count: followCount
     });
 
   if (insertError) {
