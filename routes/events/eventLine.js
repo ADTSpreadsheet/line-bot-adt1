@@ -77,8 +77,8 @@ const handleFollow = async (event) => {
       .from('auth_sessions')
       .update({
         follow_count: followCount,
-        status: 'BLOCKED',
-        line_bot_status: 'BLOCKED',
+        status: 'BLOCK',
+        line_bot_status: 'BLOCK',
         line_status: 'follow'
       })
       .eq('line_user_id', userId);
