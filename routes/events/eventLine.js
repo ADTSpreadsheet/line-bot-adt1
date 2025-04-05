@@ -232,9 +232,9 @@ const handleUnfollow = async (event) => {
   const userId = event.source.userId;
   const updates = { line_status: 'unfollow' };
 
-  log.warn(`👋 ผู้ใช้ ${userId} เลิกติดตาม ADTLine-Bot แล้ว`);
+  log.warn(`🔥 ผู้ใช้ ${userId} เลิกติดตาม ADTLine-Bot แล้ว`);
 
-  // อัปเดต auth_sessions
+  // อัปเดต line_status ใน auth_sessions
   const { error: authError } = await supabase
     .from('auth_sessions')
     .update(updates)
@@ -243,19 +243,19 @@ const handleUnfollow = async (event) => {
   if (authError) {
     log.error(`❌ อัปเดต line_status (auth_sessions) ล้มเหลว: ${authError.message}`);
   } else {
-    log.info(`✅ auth_sessions → line_status = 'unfollow' สำเร็จ`);
+    log.info(`✅ อัปเดต auth_sessions -> line_status = 'unfollow' สำเร็จ`);
   }
 
-  // อัปเดต registered_machines
+  // อัปเดต line_status ใน registered_machines
   const { error: regError } = await supabase
-    .from('registered_machines')  // ✅ ต้องไม่มี .from() ซ้ำ
+    .from('registered_machines')
     .update(updates)
     .eq('line_user_id', userId);
 
   if (regError) {
     log.error(`❌ อัปเดต line_status (registered_machines) ล้มเหลว: ${regError.message}`);
   } else {
-    log.info(`✅ registered_machines → line_status = 'unfollow' สำเร็จ`);
+    log.info(`✅ อัปเดต registered_machines -> line_status = 'unfollow' สำเร็จ`);
   }
 };
 
