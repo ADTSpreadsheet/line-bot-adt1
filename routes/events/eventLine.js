@@ -183,6 +183,15 @@ const handleFollow = async (event) => {
   log.info(`LINE USER ID: ${userId}`);
   log.info(`🔐 Ref.Code: ${refCode}`);
   log.info(`🔑 Serial Key: ${serialKey}`);
+
+  // 📌 หลังจากที่ส่ง Serial Key แล้ว ต้องอัปเดตสถานะเป็น ACTIVE และบันทึกเวลา completed_at
+  await supabase
+    .from('auth_sessions')
+    .update({
+      status: 'ACTIVE',
+      completed_at: new Date().toISOString()  // บันทึกเวลาที่ส่ง Serial Key
+    })
+    .eq('ref_code', refCode);
 };
 
 
