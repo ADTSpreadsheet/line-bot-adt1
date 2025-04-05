@@ -51,51 +51,90 @@ function generateSerialKey() {
 const handleFollow = async (event) => {
   const userId = event.source.userId;
   const timestamp = new Date().toISOString();
-  const refCode = generateRefCode();
-  const serialKey = generateSerialKey();
 
-  const sessionPayload = {
-    line_user_id: userId,
-    ref_code: refCode,
-    serial_key: serialKey,
-    status: 'PENDING',
-    created_at: timestamp,
-    line_status: 'follow' // ✅ เพิ่มตรงนี้
-  };
-
-  const machinePayload = {
-    line_user_id: userId,
-    line_status: 'follow' // ✅ เพิ่มตรงนี้
-  };
-
-  // ✅ อัปเดตตาราง auth_sessions
-  const { error: sessionError } = await supabase
+  // STEP 1: ตรวจสอบว่ามี Ref.Code อยู่แล้วหรือยัง
+  const { data, error } = await supabase
     .from('auth_sessions')
-    .upsert(sessionPayload);
+    .select('ref_code, expires_at') // ✅ อย่าลืมเลือก expires_at มาด้วย
+    .eq('line_user_id', userId)
+    .maybeSingle();
 
-  if (sessionError) {
-    log.error('[FOLLOW] บันทึก auth_sessions ล้มเหลว:', sessionError);
+  if (error) {
+    log.error(`[FOLLOW] ❌ ดึงข้อมูล Ref.Code ล้มเหลว: ${error.message}`);
     return;
   }
 
-  // ✅ อัปเดตตาราง registered_machines
-  const { error: machineError } = await supabase
-    .from('registered_machines')
-    .update(machinePayload)
-    .eq('line_user_id', userId);
+  // ✅ เคยมี Ref.Code แล้ว
+  if (data && data.ref_code) {
+    const now = new Date().toISOString();
 
-  if (machineError) {
-    log.warn('[FOLLOW] อัปเดต line_status ใน registered_machines ไม่สำเร็จ:', machineError);
-  } else {
-    log.info(`[FOLLOW] อัปเดต line_status = 'follow' สำเร็จใน registered_machines สำหรับ ${userId}`);
+    // STEP 2: เช็คว่า Ref.Code หมดอายุหรือยัง
+    if (data.expires_at && data.expires_at <= now) {
+      log.warn(`[FOLLOW] ⌛ Ref.Code ของผู้ใช้ ${userId} หมดอายุแล้ว`);
+
+      await client.pushMessage(userId, {
+        type: 'text',
+        text: `🔒 Ref.Code ของคุณหมดอายุแล้วครับ\nกรุณาติดต่อเจ้าหน้าที่หรือทำรายการสั่งซื้อเพื่อเปิดใช้งานอีกครั้ง 🙏`
+      });
+
+      return;
+    }
+
+    // ✅ Ref.Code ยังไม่หมดอายุ → อัปเดตสถานะเป็น follow
+    await supabase
+      .from('auth_sessions')
+      .update({ line_status: 'follow' })
+      .eq('line_user_id', userId);
+
+    await supabase
+      .from('registered_machines')
+      .update({ line_status: 'follow' })
+      .eq('line_user_id', userId);
+
+    log.info(`[FOLLOW] ✅ พบผู้ใช้เก่าที่ยังมี Ref.Code ใช้งานได้: ${userId}`);
+
+    await client.pushMessage(userId, {
+      type: 'text',
+      text: `ขอต้อนรับกลับมาอีกครั้ง\nพยายามอย่า Block ผมนะครับ\nเพื่อที่จะไม่พลาดข่าวสารดีๆจาก ADTSpreadsheet ครับ 😊\n\n🔐 Ref.Code ของพี่คือ: ${data.ref_code}`
+    });
+
+    return;
   }
 
-  // ✅ Log สวย ๆ
-  log.info('[FOLLOW] ผู้ใช้รายใหม่เพิ่ม ADTLine-Bot เป็นเพื่อน');
+  // 🆕 STEP 3: ผู้ใช้ใหม่ → สร้าง Ref.Code + Serial Key
+  const refCode = generateRefCode();
+  const serialKey = generateSerialKey();
+
+  const { error: insertError } = await supabase
+    .from('auth_sessions')
+    .insert({
+      line_user_id: userId,
+      ref_code: refCode,
+      serial_key: serialKey,
+      status: 'PENDING',
+      created_at: timestamp,
+      line_status: 'follow'
+    });
+
+  if (insertError) {
+    log.error(`[FOLLOW] ❌ สร้าง Ref.Code ใหม่ไม่สำเร็จ: ${insertError.message}`);
+    return;
+  }
+
+  await supabase
+    .from('registered_machines')
+    .update({ line_status: 'follow' })
+    .eq('line_user_id', userId);
+
+  log.info(`[FOLLOW] ✅ สร้าง Ref.Code และ Serial Key สำเร็จ`);
   log.info(`LINE USER ID: ${userId}`);
   log.info(`🔐 Ref.Code: ${refCode}`);
   log.info(`🔑 Serial Key: ${serialKey}`);
-  log.success('✅ บันทึกลง Supabase สำเร็จ');
+
+  await client.pushMessage(userId, {
+    type: 'text',
+    text: `สวัสดี ผู้ใช้รายใหม่\nยินดีต้อนรับเข้าสู่ ADTSpreadsheet เวอร์ชั่นทดลองใช้\nนี่คือ ADTLine-Bot มาช่วยแนะนำให้พี่ลงทะเบียนได้สำเร็จ\nกรุณาพิมพ์คำว่า "  REQ_REFCODE " เพื่อขอรหัสอ้างอิงของท่าน`
+  });
 };
 
 
