@@ -1,12 +1,16 @@
 // routes/otp.js
 const express = require('express');
 const router = express.Router();
-const otpController = require('../controllers/otpController');
-const confirmOtpController = require('../controllers/confirmOtpController'); // เพิ่มการ import ใหม่
+
+// ✅ Import Controllers
+const { requestOtp, checkOtpStatus, resendOtp } = require('../controllers/otpController');
+const { confirmOtp } = require('../controllers/confirmOtpController');
+
+// ✅ Import Middleware
 const { validateBody, validateQueryParams } = require('../middlewares/validator');
 
 // ==============================================
-// 📌 OTP ROUTES (ใช้ /router เป็น prefix จาก index.js)
+// 📌 OTP ROUTES (prefix: /router)
 // ==============================================
 
 /**
@@ -16,40 +20,40 @@ const { validateBody, validateQueryParams } = require('../middlewares/validator'
 router.post(
   '/request',
   validateBody(['ref_code']),
-  otpController.requestOtp
+  requestOtp
 );
 
 /**
  * @route POST /router/verify
- * @desc ตรวจสอบ OTP
+ * @desc ยืนยัน OTP ที่ผู้ใช้กรอก
  */
 router.post(
   '/verify',
   validateBody(['ref_code', 'otp']),
-  confirmOtpController.confirmOtp  // เชื่อมกับฟังก์ชันใหม่ที่เราสร้างขึ้น
+  confirmOtp
 );
 
 /**
  * @route GET /router/status?ref_code=XXXX
- * @desc เช็คสถานะ OTP
+ * @desc ตรวจสอบสถานะ OTP ว่ากรอกหรือยัง
  */
 router.get(
   '/status',
   validateQueryParams(['ref_code']),
-  otpController.checkOtpStatus
+  checkOtpStatus
 );
 
 /**
  * @route POST /router/resend
- * @desc ส่ง OTP ซ้ำ
+ * @desc ส่ง OTP ซ้ำให้ผู้ใช้
  */
 router.post(
   '/resend',
   validateBody(['ref_code']),
-  otpController.resendOtp
+  resendOtp
 );
 
 // ==============================================
-// ✅ ส่งออก router
+// ✅ Export Router
 // ==============================================
 module.exports = router;
