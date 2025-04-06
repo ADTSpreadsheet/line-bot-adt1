@@ -4,7 +4,7 @@ const router = express.Router();
 
 // ✅ Import Controllers
 const { requestOtp, checkOtpStatus, resendOtp } = require('../controllers/otpController');
-const { confirmOtp } = require('../controllers/confirmOtpController');
+const { confirmOtp, clearOtp } = require('../controllers/confirmOtpController'); // ✅ เพิ่ม clearOtp เข้ามาด้วย
 
 // ✅ Import Middleware
 const { validateBody, validateQueryParams } = require('../middlewares/validator');
@@ -34,13 +34,13 @@ router.post(
 );
 
 /**
- * @route GET /router/status?ref_code=XXXX
- * @desc ตรวจสอบสถานะ OTP ว่ากรอกหรือยัง
+ * @route POST /router/clear-otp
+ * @desc ล้าง OTP และอัปเดต verify_status → Active
  */
-router.get(
-  '/status',
-  validateQueryParams(['ref_code']),
-  checkOtpStatus
+router.post(
+  '/clear-otp',
+  validateBody(['ref_code']),
+  clearOtp
 );
 
 /**
@@ -51,6 +51,16 @@ router.post(
   '/resend',
   validateBody(['ref_code']),
   resendOtp
+);
+
+/**
+ * @route GET /router/status?ref_code=XXXX
+ * @desc ตรวจสอบสถานะ OTP ว่ากรอกหรือยัง
+ */
+router.get(
+  '/status',
+  validateQueryParams(['ref_code']),
+  checkOtpStatus
 );
 
 // ==============================================
