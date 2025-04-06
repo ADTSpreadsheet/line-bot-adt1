@@ -8,8 +8,6 @@ const confirmOtp = async (req, res) => {
   try {
     const { ref_code, otp } = req.body;
 
-    
-
     const { data, error } = await supabase
       .from('auth_sessions')
       .select('*')
