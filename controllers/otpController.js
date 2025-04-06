@@ -27,7 +27,6 @@ const requestOtp = async (req, res) => {
     }
 
     console.log('✅ พบ Ref.Code แล้ว:', sessionData);
-
     const now = new Date();
 
     if (sessionData.status === 'BLOCK') {
@@ -37,11 +36,15 @@ const requestOtp = async (req, res) => {
 
     if (new Date(sessionData.expires_at) <= now) {
       console.warn(`⏳ Ref.Code: ${ref_code} หมดอายุแล้ว`);
-      await supabase
+      const { error: updateError } = await supabase
         .from('auth_sessions')
-        .update({ verify_status: 'No Active' })
+        .update({ verify_status: 'No_Active' })
         .eq('ref_code', ref_code);
-
+        
+      if (updateError) {
+        console.error('❌ อัปเดตสถานะไม่สำเร็จ:', updateError);
+      }
+      
       return res.status(400).json({ status: 'error', message: 'Ref.Code หมดอายุแล้ว' });
     }
 
@@ -55,7 +58,6 @@ const requestOtp = async (req, res) => {
 
     // ✅ สร้าง OTP
     const otp = generateOtpCode();
-
     const { error: updateOtpError } = await supabase
       .from('auth_sessions')
       .update({
@@ -84,13 +86,66 @@ const requestOtp = async (req, res) => {
     }
 
     return res.status(200).json({ status: 'success', message: 'ส่ง OTP สำเร็จ' });
-
   } catch (err) {
     console.error('🔥 [OTP ERROR] ไม่สามารถดำเนินการได้:', err);
     return res.status(500).json({ status: 'error', message: 'เกิดข้อผิดพลาดในการส่ง OTP' });
   }
 };
 
+// ✅ ตรวจสอบสถานะ OTP
+const checkOtpStatus = async (req, res) => {
+  try {
+    const { ref_code } = req.body;
+    console.log(`🔍 [OTP] ตรวจสอบสถานะ OTP → Ref.Code: ${ref_code}`);
+
+    const { data: sessionData, error: sessionError } = await supabase
+      .from('auth_sessions')
+      .select('verify_status, expires_at, otp_code, otp_count')
+      .eq('ref_code', ref_code)
+      .maybeSingle();
+
+    if (sessionError || !sessionData) {
+      console.warn('⚠️ ไม่พบ Ref.Code หรือเกิด error:', sessionError);
+      return res.status(404).json({ status: 'error', message: 'ไม่พบ Ref.Code นี้ในระบบ' });
+    }
+
+    const now = new Date();
+    if (new Date(sessionData.expires_at) <= now) {
+      console.warn(`⏳ Ref.Code: ${ref_code} หมดอายุแล้ว`);
+      await supabase
+        .from('auth_sessions')
+        .update({ verify_status: 'No_Active' })
+        .eq('ref_code', ref_code);
+        
+      return res.status(400).json({ status: 'error', message: 'Ref.Code หมดอายุแล้ว' });
+    }
+
+    return res.status(200).json({
+      status: 'success',
+      data: {
+        verify_status: sessionData.verify_status,
+        otp_count: sessionData.otp_count || 0
+      }
+    });
+  } catch (err) {
+    console.error('🔥 [OTP ERROR] ไม่สามารถตรวจสอบสถานะได้:', err);
+    return res.status(500).json({ status: 'error', message: 'เกิดข้อผิดพลาดในการตรวจสอบสถานะ OTP' });
+  }
+};
+
+// ✅ ส่ง OTP ใหม่
+const resendOtp = async (req, res) => {
+  try {
+    const { ref_code } = req.body;
+    console.log(`🔄 [OTP] ขอ OTP ใหม่ → Ref.Code: ${ref_code}`);
+
+    // เรียกใช้ฟังก์ชัน requestOtp เพื่อลดการเขียนโค้ดซ้ำ
+    return await requestOtp(req, res);
+  } catch (err) {
+    console.error('🔥 [OTP ERROR] ไม่สามารถส่ง OTP ใหม่ได้:', err);
+    return res.status(500).json({ status: 'error', message: 'เกิดข้อผิดพลาดในการส่ง OTP ใหม่' });
+  }
+};
 
 // ✅ EXPORT
 module.exports = {
