@@ -42,7 +42,7 @@ app.use(bodyParser.urlencoded({ extended: true }));
 
 // ส่วนที่ 6: Logs สำหรับตรวจสอบข้อผิดพลาด
 app.use((req, res, next) => {
-  indexLog.debug(📡 ${req.method} ${req.originalUrl});
+  indexLog.debug(`📡 ${req.method} ${req.originalUrl}`);
   next();
 });
 
