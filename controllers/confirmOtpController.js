@@ -53,10 +53,9 @@ const confirmOtp = async (req, res) => {
 const clearOtp = async (req, res) => {
   try {
     const { ref_code } = req.body;
-
     console.log(`📩 [CLEAR OTP] เริ่มล้าง OTP → Ref.Code: ${ref_code}`);
 
-    // STEP 1: ตรวจสอบว่ามี OTP หรือไม่
+    // STEP 1: ตรวจสอบ OTP ปัจจุบัน
     const { data: checkData, error: checkError } = await supabase
       .from('auth_sessions')
       .select('otp_code')
@@ -66,12 +65,12 @@ const clearOtp = async (req, res) => {
     if (checkError) {
       console.error(`❌ [CLEAR OTP] ตรวจสอบ OTP ก่อนล้างล้มเหลว: ${checkError.message}`);
     } else if (!checkData || checkData.otp_code === null) {
-      console.warn(`⚠️ [CLEAR OTP] ไม่พบ OTP หรือ OTP ถูกล้างไปแล้ว → Ref.Code: ${ref_code}`);
+      console.warn(`⚠️ [CLEAR OTP] ไม่พบ OTP หรือถูกล้างไปแล้ว → Ref.Code: ${ref_code}`);
     } else {
       console.log(`🔍 [CLEAR OTP] พบ OTP → ${checkData.otp_code}`);
     }
 
-    // STEP 2: ล้าง OTP ออกจากตาราง
+    // STEP 2: ล้าง OTP
     const { error: clearError } = await supabase
       .from('auth_sessions')
       .update({
@@ -88,13 +87,13 @@ const clearOtp = async (req, res) => {
       });
     }
 
-    console.log(`✅ [CLEAR OTP] ล้าง OTP สำเร็จ`);
+    console.log(`✅ [CLEAR OTP] ล้าง OTP สำเร็จแล้ว`);
 
-    // STEP 3: อัปเดตสถานะกลับเป็น Active
+    // STEP 3: อัปเดตสถานะ verify_status → Active
     const { error: updateError } = await supabase
       .from('auth_sessions')
       .update({
-        verify_status: 'Active', // 🟢 คงไว้ให้ระบบตรวจรอบต่อไป
+        verify_status: 'Active',
         updated_at: new Date().toISOString()
       })
       .eq('ref_code', ref_code);
@@ -105,6 +104,7 @@ const clearOtp = async (req, res) => {
       console.log(`✅ [CLEAR OTP] อัปเดต verify_status → Active สำเร็จ`);
     }
 
+    // STEP 4: ตอบกลับให้ VBA
     return res.status(200).json({
       status: 'success',
       message: 'ล้างค่า OTP สำเร็จ'
@@ -118,6 +118,7 @@ const clearOtp = async (req, res) => {
     });
   }
 };
+
 
 module.exports = {
   confirmOtp,
