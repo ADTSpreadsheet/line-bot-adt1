@@ -15,11 +15,7 @@ const confirmOtp = async (req, res) => {
       .eq('otp_code', otp)
       .maybeSingle();
     console.log(`📩 [CONFIRM OTP] เริ่มต้นกระบวนการยืนยัน OTP`);
-    console.log(`➡️ ข้อมูลที่ได้รับ: Ref.Code = ${ref_code}, OTP = ${otp}`);
-    console.log(`🟡 [DEBUG] OTP ที่อยู่ในฐานข้อมูล: '${data?.otp_code}'`);
-    console.log(`📦 [DEBUG] RefCode RAW: '${ref_code}'`);
-    console.log(`📦 [DEBUG] OTP RAW: '${otp}'`);
-
+    
     if (error) {
       console.error(`❌ [CONFIRM OTP] Supabase Error: ${error.message}`);
       return res.status(500).json({ 
@@ -95,7 +91,7 @@ const clearOtp = async (req, res) => {
     const { error: updateError } = await supabase
       .from('auth_sessions')
       .update({
-        verify_status: 'Verified',
+        verify_status: 'Active',
         updated_at: new Date().toISOString()
       })
       .eq('ref_code', ref_code);
