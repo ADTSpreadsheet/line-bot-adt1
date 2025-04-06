@@ -39,8 +39,8 @@ const requestOtp = async (req, res) => {
       return res.status(400).json({ status: 'error', message: 'Ref.Code หมดอายุแล้ว' });
     }
 
-    // ถ้า verify_status ยังไม่ ACTIVE → อัปเดตให้เลย
-    if (sessionData.verify_status !== 'ACTIVE') {
+    // ถ้า verify_status ยังไม่ Active → อัปเดตให้เลย
+    if (sessionData.verify_status !== 'Active') {
       await supabase
         .from('auth_sessions')
         .update({ verify_status: 'Active' })
@@ -90,7 +90,7 @@ const checkOtpStatus = async (req, res) => {
 
     const { data, error } = await supabase
       .from('auth_sessions')
-      .select('otp_code, otp_expires_at, verify_status')
+      .select('otp_code, otp_count verify_status')
       .eq('ref_code', ref_code)
       .maybeSingle();
 
