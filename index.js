@@ -68,7 +68,7 @@ app.use('/router/ConfirmRegistration', confirmRegistrationRoutes);
 app.use('/router', otpRoutes);
 
 // ส่วนที่ 7: Confirm OTP
-app.use('/router/confirm-otp', confirmOtpRoutes); // เพิ่มเส้นทางสำหรับ Confirm OTP
+app.use('/router/confirmOtp', confirmOtpRoutes); // เพิ่มเส้นทางสำหรับ Confirm OTP
 
 // ==============================================
 // API ENDPOINTS FOR VBA INTEGRATION (เก็บไว้เป็น fallback)
