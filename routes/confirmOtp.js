@@ -1,9 +1,11 @@
 const express = require('express');
 const router = express.Router();
+const { confirmOtp, clearOtp } = require('../controllers/confirmOtpController');
 
-const { confirmOtp } = require('../controllers/confirmOtpController');
-const { validateBody } = require('../middlewares/validator');
+// POST /router/confirm-otp/verify
+router.post('/verify', confirmOtp);
 
-router.post('/', validateBody(['ref_code', 'otp']), confirmOtp);
+// POST /router/confirm-otp/clear
+router.post('/clear', clearOtp);
 
 module.exports = router;
