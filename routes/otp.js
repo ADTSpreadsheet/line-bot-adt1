@@ -56,4 +56,8 @@ router.post(
 // ==============================================
 // ✅ Export Router
 // ==============================================
-module.exports = router;
+module.exports = {
+  requestOtp,
+  resendOtp,
+  checkOtpStatus
+};
