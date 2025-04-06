@@ -70,6 +70,13 @@ const handleFollow = async (event) => {
   }
 
   let followCount = (data?.follow_count || 0) + 1;
+  await supabase
+  .from('auth_sessions')
+  .update({
+    follow_count: followCount,
+    line_status: 'Follow'
+  })
+  .eq('line_user_id', userId);
 
   // STEP 0.5: ถ้าเกิน 5 ครั้ง → BLOCK
   if (followCount >= 5) {
