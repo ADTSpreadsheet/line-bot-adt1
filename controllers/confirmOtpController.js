@@ -17,6 +17,8 @@ const confirmOtp = async (req, res) => {
     console.log(`📩 [CONFIRM OTP] เริ่มต้นกระบวนการยืนยัน OTP`);
     console.log(`➡️ ข้อมูลที่ได้รับ: Ref.Code = ${ref_code}, OTP = ${otp}`);
     console.log(`🟡 [DEBUG] OTP ที่อยู่ในฐานข้อมูล: '${data?.otp_code}'`);
+    console.log(`📦 [DEBUG] RefCode RAW: '${ref_code}'`);
+    console.log(`📦 [DEBUG] OTP RAW: '${otp}'`);
 
     if (error) {
       console.error(`❌ [CONFIRM OTP] Supabase Error: ${error.message}`);
