@@ -53,20 +53,13 @@ const requestOtp = async (req, res) => {
         .eq('ref_code', ref_code);
     }
 
+    // ✅ สร้าง OTP
     const otp = generateOtpCode();
-    const otpCreatedAt = now.toISOString();
-    const otpExpiresAt = new Date(now.getTime() + OTP_EXPIRATION_MINUTES * 60000).toISOString();
-
-    console.log('📲 กำลังอัปเดต OTP ใหม่...');
-    console.log('➡️ OTP:', otp);
-    console.log('📅 เริ่ม:', otpCreatedAt, '| หมดอายุ:', otpExpiresAt);
 
     const { error: updateOtpError } = await supabase
       .from('auth_sessions')
       .update({
         otp_code: otp,
-        otp_at: otpCreatedAt,
-        otp_expires_at: otpExpiresAt,
         otp_count: (sessionData.otp_count || 0) + 1
       })
       .eq('ref_code', ref_code);
@@ -84,7 +77,7 @@ const requestOtp = async (req, res) => {
 📌 รหัส OTP สำหรับเข้าใช้งาน ADTSpreadsheet:
 🔐 OTP: ${otp}
 📋 Ref.Code: ${ref_code}
-⏳ หมดอายุใน ${OTP_EXPIRATION_MINUTES} นาที
+⏳ กรุณาใช้ภายใน 5 นาที (หากหมดเวลา ร้องขอใหม่ได้)
       `);
     } else {
       console.warn('⚠️ ไม่พบ line_user_id สำหรับ Ref.Code นี้');
@@ -95,50 +88,6 @@ const requestOtp = async (req, res) => {
   } catch (err) {
     console.error('🔥 [OTP ERROR] ไม่สามารถดำเนินการได้:', err);
     return res.status(500).json({ status: 'error', message: 'เกิดข้อผิดพลาดในการส่ง OTP' });
-  }
-};
-
-// ✅ ตรวจสอบสถานะ OTP
-const checkOtpStatus = async (req, res) => {
-  try {
-    const { ref_code } = req.query;
-    console.log('🔎 ตรวจสอบสถานะ OTP สำหรับ Ref.Code:', ref_code);
-
-    const { data, error } = await supabase
-      .from('auth_sessions')
-      .select('otp_code, otp_count, verify_status, otp_expires_at')
-      .eq('ref_code', ref_code)
-      .maybeSingle();
-
-    if (error || !data) {
-      console.warn('⚠️ ไม่พบข้อมูล OTP หรือเกิด error:', error);
-      return res.status(404).json({ status: 'error', message: 'ไม่พบข้อมูล OTP' });
-    }
-
-    const now = new Date();
-    const isExpired = new Date(data.otp_expires_at) <= now;
-
-    console.log(`✅ สถานะ OTP: ${data.verify_status} | หมดอายุแล้วหรือไม่: ${isExpired}`);
-
-    return res.status(200).json({
-      status: 'success',
-      verify_status: data.verify_status,
-    });
-
-  } catch (err) {
-    console.error('❌ [OTP STATUS] เกิดข้อผิดพลาด:', err);
-    return res.status(500).json({ status: 'error', message: 'เกิดข้อผิดพลาดในการตรวจสอบ OTP' });
-  }
-};
-
-// ✅ ส่ง OTP ซ้ำ
-const resendOtp = async (req, res) => {
-  try {
-    console.log('🔁 ส่ง OTP ซ้ำสำหรับ Ref.Code:', req.body.ref_code);
-    return requestOtp(req, res); // ใช้ logic เดิม
-  } catch (err) {
-    console.error('❌ [RESEND OTP] เกิดข้อผิดพลาด:', err);
-    return res.status(500).json({ status: 'error', message: 'เกิดข้อผิดพลาดในการส่ง OTP ซ้ำ' });
   }
 };
 
