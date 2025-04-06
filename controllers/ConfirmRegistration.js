@@ -97,8 +97,9 @@ const completeRegistration = async (req, res) => {
         facebook_url,
         line_id,
         status: 'COMPLETED',
-        verify_status:'Active',
+        verify_status: 'Active',
         completed_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
         expires_at: expiryDate.toISOString()
       })
       .eq('ref_code', ref_code)
