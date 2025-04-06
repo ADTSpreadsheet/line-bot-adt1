@@ -2,30 +2,39 @@ const { supabase } = require('../utils/supabaseClient');
 const { sendLineMessage } = require('../utils/lineBot');
 
 // ✅ ยืนยัน OTP
-const verifyOtp = async (req, res) => {
+const confirmOtp = async (req, res) => {
   try {
     const { ref_code, otp } = req.body;
 
-    // ค้นหาข้อมูลจากฐานข้อมูลตาม ref_code
-    const { data: sessionData, error: sessionError } = await supabase
-      .from('auth_sessions')
-      .select('otp_code, otp_expires_at')
+    // ตัวอย่างโค้ดเบื้องต้น
+    const { data, error } = await supabase
+      .from('otp_sessions')
+      .select('*')
       .eq('ref_code', ref_code)
+      .eq('otp_code', otp)
+      .eq('status', 'ACTIVE')
       .maybeSingle();
 
-    if (sessionError || !sessionData) {
-      return res.status(404).json({ status: 'error', message: 'ไม่พบ Ref.Code นี้ในระบบ' });
+    if (error || !data) {
+      return res.status(404).json({ message: 'OTP ไม่ถูกต้องหรือหมดอายุแล้ว' });
     }
 
-    // ตรวจสอบว่า OTP หมดอายุหรือไม่
-    if (new Date() > new Date(sessionData.otp_expires_at)) {
-      return res.status(400).json({ status: 'error', message: 'OTP หมดอายุแล้ว' });
-    }
+    // อัปเดต verify_status เป็น ACTIVE ถ้า OTP ตรง
+    await supabase
+      .from('auth_sessions')
+      .update({
+        verify_status: 'Active',
+        updated_at: new Date().toISOString()
+      })
+      .eq('ref_code', ref_code);
 
-    // ตรวจสอบว่า OTP ที่กรอกตรงกับ OTP ที่เก็บในฐานข้อมูลหรือไม่
-    if (otp !== sessionData.otp_code) {
-      return res.status(400).json({ status: 'error', message: 'OTP ไม่ถูกต้อง' });
-    }
+    return res.status(200).json({ message: 'ยืนยัน OTP สำเร็จ' });
+
+  } catch (err) {
+    console.error('Error confirming OTP:', err);
+    return res.status(500).json({ message: 'เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์' });
+  }
+};
 
     // เคลียร์ค่ารหัส OTP ในฐานข้อมูลหลังจากยืนยัน OTP สำเร็จ
     const { error: clearOtpError } = await supabase
