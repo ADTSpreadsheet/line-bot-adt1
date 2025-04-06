@@ -8,8 +8,7 @@ const confirmOtp = async (req, res) => {
   try {
     const { ref_code, otp } = req.body;
 
-    console.log(`📩 [CONFIRM OTP] เริ่มต้นกระบวนการยืนยัน OTP`);
-    console.log(`➡️ ข้อมูลที่ได้รับ: Ref.Code = ${ref_code}, OTP = ${otp}`);
+    
 
     const { data, error } = await supabase
       .from('auth_sessions')
@@ -17,6 +16,9 @@ const confirmOtp = async (req, res) => {
       .eq('ref_code', ref_code)
       .eq('otp_code', otp)
       .maybeSingle();
+    console.log(`📩 [CONFIRM OTP] เริ่มต้นกระบวนการยืนยัน OTP`);
+    console.log(`➡️ ข้อมูลที่ได้รับ: Ref.Code = ${ref_code}, OTP = ${otp}`);
+    console.log(`🟡 [DEBUG] OTP ที่อยู่ในฐานข้อมูล: '${data?.otp_code}'`);
 
     if (error) {
       console.error(`❌ [CONFIRM OTP] Supabase Error: ${error.message}`);
