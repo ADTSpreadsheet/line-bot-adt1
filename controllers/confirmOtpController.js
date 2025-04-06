@@ -56,6 +56,7 @@ const clearOtp = async (req, res) => {
 
     console.log(`📩 [CLEAR OTP] เริ่มล้าง OTP → Ref.Code: ${ref_code}`);
 
+    // STEP 1: ตรวจสอบว่ามี OTP หรือไม่
     const { data: checkData, error: checkError } = await supabase
       .from('auth_sessions')
       .select('otp_code')
@@ -65,11 +66,12 @@ const clearOtp = async (req, res) => {
     if (checkError) {
       console.error(`❌ [CLEAR OTP] ตรวจสอบ OTP ก่อนล้างล้มเหลว: ${checkError.message}`);
     } else if (!checkData || checkData.otp_code === null) {
-      console.warn(`⚠️ [CLEAR OTP] ไม่พบ OTP หรือถูกล้างไปแล้ว → Ref.Code: ${ref_code}`);
+      console.warn(`⚠️ [CLEAR OTP] ไม่พบ OTP หรือ OTP ถูกล้างไปแล้ว → Ref.Code: ${ref_code}`);
     } else {
       console.log(`🔍 [CLEAR OTP] พบ OTP → ${checkData.otp_code}`);
     }
 
+    // STEP 2: ล้าง OTP ออกจากตาราง
     const { error: clearError } = await supabase
       .from('auth_sessions')
       .update({
@@ -80,38 +82,39 @@ const clearOtp = async (req, res) => {
 
     if (clearError) {
       console.error(`❌ [CLEAR OTP] ล้าง OTP ไม่สำเร็จ: ${clearError.message}`);
-      return res.status(500).json({ 
+      return res.status(500).json({
         status: 'error',
-        message: 'ไม่สามารถล้างค่า OTP ได้' 
+        message: 'ไม่สามารถล้างค่า OTP ได้'
       });
     }
 
     console.log(`✅ [CLEAR OTP] ล้าง OTP สำเร็จ`);
 
+    // STEP 3: อัปเดตสถานะกลับเป็น Active
     const { error: updateError } = await supabase
       .from('auth_sessions')
       .update({
-        verify_status: 'Active',
+        verify_status: 'Active', // 🟢 คงไว้ให้ระบบตรวจรอบต่อไป
         updated_at: new Date().toISOString()
       })
       .eq('ref_code', ref_code);
 
     if (updateError) {
-      console.warn(`⚠️ [CLEAR OTP] อัปเดตสถานะไม่สำเร็จ: ${updateError.message}`);
+      console.warn(`⚠️ [CLEAR OTP] อัปเดต verify_status ไม่สำเร็จ: ${updateError.message}`);
     } else {
-      console.log(`✅ [CLEAR OTP] อัปเดต verify_status → Verified สำเร็จ`);
+      console.log(`✅ [CLEAR OTP] อัปเดต verify_status → Active สำเร็จ`);
     }
 
-    return res.status(200).json({ 
+    return res.status(200).json({
       status: 'success',
-      message: 'ล้างค่า OTP สำเร็จ' 
+      message: 'ล้างค่า OTP สำเร็จ'
     });
 
   } catch (err) {
     console.error(`🔥 [CLEAR OTP] ข้อผิดพลาดที่ไม่คาดคิด: ${err.message}`);
-    return res.status(500).json({ 
+    return res.status(500).json({
       status: 'error',
-      message: 'เกิดข้อผิดพลาดในการล้างค่า OTP' 
+      message: 'เกิดข้อผิดพลาดในการล้างค่า OTP'
     });
   }
 };
