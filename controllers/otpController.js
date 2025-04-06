@@ -1,80 +1,81 @@
-const { sendLineMessage } = require('../utils/lineBot'); // ใช้ส่งข้อความไปยัง LINE
-const { supabase } = require('../utils/supabaseClient'); // ใช้เชื่อมต่อกับ Supabase
-const OTP_EXPIRATION_MINUTES = 10; // กำหนดเวลา OTP หมดอายุ 10 นาที
+const { sendLineMessage } = require('../utils/lineBot');
+const { supabase } = require('../utils/supabaseClient');
+const OTP_EXPIRATION_MINUTES = 10; // กำหนดเวลา OTP หมดอายุ
 
-// ✅ สร้าง OTP ใหม่
+// ✅ ฟังก์ชันสร้างรหัส OTP
+const generateOtpCode = () => {
+  const letter = String.fromCharCode(65 + Math.floor(Math.random() * 26)); // A-Z
+  const number = Math.floor(1000 + Math.random() * 9000); // 4 หลัก
+  return `${letter}${number}`;
+};
+
+// ✅ ขอ OTP ใหม่
 const requestOtp = async (req, res) => {
   try {
     const { ref_code } = req.body;
 
-    // ค้นหาข้อมูลจากฐานข้อมูล auth_sessions ตาม ref_code
     const { data: sessionData, error: sessionError } = await supabase
       .from('auth_sessions')
-      .select('line_user_id, status, verify_status, expires_at')
+      .select('line_user_id, status, verify_status, expires_at, otp_count')
       .eq('ref_code', ref_code)
       .maybeSingle();
 
-    // ถ้าไม่พบ Ref.Code หรือพบข้อผิดพลาดในการดึงข้อมูล
     if (sessionError || !sessionData) {
       return res.status(404).json({ status: 'error', message: 'ไม่พบ Ref.Code นี้ในระบบ' });
     }
 
-    // ตรวจสอบสถานะว่าเป็น "BLOCK" หรือไม่
+    // ตรวจสอบว่า Ref.Code ถูกบล็อกหรือหมดอายุหรือไม่
+    const now = new Date();
     if (sessionData.status === 'BLOCK') {
       return res.status(400).json({ status: 'error', message: 'Ref.Code นี้ถูก BLOCK แล้ว' });
     }
 
-    // ตรวจสอบว่า Ref.Code นี้หมดอายุหรือยัง
-    const now = new Date().toISOString();
-    if (sessionData.expires_at <= now) {
-      // ถ้าหมดอายุ ให้เปลี่ยนสถานะเป็น "No Active"
+    if (new Date(sessionData.expires_at) <= now) {
       await supabase
         .from('auth_sessions')
         .update({ verify_status: 'No Active' })
         .eq('ref_code', ref_code);
 
       return res.status(400).json({ status: 'error', message: 'Ref.Code หมดอายุแล้ว' });
-    } else {
-      // ถ้ายังไม่หมดอายุ ให้ตั้งสถานะเป็น "ACTIVE"
+    }
+
+    // ถ้า verify_status ยังไม่ ACTIVE → อัปเดตให้เลย
+    if (sessionData.verify_status !== 'ACTIVE') {
       await supabase
         .from('auth_sessions')
-        .update({ verify_status: 'ACTIVE' })
+        .update({ verify_status: 'Active' })
         .eq('ref_code', ref_code);
     }
 
-    // ถ้า verify_status เป็น ACTIVE, ทำการ Generate OTP
-    if (sessionData.verify_status === 'ACTIVE') {
-      const otp = generateOtpCode(); // ฟังก์ชั่นที่ใช้ในการสร้าง OTP
-      const otpCreatedAt = new Date().toISOString();
-      const otpExpiresAt = new Date(new Date().getTime() + OTP_EXPIRATION_MINUTES * 60000).toISOString(); // OTP หมดอายุใน 10 นาที
+    // ✅ สร้าง OTP ใหม่
+    const otp = generateOtpCode();
+    const otpCreatedAt = now.toISOString();
+    const otpExpiresAt = new Date(now.getTime() + OTP_EXPIRATION_MINUTES * 60000).toISOString();
 
-      // อัปเดต OTP และข้อมูลต่างๆ ใน Supabase
-      const { error: updateOtpError } = await supabase
-        .from('auth_sessions')
-        .update({
-          otp_code: otp,
-          otp_at: otpCreatedAt,
-          otp_expires_at: otpExpiresAt,
-          otp_count: (sessionData.otp_count || 0) + 1 // เพิ่มจำนวนการขอ OTP
-        })
-        .eq('ref_code', ref_code);
+    const { error: updateOtpError } = await supabase
+      .from('auth_sessions')
+      .update({
+        otp_code: otp,
+        otp_at: otpCreatedAt,
+        otp_count: (sessionData.otp_count || 0) + 1
+      })
+      .eq('ref_code', ref_code);
 
-      if (updateOtpError) {
-        return res.status(500).json({ status: 'error', message: 'อัปเดต OTP ไม่สำเร็จ' });
-      }
+    if (updateOtpError) {
+      return res.status(500).json({ status: 'error', message: 'อัปเดต OTP ไม่สำเร็จ' });
+    }
 
-      // ส่ง OTP ให้ผู้ใช้ผ่าน LINE
-      if (sessionData.line_user_id) {
-        await sendLineMessage(sessionData.line_user_id, `
+    // ส่ง OTP ไปยัง LINE
+    if (sessionData.line_user_id) {
+      await sendLineMessage(sessionData.line_user_id, `
 📌 รหัส OTP สำหรับเข้าใช้งาน ADTSpreadsheet:
 🔐 OTP: ${otp}
 📋 Ref.Code: ${ref_code}
 ⏳ หมดอายุใน ${OTP_EXPIRATION_MINUTES} นาที
-        `);
-      }
-
-      return res.status(200).json({ status: 'success', message: 'ส่ง OTP สำเร็จ' });
+      `);
     }
+
+    return res.status(200).json({ status: 'success', message: 'ส่ง OTP สำเร็จ' });
 
   } catch (err) {
     console.error('❌ Error during OTP request:', err);
@@ -82,13 +83,53 @@ const requestOtp = async (req, res) => {
   }
 };
 
-// ฟังก์ชั่นสำหรับสร้าง OTP (ตัวอักษร 1 ตัว + ตัวเลข 4 ตัว)
-const generateOtpCode = () => {
-  const letter = String.fromCharCode(65 + Math.floor(Math.random() * 26)); // สร้างตัวอักษร A-Z
-  const number = Math.floor(1000 + Math.random() * 9000); // สร้างตัวเลข 4 หลัก
-  return `${letter}${number}`;
+// ✅ ตรวจสอบสถานะ OTP
+const checkOtpStatus = async (req, res) => {
+  try {
+    const { ref_code } = req.query;
+
+    const { data, error } = await supabase
+      .from('auth_sessions')
+      .select('otp_code, otp_expires_at, verify_status')
+      .eq('ref_code', ref_code)
+      .maybeSingle();
+
+    if (error || !data) {
+      return res.status(404).json({ status: 'error', message: 'ไม่พบข้อมูล OTP' });
+    }
+
+    const now = new Date();
+    const isExpired = new Date(data.otp_expires_at) <= now;
+
+    return res.status(200).json({
+      status: 'success',
+      verify_status: data.verify_status,
+    });
+
+  } catch (err) {
+    console.error('❌ Error checking OTP status:', err);
+    return res.status(500).json({ status: 'error', message: 'เกิดข้อผิดพลาดในการตรวจสอบ OTP' });
+  }
 };
 
+// ✅ ส่ง OTP ซ้ำ (logic คล้าย requestOtp)
+const resendOtp = async (req, res) => {
+  try {
+    const { ref_code } = req.body;
+
+    // เรียกใช้ requestOtp ไปเลย (หรือจะแยกก็ได้)
+    req.body.ref_code = ref_code;
+    return requestOtp(req, res); // ใช้ logic เดิม
+
+  } catch (err) {
+    console.error('❌ Error during OTP resend:', err);
+    return res.status(500).json({ status: 'error', message: 'เกิดข้อผิดพลาดในการส่ง OTP ซ้ำ' });
+  }
+};
+
+// ✅ ส่งออกให้ใช้งานได้
 module.exports = {
-  requestOtp
+  requestOtp,
+  checkOtpStatus,
+  resendOtp
 };
