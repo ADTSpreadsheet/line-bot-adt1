@@ -82,7 +82,7 @@ const handleFollow = async (event) => {
       })
       .eq('line_user_id', userId);
 
-    log.warn(`[FOLLOW] 🚫 LINE USER ${userId} ถูก BLOCK เพราะ follow เกิน 5 ครั้ง`);
+    log.warn(`[FOLLOW] 🚫 LINE USER ${userId} ถูก BLOCK เพราะ Follow เกิน 5 ครั้ง`);
     await client.pushMessage(userId, {
       type: 'text',
       text: `คุณได้ทำการบล็อก/ปลดบล็อกบ่อยเกินไป\nระบบขอระงับสิทธิ์การใช้งานชั่วคราวครับ 😔`
@@ -96,11 +96,11 @@ const handleFollow = async (event) => {
       .from('auth_sessions')
       .update({
         follow_count: followCount,
-        line_status: 'follow'
+        line_status: 'Follow'
       })
       .eq('line_user_id', userId);
 
-    log.info(`[FOLLOW] 🤨 ด่าขำๆ ผู้ใช้ ${userId} (follow ครั้งที่ 3)`);
+    log.info(`[FOLLOW] 🤨 ด่าขำๆ ผู้ใช้ ${userId} (Follow ครั้งที่ 3)`);
 
     await client.pushMessage(userId, {
       type: 'text',
@@ -120,7 +120,7 @@ const handleFollow = async (event) => {
 
       await supabase
         .from('auth_sessions')
-        .update({ follow_count: followCount, line_status: 'follow' })
+        .update({ follow_count: followCount, line_status: 'Follow' })
         .eq('line_user_id', userId);
 
       await client.pushMessage(userId, {
@@ -134,12 +134,12 @@ const handleFollow = async (event) => {
     // ✅ Ref.Code ยังไม่หมดอายุ → อัปเดตสถานะเป็น follow
     await supabase
       .from('auth_sessions')
-      .update({ follow_count: followCount, line_status: 'follow' })
+      .update({ follow_count: followCount, line_status: 'Follow' })
       .eq('line_user_id', userId);
 
     await supabase
       .from('registered_machines')
-      .update({ line_status: 'follow' })
+      .update({ line_status: 'Follow' })
       .eq('line_user_id', userId);
 
     log.info(`[FOLLOW] ✅ พบผู้ใช้เก่าที่ยังมี Ref.Code ใช้งานได้: ${userId}`);
@@ -164,7 +164,7 @@ const handleFollow = async (event) => {
       serial_key: serialKey,
       status: 'PENDING',
       created_at: timestamp,
-      line_status: 'follow',
+      line_status: 'Follow',
       follow_count: followCount
     });
 
@@ -175,7 +175,7 @@ const handleFollow = async (event) => {
 
   await supabase
     .from('registered_machines')
-    .update({ line_status: 'follow' })
+    .update({ line_status: 'Follow' })
     .eq('line_user_id', userId);
 
   log.info(`[FOLLOW] ✅ สร้าง Ref.Code และ Serial Key สำเร็จ`);
