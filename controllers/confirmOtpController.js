@@ -1,10 +1,16 @@
 const { supabase } = require('../utils/supabaseClient');
 const { sendLineMessage } = require('../utils/lineBot');
 
-// ✅ ยืนยัน OTP
+/**
+ * ยืนยัน OTP - ตรวจสอบความถูกต้องของ OTP ที่ผู้ใช้กรอก
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ * @returns {Object} HTTP response
+ */
 const confirmOtp = async (req, res) => {
   try {
     const { ref_code, otp } = req.body;
+    console.log(`🔍 [CONFIRM OTP] ตรวจสอบ OTP → Ref.Code: ${ref_code}, OTP: ${otp}`);
 
     // STEP 1: ตรวจสอบ OTP ที่ผู้ใช้ส่งมา
     const { data, error } = await supabase
@@ -16,51 +22,87 @@ const confirmOtp = async (req, res) => {
       .maybeSingle();
 
     if (error || !data) {
-      return res.status(404).json({ message: 'OTP ไม่ถูกต้องหรือหมดอายุแล้ว' });
+      console.warn(`❌ [CONFIRM OTP] OTP ไม่ถูกต้อง → Ref.Code: ${ref_code}`);
+      return res.status(400).json({ 
+        status: 'error',
+        message: 'OTP ไม่ถูกต้องหรือหมดอายุแล้ว' 
+      });
     }
 
-    // STEP 2: อัปเดต verify_status และ updated_at
-    const { error: updateVerifyError } = await supabase
-      .from('auth_sessions')
-      .update({
-        verify_status: 'ACTIVE',
+    console.log(`✅ [CONFIRM OTP] ยืนยัน OTP สำเร็จ → Ref.Code: ${ref_code}`);
+    return res.status(200).json({ 
+      status: 'success',
+      message: 'ยืนยัน OTP สำเร็จแล้วครับ 🎉' 
+    });
+
+  } catch (err) {
+    console.error('🔥 [CONFIRM OTP ERROR] เกิดข้อผิดพลาด:', err);
+    return res.status(500).json({ 
+      status: 'error',
+      message: 'เกิดข้อผิดพลาดในการยืนยัน OTP' 
+    });
+  }
+};
+
+/**
+ * เคลียร์ OTP - ล้างค่า OTP หลังจากใช้งานเสร็จสิ้น
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ * @returns {Object} HTTP response
+ */
+const clearOtp = async (req, res) => {
+  try {
+    const { ref_code } = req.body;
+    console.log(`🧹 [CLEAR OTP] เริ่มล้าง OTP → Ref.Code: ${ref_code}`);
+
+    // ล้าง OTP ออกจาก otp_sessions
+    const { error: clearError } = await supabase
+      .from('otp_sessions')
+      .update({ 
+        otp_code: null,
         updated_at: new Date().toISOString()
       })
       .eq('ref_code', ref_code);
 
-    if (updateVerifyError) {
-      return res.status(500).json({ message: 'อัปเดต verify_status ไม่สำเร็จ' });
+    if (clearError) {
+      console.error(`❌ [CLEAR OTP] ล้าง OTP ไม่สำเร็จ:`, clearError);
+      return res.status(500).json({ 
+        status: 'error',
+        message: 'ไม่สามารถล้างค่า OTP ได้' 
+      });
     }
 
-    // STEP 3: ล้าง otp_code ออกจาก auth_sessions
-    const { error: clearOtpError } = await supabase
+    // อัปเดตสถานะใน auth_sessions (optional)
+    const { error: updateError } = await supabase
       .from('auth_sessions')
-      .update({ otp_code: null })
+      .update({ 
+        verify_status: 'Verified',
+        updated_at: new Date().toISOString()
+      })
       .eq('ref_code', ref_code);
 
-    if (clearOtpError) {
-      return res.status(500).json({ message: 'ไม่สามารถล้างค่า OTP ได้' });
+    if (updateError) {
+      console.warn(`⚠️ [CLEAR OTP] อัปเดตสถานะไม่สำเร็จ แต่ล้าง OTP แล้ว:`, updateError);
+      // ไม่ return error เนื่องจากการล้าง OTP สำเร็จแล้ว
     }
 
-    // STEP 4: อัปเดต status ถ้าจำเป็น
-    const { error: updateStatusError } = await supabase
-      .from('auth_sessions')
-      .update({ status: 'COMPLETE' })
-      .eq('ref_code', ref_code);
-
-    if (updateStatusError) {
-      return res.status(500).json({ message: 'ไม่สามารถอัปเดต status ได้' });
-    }
-
-    return res.status(200).json({ message: 'ยืนยัน OTP สำเร็จแล้วครับ 🎉' });
+    console.log(`✅ [CLEAR OTP] ล้าง OTP สำเร็จ → Ref.Code: ${ref_code}`);
+    return res.status(200).json({ 
+      status: 'success',
+      message: 'ล้างค่า OTP สำเร็จ' 
+    });
 
   } catch (err) {
-    console.error('Error confirming OTP:', err);
-    return res.status(500).json({ message: 'เกิดข้อผิดพลาดในการยืนยัน OTP' });
+    console.error('🔥 [CLEAR OTP ERROR] เกิดข้อผิดพลาด:', err);
+    return res.status(500).json({ 
+      status: 'error',
+      message: 'เกิดข้อผิดพลาดในการล้างค่า OTP' 
+    });
   }
 };
 
-// ❗❗ อย่าลืม exports ด้วยนะ!
+// ส่งออกฟังก์ชัน
 module.exports = {
-  confirmOtp
+  confirmOtp,
+  clearOtp
 };
