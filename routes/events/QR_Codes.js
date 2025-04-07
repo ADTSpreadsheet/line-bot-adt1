@@ -2,7 +2,7 @@
 
 const { createClient } = require('@supabase/supabase-js');
 const qr = require('qr-image'); // ใช้สำหรับสร้าง QR Code
-const supabase = createClient('https://your-project.supabase.co', 'your-api-key');
+const supabase = require('../../utils/supabaseClient');
 
 // ฟังก์ชันในการสร้าง QR Code ที่ฝังข้อมูล source
 const createQRCode = async (source) => {
