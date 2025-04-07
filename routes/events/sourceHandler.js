@@ -1,8 +1,7 @@
 // File: routes/events/sourceHandler.js
 
 const { createClient } = require('@supabase/supabase-js');
-const supabase = createClient('https://wpxpukbvynxawfxcdroj.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndweHB1a2J2eW54YXdmeGNkcm9qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0MjM4Njc5MiwiZXhwIjoyMDU3OTYyNzkyfQ.tgeHy_TMIx6UuQLBXDiKYTi8QyeO7fMI7ZSRuEBiUKM');
-
+const { supabase } = require('../../utils/supabaseClient');
 // ฟังก์ชันคัดแยก `source` และบันทึกลง Supabase
 const handleSource = async (userId, source) => {
   const timestamp = new Date().toISOString();
