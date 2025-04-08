@@ -77,7 +77,8 @@ const handleFollow = async (event) => {
         status: 'PENDING',
         created_at: timestamp,
         line_status: 'Follow',
-        follow_count: followCount
+        follow_count: followCount,
+        source: source // เก็บ source ที่มาของผู้ใช้
       });
 
     if (insertError) {
@@ -194,7 +195,8 @@ const handleFollow = async (event) => {
       status: 'PENDING',
       created_at: timestamp,
       line_status: 'Follow',
-      follow_count: followCount
+      follow_count: followCount,
+      source: source // เก็บข้อมูล source ลงในฐานข้อมูล
     });
 
   if (insertError) {
