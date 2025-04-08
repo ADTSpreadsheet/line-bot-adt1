@@ -45,8 +45,8 @@ router.post('/verify-license2', async (req, res) => {
   const { first_name, last_name, phone_number, email } = req.body;
 
   // ตรวจสอบข้อมูลจาก Textbox ทั้ง 4
-  if (!first_name || !last_name || !phone_number || !email) {
-    return res.status(400).json({ message: 'Missing required fields' });
+  if (!licenseno || !first_name || !last_name || !phone_number) { 
+   return res.status(400).json({ message: 'Missing required fields' });
   }
 
   // คุณสามารถเพิ่มการตรวจสอบอื่น ๆ ตามที่ต้องการที่นี่
