@@ -9,12 +9,12 @@ router.get('/line-redirect', (req, res) => {
   console.log('Received source:', source); // ตรวจสอบค่าใน console log
 
   // หากพบ source ที่ต้องการ
-  if (source === 'userform3') {
+  if (source === 'UserForm3') {
     console.log('Source is from UserForm3');
     // บันทึกค่า source ลงในฐานข้อมูล หรือใน session
     // จากนั้นให้เปลี่ยนเส้นทางไปที่ LINE bot
     res.redirect(`https://line.me/R/ti/p/%40@adtline-bot`);
-  } else if (source === 'verifylicenseform') {
+  } else if (source === 'VerifyLicenseForm') {
     console.log('Source is from VerifyLicenseForm');
     // บันทึกค่า source ลงในฐานข้อมูล หรือใน session
     res.redirect(`https://line.me/R/ti/p/%40@adtline-bot`);
