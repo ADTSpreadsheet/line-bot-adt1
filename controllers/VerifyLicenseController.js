@@ -78,6 +78,6 @@ router.post('/verify-license2', async (req, res) => {
 });
 
 module.exports = {
-  verifyLicense1,
-  verifyLicense2
+  verifyLicense1: router.post('/verify-license1', verifyLicense1),
+  verifyLicense2: router.post('/verify-license2', verifyLicense2)
 };
