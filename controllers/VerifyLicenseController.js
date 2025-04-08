@@ -1,5 +1,6 @@
-// controllers/VerifyLicenseController.js
 const { supabase } = require('../utils/supabaseClient');
+
+//---------------------------------------------------------------------------------------
 
 // ฟังก์ชันตรวจสอบ Ref.Code และ Serial Key
 const verifyLicense1 = async (req, res) => {
@@ -35,15 +36,14 @@ const verifyLicense1 = async (req, res) => {
   res.status(200).json({ message: 'Ref.Code and Serial Key validated successfully' });
 };
 
+//---------------------------------------------------------------------------------------
+
 // ฟังก์ชันตรวจสอบข้อมูลจาก TextBox 4 รายการ
 const verifyLicense2 = async (req, res) => {
-  const { first_name, last_name, phone_number, licenseno } = req.body;
+  const { first_name, last_name, phone_number, license_no } = req.body;
   
-  const verifyLicense2 = async (req, res) => {
-  const { first_name, last_name, phone_number, licenseno } = req.body;
-
   // ตรวจสอบข้อมูลครบถ้วน
-  if (!licenseno || !first_name || !last_name || !phone_number) {
+  if (!licenseno || !firstname || !lastname || !phonenumber) {
     return res.status(400).json({ message: 'Missing required fields' });
   }
 
@@ -70,6 +70,7 @@ const verifyLicense2 = async (req, res) => {
 
   // ถ้าข้อมูลไม่ตรง
   if (!isFirstNameMatch || !isLastNameMatch || !isPhoneMatch) {
+    
     // เพิ่มจำนวนครั้งที่ผิด
     await supabase
       .from('license_holders1')
@@ -90,6 +91,7 @@ const verifyLicense2 = async (req, res) => {
   res.status(200).json({ message: 'License information validated successfully' });
 };
 
+//---------------------------------------------------------------------------------------
 
 // Export functions
 module.exports = {
