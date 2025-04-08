@@ -34,33 +34,26 @@ const verifyLicense1 = async (req, res) => {
   // เมื่อได้รับข้อมูลถูกต้อง ให้ส่ง Status 200
   res.status(200).json({ message: 'Ref.Code and Serial Key validated successfully' });
 };
-  // อัปเดตสถานะ `source` เป็น 'User_Verify_license' เมื่อข้อมูลถูกต้อง
-  const { error: updateError } = await supabase
-    .from('auth_sessions')
-    .update({ source: 'User_Verify_license' })
-    .eq('ref_code', ref_code);
-  if (updateError) {
-    return res.status(500).json({ message: 'Failed to update source status' });
-  }
-  // เมื่อได้รับข้อมูลถูกต้อง ให้ส่ง Status 200
-  res.status(200).json({ message: 'Ref.Code and Serial Key validated successfully' });
-};
 
 // ฟังก์ชันตรวจสอบข้อมูลจาก TextBox 4 รายการ
 const verifyLicense2 = async (req, res) => {
   const { first_name, last_name, phone_number, licenseno } = req.body;
+  
   // ตรวจสอบข้อมูลจาก Textbox ทั้ง 4
   if (!licenseno || !first_name || !last_name || !phone_number) {
     return res.status(400).json({ message: 'Missing required fields' });
   }
+  
   // อัปเดตสถานะ `source` เป็น 'User_Verify_license' เมื่อข้อมูลครบถ้วน
   const { error: updateError } = await supabase
     .from('auth_sessions')
     .update({ source: 'User_Verify_license' })
     .eq('licenseno', licenseno);  // ใช้ licenseno หรือ ref_code เพื่อเชื่อมโยงข้อมูล
+    
   if (updateError) {
     return res.status(500).json({ message: 'Failed to update source status' });
   }
+  
   // หลังจากตรวจสอบข้อมูลแล้ว ส่ง Status 200 เพื่อดำเนินการต่อ
   res.status(200).json({ message: 'License information validated successfully' });
 };
