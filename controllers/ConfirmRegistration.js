@@ -108,6 +108,7 @@ const completeRegistration = async (req, res) => {
       .eq('serial_key', serial_key);
 
     if (updateError) {
+      console.log(`ผู้ใช้งานรายใหม่หมายเลข Ref.Code ${ref_code} ลงทะเบียนใช้งานสำเร็จ`);
       await supabase.from('activity_logs').insert({
         ref_code,
         line_user_id,
