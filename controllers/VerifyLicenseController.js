@@ -39,24 +39,57 @@ const verifyLicense1 = async (req, res) => {
 const verifyLicense2 = async (req, res) => {
   const { first_name, last_name, phone_number, licenseno } = req.body;
   
-  // ตรวจสอบข้อมูลจาก Textbox ทั้ง 4
+  const verifyLicense2 = async (req, res) => {
+  const { first_name, last_name, phone_number, licenseno } = req.body;
+
+  // ตรวจสอบข้อมูลครบถ้วน
   if (!licenseno || !first_name || !last_name || !phone_number) {
     return res.status(400).json({ message: 'Missing required fields' });
   }
-  
-  // อัปเดตสถานะ `source` เป็น 'User_Verify_license' เมื่อข้อมูลครบถ้วน
-  const { error: updateError } = await supabase
+
+  // ค้นหาข้อมูลใบอนุญาตในฐานข้อมูล
+  const { data: licenseData, error: licenseError } = await supabase
+    .from('license_holders1')
+    .select('licenseno, firstname, lastname, phonenumber, attempt_count')
+    .eq('licenseno', licenseno.trim())
+    .single();
+
+  if (licenseError || !licenseData) {
+    return res.status(400).json({ message: 'License number not found' });
+  }
+
+  // ตรวจสอบจำนวนครั้งที่ผิด
+  if (licenseData.attempt_count >= 3) {
+    return res.status(400).json({ message: 'Too many incorrect attempts. Please contact support.' });
+  }
+
+  // ตรวจสอบข้อมูลผู้ใช้
+  const isFirstNameMatch = licenseData.firstname.trim().toLowerCase() === first_name.trim().toLowerCase();
+  const isLastNameMatch = licenseData.lastname.trim().toLowerCase() === last_name.trim().toLowerCase();
+  const isPhoneMatch = licenseData.phonenumber.trim() === phone_number.trim();
+
+  // ถ้าข้อมูลไม่ตรง
+  if (!isFirstNameMatch || !isLastNameMatch || !isPhoneMatch) {
+    // เพิ่มจำนวนครั้งที่ผิด
+    await supabase
+      .from('license_holders1')
+      .update({ attempt_count: licenseData.attempt_count + 1 })
+      .eq('licenseno', licenseno);
+
+    return res.status(400).json({ 
+      message: 'Information does not match exactly. You have ' + (3 - licenseData.attempt_count) + ' attempts left.'
+    });
+  }
+
+  // ถ้าข้อมูลตรงทั้งหมด
+  await supabase
     .from('auth_sessions')
     .update({ source: 'User_Verify_license' })
-    .eq('licenseno', licenseno);  // ใช้ licenseno หรือ ref_code เพื่อเชื่อมโยงข้อมูล
-    
-  if (updateError) {
-    return res.status(500).json({ message: 'Failed to update source status' });
-  }
-  
-  // หลังจากตรวจสอบข้อมูลแล้ว ส่ง Status 200 เพื่อดำเนินการต่อ
+    .eq('licenseno', licenseno);
+
   res.status(200).json({ message: 'License information validated successfully' });
 };
+
 
 // Export functions
 module.exports = {
