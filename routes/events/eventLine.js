@@ -57,7 +57,7 @@ function generateSerialKey() {
 const handleFollow = async (event) => {
   const userId = event.source.userId;
   const timestamp = new Date().toISOString();
-  
+
   // Step 1: ดึงข้อมูลจาก Supabase
   const { data, error } = await supabase
     .from('auth_sessions')
@@ -79,13 +79,13 @@ const handleFollow = async (event) => {
     })
     .eq('line_user_id', userId);
 
-  // ตรวจสอบว่า source มาจากไหน
-  const source = sourceData[userId] || 'Unknown'; // ค่าที่เก็บใน session
-
+  // Step 2: ตรวจสอบว่า source มาจากไหน
+  const source = data?.source || 'Unknown';  // ค่าที่เก็บใน session ถ้าไม่มีค่าใช้ 'Unknown'
+  
   // เพิ่ม log สำหรับตรวจสอบว่าได้ค่า source หรือไม่
   log.info(`[FOLLOW] 📜 ตรวจสอบ Source จาก: ${source} สำหรับผู้ใช้: ${userId}`);
 
-  // หากพบ source ที่เป็น UserForm3
+  // Step 3: ตรวจสอบ source
   if (source === 'UserForm3') {
     log.info(`[FOLLOW] ✅ พบข้อมูล Source จาก UserForm3: ${userId}`);
     // ทำการดำเนินการต่อ
@@ -94,13 +94,10 @@ const handleFollow = async (event) => {
     // ทำการดำเนินการต่อ
   } else {
     log.warn(`[FOLLOW] ❌ ไม่พบข้อมูล Source สำหรับผู้ใช้: ${userId}`);
-    // ในกรณีที่ไม่พบ source
+    // ถ้าไม่พบ source หรือไม่ตรงเงื่อนไขที่กำหนด
   }
 
-  // ขั้นตอนที่เหลือจากนั้น
-};
-
-  // Step 2: ถ้าเกิน 5 ครั้ง → BLOCK
+  // Step 4: ถ้าเกิน 5 ครั้ง → BLOCK
   if (followCount >= 5) {
     await supabase
       .from('auth_sessions')
@@ -119,11 +116,11 @@ const handleFollow = async (event) => {
     return;
   }
 
-  // Step 3: ถ้าผู้ใช้มี Ref.Code แล้ว
+  // Step 5: ถ้าผู้ใช้มี Ref.Code แล้ว
   if (data && data.ref_code) {
     const now = new Date().toISOString();
 
-    // Step 4: เช็คว่า Ref.Code หมดอายุหรือยัง
+    // Step 6: เช็คว่า Ref.Code หมดอายุหรือยัง
     if (data.expires_at && data.expires_at <= now) {
       log.warn(`[FOLLOW] ⌛ Ref.Code ของผู้ใช้ ${userId} หมดอายุแล้ว`);
 
@@ -156,7 +153,7 @@ const handleFollow = async (event) => {
     return;
   }
 
-  // Step 5: ถ้าเป็นผู้ใช้ใหม่ → สร้าง Ref.Code + Serial Key
+  // Step 7: ถ้าเป็นผู้ใช้ใหม่ → สร้าง Ref.Code + Serial Key
   const refCode = generateRefCode();
   const serialKey = generateSerialKey();
 
@@ -170,7 +167,7 @@ const handleFollow = async (event) => {
       created_at: timestamp,
       line_status: 'Follow',
       follow_count: followCount,
-      source: 'Unknown' // ใส่ค่า default เป็น 'Unknown'
+      source: source // ใช้ค่าจาก source ที่ได้รับ
     });
 
   if (insertError) {
@@ -185,7 +182,7 @@ const handleFollow = async (event) => {
 
   log.info(`[FOLLOW] ✅ สร้าง Ref.Code และ Serial Key สำเร็จ`);
 
-  // Step 6: อัปเดตสถานะให้เป็น ACTIVE และบันทึกเวลา completed_at
+  // Step 8: อัปเดตสถานะให้เป็น ACTIVE และบันทึกเวลา completed_at
   await supabase
     .from('auth_sessions')
     .update({
