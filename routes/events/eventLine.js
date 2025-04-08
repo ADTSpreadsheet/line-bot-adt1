@@ -162,7 +162,7 @@ const handleFollow = async (event) => {
     .update({ line_status: 'Follow' })
     .eq('line_user_id', userId);
 
-  log.info(`[FOLLOW] ✅ สร้าง Ref.Code และ Serial Key สำเร็จ`);
+  /*log.info(`[FOLLOW] ✅ สร้าง Ref.Code และ Serial Key สำเร็จ`);*/
 
   // Step 6: อัปเดตสถานะให้เป็น ACTIVE และบันทึกเวลา completed_at
   await supabase
@@ -193,7 +193,7 @@ const handleMessage = async (event) => {
   const text = msg.text.trim().toLowerCase();
 
   if (text === 'req_refcode') {
-    log.info(`ให้ผู้ใช้: ${userId} ขอ [REQ_REFCODE]`);
+    /*log.info(`ให้ผู้ใช้: ${userId} ขอ [REQ_REFCODE]`);*/
 
     const { data, error } = await supabase
       .from('auth_sessions')
@@ -210,8 +210,8 @@ const handleMessage = async (event) => {
       return;
     }
 
-    log.info(`🔐 Ref.Code: ${data.ref_code}`);
-    log.success('ส่ง Ref.Code สำเร็จ');
+    /*log.info(`🔐 Ref.Code: ${data.ref_code}`);
+    log.success('ส่ง Ref.Code สำเร็จ');*/
 
     await client.replyMessage(event.replyToken, {
       type: 'text',
@@ -240,7 +240,7 @@ const handleUnfollow = async (event) => {
   if (authError) {
     log.error(`❌ อัปเดต line_status (auth_sessions) ล้มเหลว: ${authError.message}`);
   } else {
-    log.info(`✅ อัปเดต auth_sessions -> line_status = 'unfollow' สำเร็จ`);
+    /*log.info(`✅ อัปเดต auth_sessions -> line_status = 'unfollow' สำเร็จ`);*/
   }
 
   // อัปเดต line_status ใน registered_machines
@@ -252,7 +252,7 @@ const handleUnfollow = async (event) => {
   if (regError) {
     log.error(`❌ อัปเดต line_status (registered_machines) ล้มเหลว: ${regError.message}`);
   } else {
-    log.info(`✅ อัปเดต registered_machines -> line_status = 'unfollow' สำเร็จ`);
+    /*log.info(`✅ อัปเดต registered_machines -> line_status = 'unfollow' สำเร็จ`);*/
   }
 };
 
@@ -270,7 +270,7 @@ async function sendLineMessage(lineUserId, serialKey, refCode) {
       type: 'text',
       text: message
     });
-    log.info(`✅ ส่ง Serial Key ไปยัง LINE User ID: ${lineUserId}`);
+    /*log.info(`✅ ส่ง Serial Key ไปยัง LINE User ID: ${lineUserId}`);*/
   } catch (error) {
     log.error(`❌ ส่งข้อความไป LINE ไม่สำเร็จ: ${error.message}`);
     throw error;
