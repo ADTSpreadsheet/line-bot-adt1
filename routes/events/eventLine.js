@@ -50,19 +50,53 @@ function generateSerialKey() {
   return numericPart + letterPart;
 }
 
-// ==============================
-// 1️⃣ FOLLOW EVENT
-// ==============================
 const handleFollow = async (event) => {
   const userId = event.source.userId;
   const timestamp = new Date().toISOString();
   const source = event.source.type; // ใช้ source เพื่อตรวจสอบจากไหน
 
-  // Step 0: ตรวจสอบ source ของการ Follow
-  if (source === 'LineOriginal') {
+  // Step 0: ตรวจสอบว่า source เป็นประเภทไหน
+  if (source === 'UserForm3' || source === 'VerifyLicenseForm') {
+    // ถ้าเป็น UserForm3 หรือ VerifyLicenseForm
+    log.info(`[FOLLOW] 📥 มีผู้ใช้รายใหม่จาก ${source}: ${userId}`);
+
+    // ทำการดำเนินการตามขั้นตอนต่อไป เช่น สร้าง Ref.Code, Serial Key
+    const refCode = generateRefCode();
+    const serialKey = generateSerialKey();
+
+    const { error: insertError } = await supabase
+      .from('auth_sessions')
+      .insert({
+        line_user_id: userId,
+        ref_code: refCode,
+        serial_key: serialKey,
+        status: 'PENDING',
+        created_at: timestamp,
+        line_status: 'Follow',
+        follow_count: followCount
+      });
+
+    if (insertError) {
+      log.error(`[FOLLOW] ❌ สร้าง Ref.Code ใหม่ไม่สำเร็จ: ${insertError.message}`);
+      return;
+    }
+
+    await supabase
+      .from('registered_machines')
+      .update({ line_status: 'Follow' })
+      .eq('line_user_id', userId);
+
+    log.info(`[FOLLOW] ✅ สร้าง Ref.Code และ Serial Key สำเร็จ`);
+    await sendLineMessage(userId, 'ยินดีต้อนรับเข้าสู่การใช้งานโปรแกรม ADTSpreadsheet');
+  } else if (source === 'LineOriginal') {
     // กรณีมาจาก LineOriginal
     log.info(`[FOLLOW] 📥 มีผู้ใช้สนใจดาวน์โหลดโปรแกรมจาก LineOriginal: ${userId}`);
     await sendLineMessage(userId, 'กรุณาดาวน์โหลดโปรแกรมก่อนเพื่อเริ่มใช้งาน.');
+    return;
+  } else {
+    // กรณีที่ไม่ตรงเงื่อนไข
+    log.warn(`[FOLLOW] ไม่พบข้อมูล Source ที่ถูกต้อง: ${userId}`);
+    await sendLineMessage(userId, 'ไม่พบข้อมูลการลงทะเบียนจากแหล่งที่มาที่ระบุ.');
     return;
   }
 
@@ -99,7 +133,10 @@ const handleFollow = async (event) => {
       .eq('line_user_id', userId);
 
     log.warn(`[FOLLOW] 🚫 LINE USER ${userId} ถูก BLOCK เพราะ Follow เกิน 5 ครั้ง`);
-    await sendLineMessage(userId, `คุณได้ทำการบล็อก/ปลดบล็อกบ่อยเกินไป\nระบบขอระงับสิทธิ์การใช้งานชั่วคราวครับ 😔`);
+    await client.pushMessage(userId, {
+      type: 'text',
+      text: `คุณได้ทำการบล็อก/ปลดบล็อกบ่อยเกินไป\nระบบขอระงับสิทธิ์การใช้งานชั่วคราวครับ 😔`
+    });
     return;
   }
 
@@ -116,7 +153,10 @@ const handleFollow = async (event) => {
         .update({ follow_count: followCount, line_status: 'Follow' })
         .eq('line_user_id', userId);
 
-      await sendLineMessage(userId, `🔒 Ref.Code ของคุณหมดอายุแล้วครับ\nกรุณาติดต่อเจ้าหน้าที่หรือทำรายการสั่งซื้อเพื่อเปิดใช้งานอีกครั้ง 🙏`);
+      await client.pushMessage(userId, {
+        type: 'text',
+        text: `🔒 Ref.Code ของคุณหมดอายุแล้วครับ\nกรุณาติดต่อเจ้าหน้าที่หรือทำรายการสั่งซื้อเพื่อเปิดใช้งานอีกครั้ง 🙏`
+      });
 
       return;
     }
@@ -129,7 +169,10 @@ const handleFollow = async (event) => {
 
     log.info(`[FOLLOW] ✅ พบผู้ใช้เก่าที่ยังมี Ref.Code ใช้งานได้: ${userId}`);
 
-    await sendLineMessage(userId, `${getRandomWelcomeMessage()}\n\n🔐 Ref.Code ของพี่คือ: ${data.ref_code}`);
+    await client.pushMessage(userId, {
+      type: 'text',
+      text: `${getRandomWelcomeMessage()}\n\n🔐 Ref.Code ของพี่คือ: ${data.ref_code}`
+    });
 
     return;
   }
@@ -172,23 +215,13 @@ const handleFollow = async (event) => {
     .eq('ref_code', refCode);
 
   // ส่งข้อความต้อนรับจาก "น้องบอส"
-  await sendLineMessage(userId, `ยินดีต้อนรับเข้าสู่การใช้งานโปรแกรม ADTSpreadsheet\nขอบพระคุณที่เพิ่มน้องบอสมาเป็นเพื่อนครับ`);
-
-  // เพิ่ม Logs สำหรับแต่ละแหล่งที่มา
-  if (source === 'UserForm3') {
-    log.info(`[FOLLOW] 📜 มีผู้ใช้รายใหม่กำลังทำการลงทะเบียนจาก UserForm3: ${userId}`);
-  } else if (source === 'VerifyLicenseForm') {
-    log.info(`[FOLLOW] 📜 มีผู้ใช้รายใหม่เข้ามายืนยันลิขสิทธิ์จาก VerifyLicenseForm: ${userId}`);
-  }
-};
-
-// ฟังก์ชันส่งข้อความ Line
-const sendLineMessage = async (userId, message) => {
   await client.pushMessage(userId, {
     type: 'text',
-    text: message
+    text: `ยินดีต้อนรับเข้าสู่การใช้งานโปรแกรม ADTSpreadsheet\nขอบพระคุณที่เพิ่มน้องบอสมาเป็นเพื่อนครับ`
   });
 };
+
+
 
 
 // ==============================
