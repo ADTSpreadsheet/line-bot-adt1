@@ -77,4 +77,6 @@ router.post('/verify-license2', async (req, res) => {
   res.status(200).json({ message: 'License information validated successfully' });
 });
 
-module.exports = router;
+module.exports = {
+  verifyLicenseController
+};
