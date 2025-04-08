@@ -50,6 +50,10 @@ function generateSerialKey() {
   return numericPart + letterPart;
 }
 
+// ==============================
+// 1️⃣ FOLLOW EVENT
+// ==============================
+
 const handleFollow = async (event) => {
   const userId = event.source.userId;
   const timestamp = new Date().toISOString();
