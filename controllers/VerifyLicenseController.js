@@ -40,56 +40,59 @@ const verifyLicense1 = async (req, res) => {
 
 // ฟังก์ชันตรวจสอบข้อมูลจาก TextBox 4 รายการ
 const verifyLicense2 = async (req, res) => {
-  const { first_name, last_name, phone_number, license_no } = req.body;
-  
-  // ตรวจสอบข้อมูลครบถ้วน
-  if (!licenseno || !firstname || !lastname || !phonenumber) {
-    return res.status(400).json({ message: 'Missing required fields' });
-  }
+  try {
+    const { first_name, last_name, phone_number, license_no } = req.body;
 
-  // ค้นหาข้อมูลใบอนุญาตในฐานข้อมูล
-  const { data: licenseData, error: licenseError } = await supabase
-    .from('license_holders1')
-    .select('licenseno, firstname, lastname, phonenumber, attempt_count')
-    .eq('licenseno', licenseno.trim())
-    .single();
+    // ตรวจสอบข้อมูลครบ
+    if (!license_no || !first_name || !last_name || !phone_number) {
+      return res.status(400).json({ message: 'Missing required fields' });
+    }
 
-  if (licenseError || !licenseData) {
-    return res.status(400).json({ message: 'License number not found' });
-  }
-
-  // ตรวจสอบจำนวนครั้งที่ผิด
-  if (licenseData.attempt_count >= 3) {
-    return res.status(400).json({ message: 'Too many incorrect attempts. Please contact support.' });
-  }
-
-  // ตรวจสอบข้อมูลผู้ใช้
-  const isFirstNameMatch = licenseData.firstname.trim().toLowerCase() === first_name.trim().toLowerCase();
-  const isLastNameMatch = licenseData.lastname.trim().toLowerCase() === last_name.trim().toLowerCase();
-  const isPhoneMatch = licenseData.phonenumber.trim() === phone_number.trim();
-
-  // ถ้าข้อมูลไม่ตรง
-  if (!isFirstNameMatch || !isLastNameMatch || !isPhoneMatch) {
-    
-    // เพิ่มจำนวนครั้งที่ผิด
-    await supabase
+    // ค้นหาในฐานข้อมูล
+    const { data: licenseData, error: licenseError } = await supabase
       .from('license_holders1')
-      .update({ attempt_count: licenseData.attempt_count + 1 })
-      .eq('licenseno', licenseno);
+      .select('license_no, first_name, last_name, phone_number, attempt_count')
+      .eq('license_no', license_no.trim())
+      .single();
 
-    return res.status(400).json({ 
-      message: 'Information does not match exactly. You have ' + (3 - licenseData.attempt_count) + ' attempts left.'
-    });
+    if (licenseError || !licenseData) {
+      return res.status(400).json({ message: 'License number not found' });
+    }
+
+    // ตรวจจำนวนครั้งที่ผิด
+    if (licenseData.attempt_count >= 3) {
+      return res.status(400).json({ message: 'Too many incorrect attempts. Please contact support.' });
+    }
+
+    // ตรวจข้อมูลตรงไหม
+    const isFirstNameMatch = licenseData.first_name.trim().toLowerCase() === first_name.trim().toLowerCase();
+    const isLastNameMatch = licenseData.last_name.trim().toLowerCase() === last_name.trim().toLowerCase();
+    const isPhoneMatch = licenseData.phone_number.trim() === phone_number.trim();
+
+    if (!isFirstNameMatch || !isLastNameMatch || !isPhoneMatch) {
+      await supabase
+        .from('license_holders1')
+        .update({ attempt_count: licenseData.attempt_count + 1 })
+        .eq('license_no', license_no);
+
+      return res.status(400).json({
+        message: `Information does not match. You have ${3 - licenseData.attempt_count} attempts left.`,
+      });
+    }
+
+    // ถ้าผ่าน → update session
+    await supabase
+      .from('auth_sessions')
+      .update({ source: 'User_Verify_license' })
+      .eq('license_no', license_no);
+
+    return res.status(200).json({ message: 'License information validated successfully' });
+  } catch (error) {
+    console.error('🔥 [VERIFY LICENSE] CRASH:', error);
+    return res.status(500).json({ message: 'Internal Server Error' });
   }
-
-  // ถ้าข้อมูลตรงทั้งหมด
-  await supabase
-    .from('auth_sessions')
-    .update({ source: 'User_Verify_license' })
-    .eq('licenseno', licenseno);
-
-  res.status(200).json({ message: 'License information validated successfully' });
 };
+
 
 //---------------------------------------------------------------------------------------
 
