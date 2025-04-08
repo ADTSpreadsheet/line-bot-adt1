@@ -23,7 +23,7 @@ const verifyRefcodeRoutes = require('./routes/verify-refcode');
 const confirmRegistrationRoutes = require('./routes/ConfirmRegistration');
 const otpRoutes = require('./routes/otp');
 const confirmOtpRoutes = require('./routes/confirmOtp'); // เพิ่มเส้นทางใหม่สำหรับ ConfirmOtp
-const verifyLicenseRoutes = require('./routes/verifyLicenseRoute'); // เพิ่มเส้นทางสำหรับ Verify License
+const verifyLicenseRoute = require('./routes/verifyLicenseRoute'); // เพิ่มเส้นทางสำหรับ Verify License
 
 
 // ==============================================
