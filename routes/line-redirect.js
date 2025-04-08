@@ -1,25 +1,29 @@
-// routes/line-redirect.js
 const express = require('express');
 const router = express.Router();
+const session = require('express-session');
 
-// ตัวเก็บข้อมูล source สำหรับผู้ใช้
-let sourceData = {};  // เก็บข้อมูล source ไว้ในหน่วยความจำ (สามารถเปลี่ยนไปใช้ฐานข้อมูลได้)
+// ใช้ session สำหรับจัดเก็บค่าที่ได้จาก URL
+router.use(session({
+  secret: 'c6dd9d51591ae867df634cf5ff032159',
+  resave: false,
+  saveUninitialized: true
+}));
 
+// เส้นทางที่เมื่อผู้ใช้สแกน QR code แล้วจะถูกส่งมายังที่นี่
 router.get('/line-redirect', (req, res) => {
-  const { source } = req.query;
-  const userId = req.session.userId || "defaultUserId";  // ใช้ session หรือ cookie เก็บข้อมูล
+  // ตรวจสอบว่า URL มีค่า source หรือไม่
+  const source = req.query.source;
 
+  // ถ้ามี source ให้เก็บลง session
   if (source) {
-    // บันทึก source ลงในฐานข้อมูลหรือ session
-    sourceData[userId] = source;
-    console.log(`บันทึก Source: ${source} สำหรับ userId: ${userId}`);
-    
-    // เปลี่ยนเส้นทางไปที่ LINE
-    const lineUrl = `https://line.me/R/ti/p/%40yourlineid`;  // เปลี่ยนเป็น ID ของบอท
-    res.redirect(lineUrl);
+    req.session.source = source;
+    console.log(`Source received: ${source}`);
   } else {
-    res.status(400).send("Missing source parameter.");
+    console.log('No source parameter received.');
   }
+
+  // เมื่อรับข้อมูลจาก URL แล้วทำการ redirect ไปที่ URL ของ LINE Bot
+  res.redirect('https://line.me/R/ti/p/%40@adtline-bot');
 });
 
 module.exports = router;
