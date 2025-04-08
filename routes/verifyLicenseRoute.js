@@ -1,16 +1,13 @@
 const express = require('express');
 const router = express.Router();
-const { supabase } = require('../utils/supabaseClient');
-const VerifyLicenseController = require('../controllers/VerifyLicenseController');
+const { verifyLicense1, verifyLicense2 } = require('../controllers/VerifyLicenseController');
 
 // ==============================
-// 1️⃣ Endpoint สำหรับตรวจสอบ Ref.Code และ Serial Key
+// POST routes
 // ==============================
-router.post('/verify-license1', VerifyLicenseController.verifyLicense1);
 
-// ==============================
-// 2️⃣ Endpoint สำหรับตรวจสอบข้อมูลจาก TextBox 4 รายการ
-// ==============================
-router.post('/verify-license2', VerifyLicenseController.verifyLicense2);
+// ใช้ฟังก์ชันจาก controllers/VerifyLicenseController.js
+router.post('/verify-license1', verifyLicense1);  // เรียกใช้งานฟังก์ชัน verifyLicense1 จาก controller
+router.post('/verify-license2', verifyLicense2);  // เรียกใช้งานฟังก์ชัน verifyLicense2 จาก controller
 
 module.exports = router;
