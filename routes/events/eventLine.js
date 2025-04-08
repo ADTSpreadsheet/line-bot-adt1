@@ -56,7 +56,6 @@ function generateSerialKey() {
 const handleFollow = async (event) => {
   const userId = event.source.userId;
   const timestamp = new Date().toISOString();
-  const source = event.source.source || "Unknown"; // รับข้อมูลจาก QR Code ที่ฝัง `source`
 
   // STEP 0: ดึงข้อมูลเดิมก่อน
   const { data, error } = await supabase
@@ -66,19 +65,18 @@ const handleFollow = async (event) => {
     .maybeSingle();
 
   if (error) {
-    log.error(`[FOLLOW] ❌ ดึงข้อมูล Ref.Code ล้มเหลว: ${error.message}`);
+    log.error([FOLLOW] ❌ ดึงข้อมูล Ref.Code ล้มเหลว: ${error.message});
     return;
   }
 
   let followCount = (data?.follow_count || 0) + 1;
   await supabase
-    .from('auth_sessions')
-    .update({
-      follow_count: followCount,
-      line_status: 'Follow',
-      source: source  // เพิ่มข้อมูล source ลงในคอลัมน์
-    })
-    .eq('line_user_id', userId);
+  .from('auth_sessions')
+  .update({
+    follow_count: followCount,
+    line_status: 'Follow'
+  })
+  .eq('line_user_id', userId);
 
   // STEP 0.5: ถ้าเกิน 5 ครั้ง → BLOCK
   if (followCount >= 5) {
@@ -87,15 +85,14 @@ const handleFollow = async (event) => {
       .update({
         follow_count: followCount,
         verify_status: 'BLOCK',
-        line_status: 'Follow',
-        source: source  // เพิ่มข้อมูล source ลงในคอลัมน์
+        line_status: 'Follow'
       })
       .eq('line_user_id', userId);
 
-    log.warn(`[FOLLOW] 🚫 LINE USER ${userId} ถูก BLOCK เพราะ Follow เกิน 5 ครั้ง`);
+    log.warn([FOLLOW] 🚫 LINE USER ${userId} ถูก BLOCK เพราะ Follow เกิน 5 ครั้ง);
     await client.pushMessage(userId, {
       type: 'text',
-      text: `คุณได้ทำการบล็อก/ปลดบล็อกบ่อยเกินไป\nระบบขอระงับสิทธิ์การใช้งานชั่วคราวครับ 😔`
+      text: คุณได้ทำการบล็อก/ปลดบล็อกบ่อยเกินไป\nระบบขอระงับสิทธิ์การใช้งานชั่วคราวครับ 😔
     });
     return;
   }
@@ -106,12 +103,11 @@ const handleFollow = async (event) => {
       .from('auth_sessions')
       .update({
         follow_count: followCount,
-        line_status: 'Follow',
-        source: source  // เพิ่มข้อมูล source ลงในคอลัมน์
+        line_status: 'Follow'
       })
       .eq('line_user_id', userId);
 
-    log.info(`[FOLLOW] 🤨 ด่าขำๆ ผู้ใช้ ${userId} (Follow ครั้งที่ 3)`);
+    log.info([FOLLOW] 🤨 ด่าขำๆ ผู้ใช้ ${userId} (Follow ครั้งที่ 3));
 
     await client.pushMessage(userId, {
       type: 'text',
@@ -127,16 +123,16 @@ const handleFollow = async (event) => {
 
     // STEP 1: เช็คว่า Ref.Code หมดอายุหรือยัง
     if (data.expires_at && data.expires_at <= now) {
-      log.warn(`[FOLLOW] ⌛ Ref.Code ของผู้ใช้ ${userId} หมดอายุแล้ว`);
+      log.warn([FOLLOW] ⌛ Ref.Code ของผู้ใช้ ${userId} หมดอายุแล้ว);
 
       await supabase
         .from('auth_sessions')
-        .update({ follow_count: followCount, line_status: 'Follow', source: source })
+        .update({ follow_count: followCount, line_status: 'Follow' })
         .eq('line_user_id', userId);
 
       await client.pushMessage(userId, {
         type: 'text',
-        text: `🔒 Ref.Code ของคุณหมดอายุแล้วครับ\nกรุณาติดต่อเจ้าหน้าที่หรือทำรายการสั่งซื้อเพื่อเปิดใช้งานอีกครั้ง 🙏`
+        text: 🔒 Ref.Code ของคุณหมดอายุแล้วครับ\nกรุณาติดต่อเจ้าหน้าที่หรือทำรายการสั่งซื้อเพื่อเปิดใช้งานอีกครั้ง 🙏
       });
 
       return;
@@ -145,7 +141,7 @@ const handleFollow = async (event) => {
     // ✅ Ref.Code ยังไม่หมดอายุ → อัปเดตสถานะเป็น follow
     await supabase
       .from('auth_sessions')
-      .update({ follow_count: followCount, line_status: 'Follow', source: source })
+      .update({ follow_count: followCount, line_status: 'Follow' })
       .eq('line_user_id', userId);
 
     await supabase
@@ -153,62 +149,62 @@ const handleFollow = async (event) => {
       .update({ line_status: 'Follow' })
       .eq('line_user_id', userId);
 
-    log.info(`[FOLLOW] ✅ พบผู้ใช้เก่าที่ยังมี Ref.Code ใช้งานได้: ${userId}`);
+    log.info([FOLLOW] ✅ พบผู้ใช้เก่าที่ยังมี Ref.Code ใช้งานได้: ${userId});
 
     await client.pushMessage(userId, {
       type: 'text',
-      text: `${getRandomWelcomeMessage()}\n\n🔐 Ref.Code ของพี่คือ: ${data.ref_code}`
+      text: ${getRandomWelcomeMessage()}\n\n🔐 Ref.Code ของพี่คือ: ${data.ref_code}
     });
 
     return;
   }
 
   // 🆕 STEP 3: ผู้ใช้ใหม่ → สร้าง Ref.Code + Serial Key
-  const refCode = generateRefCode();
-  const serialKey = generateSerialKey();
+const refCode = generateRefCode();
+const serialKey = generateSerialKey();
 
-  const { error: insertError } = await supabase
-    .from('auth_sessions')
-    .insert({
-      line_user_id: userId,
-      ref_code: refCode,
-      serial_key: serialKey,
-      status: 'PENDING',
-      created_at: timestamp,
-      line_status: 'Follow',
-      follow_count: followCount,
-      source: source  // เพิ่มข้อมูล source ลงในคอลัมน์
-    });
-
-  if (insertError) {
-    log.error(`[FOLLOW] ❌ สร้าง Ref.Code ใหม่ไม่สำเร็จ: ${insertError.message}`);
-    return;
-  }
-
-  await supabase
-    .from('registered_machines')
-    .update({ line_status: 'Follow' })
-    .eq('line_user_id', userId);
-
-  log.info(`[FOLLOW] ✅ สร้าง Ref.Code และ Serial Key สำเร็จ`);
-  log.info(`LINE USER ID: ${userId}`);
-  log.info(`🔐 Ref.Code: ${refCode}`);
-  log.info(`🔑 Serial Key: ${serialKey}`);
-
-  // 📌 หลังจากที่ส่ง Serial Key แล้ว ต้องอัปเดตสถานะเป็น ACTIVE และบันทึกเวลา completed_at
-  await supabase
-    .from('auth_sessions')
-    .update({
-      status: 'ACTIVE',
-      completed_at: new Date().toISOString()
-    })
-    .eq('ref_code', refCode);
-
-  // ✅ ข้อความต้อนรับจาก “น้องบอส”
-  await client.pushMessage(userId, {
-    type: 'text',
-    text: `ยินดีต้อนรับเข้าสู่การใช้งานโปรแกรม ADTSpreadsheet\nขอบพระคุณที่เพิ่มน้องบอสมาเป็นเพื่อนครับ`
+const { error: insertError } = await supabase
+  .from('auth_sessions')
+  .insert({
+    line_user_id: userId,
+    ref_code: refCode,
+    serial_key: serialKey,
+    status: 'PENDING',
+    created_at: timestamp,
+    line_status: 'Follow',
+    follow_count: followCount
   });
+
+if (insertError) {
+  log.error([FOLLOW] ❌ สร้าง Ref.Code ใหม่ไม่สำเร็จ: ${insertError.message});
+  return;
+}
+
+await supabase
+  .from('registered_machines')
+  .update({ line_status: 'Follow' })
+  .eq('line_user_id', userId);
+
+log.info([FOLLOW] ✅ สร้าง Ref.Code และ Serial Key สำเร็จ);
+log.info(LINE USER ID: ${userId});
+log.info(🔐 Ref.Code: ${refCode});
+log.info(🔑 Serial Key: ${serialKey});
+
+// 📌 หลังจากที่ส่ง Serial Key แล้ว ต้องอัปเดตสถานะเป็น ACTIVE และบันทึกเวลา completed_at
+await supabase
+  .from('auth_sessions')
+  .update({
+    status: 'ACTIVE',
+    completed_at: new Date().toISOString()
+  })
+  .eq('ref_code', refCode);
+
+// ✅ ข้อความต้อนรับจาก “น้องบอส”
+await client.pushMessage(userId, {
+  type: 'text',
+  text: ยินดีต้อนรับเข้าสู่การใช้งานโปรแกรม ADTSpreadsheet\nขอบพระคุณที่เพิ่มน้องบอสมาเป็นเพื่อนครับ
+});
+
 };
 
 
