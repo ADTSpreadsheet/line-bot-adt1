@@ -16,5 +16,5 @@ app.use(lineRedirectRoute);  // ใช้เส้นทางจากไฟล
 // เปิดเซิร์ฟเวอร์
 const port = 3000;
 app.listen(port, () => {
-  console.log(`Server running on http://localhost:${port}`);
+  console.log(`Server running on ${process.env.SERVER_URL}`);
 });
