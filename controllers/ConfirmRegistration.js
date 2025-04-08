@@ -33,7 +33,7 @@ const completeRegistration = async (req, res) => {
       email,
       facebook_url,
       line_id,
-      source // รับค่า source จาก API
+      source 
     } = req.body;
 
     if (!ref_code || !serial_key || !machine_id) {
@@ -102,7 +102,7 @@ const completeRegistration = async (req, res) => {
         completed_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         expires_at: expiryDate.toISOString(),
-        source: source // อัพเดต source ในกรณีที่สำเร็จ
+        source: 'New_User_Trial'
       })
       .eq('ref_code', ref_code)
       .eq('serial_key', serial_key);
