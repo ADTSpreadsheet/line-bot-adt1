@@ -1,27 +1,35 @@
-// routes/line-redirect.js
-
 const express = require('express');
 const router = express.Router();
 
 router.get('/line-redirect', (req, res) => {
   const source = req.query.source;  // รับค่า source จาก URL query parameter
 
+  // เพิ่ม log สำหรับตรวจสอบว่าได้ค่า source หรือไม่
   console.log('Received source:', source); // ตรวจสอบค่าใน console log
 
-  // หากพบ source ที่ต้องการ
+  // หาก source ไม่มีค่า หรือไม่พบข้อมูล
+  if (!source) {
+    console.warn('No source parameter received');  // เพิ่ม log เมื่อไม่พบ source
+    return res.redirect('https://line.me/R/ti/p/%40adtline-bot'); // ถ้าไม่มี source ให้ redirect ไป URL ปกติ
+  }
+
+  // จากนั้นตรวจสอบว่า source มาจากไหน
   if (source === 'UserForm3') {
     console.log('Source is from UserForm3');
-    // บันทึกค่า source ลงในฐานข้อมูล หรือใน session
-    // จากนั้นให้เปลี่ยนเส้นทางไปที่ LINE bot
-    res.redirect(`https://line.me/R/ti/p/%40@adtline-bot`);
+    // บันทึกค่า source ลงใน session
+    req.session.source = source;
+    console.log('Source saved to session:', req.session.source); // ตรวจสอบค่าใน session
+    res.redirect('https://line.me/R/ti/p/%40adtline-bot');
   } else if (source === 'VerifyLicenseForm') {
     console.log('Source is from VerifyLicenseForm');
-    // บันทึกค่า source ลงในฐานข้อมูล หรือใน session
-    res.redirect(`https://line.me/R/ti/p/%40@adtline-bot`);
+    // บันทึกค่า source ลงใน session
+    req.session.source = source;
+    console.log('Source saved to session:', req.session.source); // ตรวจสอบค่าใน session
+    res.redirect('https://line.me/R/ti/p/%40adtline-bot');
   } else {
-    // กรณีที่ไม่มี source
+    // กรณีที่ไม่ตรงกับที่คาดหวัง
     console.log('Source is unknown or not provided');
-    res.redirect(`https://line.me/R/ti/p/%40@adtline-bot`);
+    res.redirect('https://line.me/R/ti/p/%40adtline-bot');
   }
 });
 
