@@ -27,7 +27,7 @@ const verifyLicense1 = async (req, res) => {
     if (licenseError || !licenseCheck) {
       console.log("❌ [1.1] ไม่พบ license_no:", license_no);
       return res.status(404).json({
-        message: 'ไม่พบหมายเลขลิขสิทธิ์นี้ในระบบ'
+        message: 'ระบบตรวจสอบไม่พบรหัสลิขสิทธิ์ของท่านกรุราติดต่อ ADT-Admin'
       });
     }
 
@@ -35,7 +35,7 @@ const verifyLicense1 = async (req, res) => {
     if (licenseCheck.status !== 'Pending') {
       console.log("🔁 [1.2] License เคยยืนยันแล้ว:", license_no);
       return res.status(409).json({
-        message: 'ลิขสิทธิ์นี้ได้ทำการยืนยันแล้ว'
+        message: 'รหัสลิขสิทธิ์ได้รับการยืนยันเรียบร้อยแล้ว'
       });
     }
 // 1.3  พบ license_no + phone_number ตรง แต่ยังไม่มี national_id
@@ -50,7 +50,7 @@ const verifyLicense1 = async (req, res) => {
 if (partialMatch) {
   console.log("🟡 [1.3] พบ License + Phone ตรง แต่ยังไม่มีเลขบัตรประชาชน:", license_no);
   return res.status(206).json({
-    message: 'ระบบยังไม่มีเลขบัตรประชาชนของคุณ กรุณากรอกเพื่อยืนยันตัวตน',
+    message: 'ระบบตรวจสอบไม่พบเลขบัตรประชาชนของท่าน กรุณากรอกเพื่อยืนยันตัวตน',
     license_no: partialMatch.license_no,
     full_name: `${partialMatch.first_name} ${partialMatch.last_name}`
     /* VBA: แสดง FrameVerifyID แล้วใช้ license_no → Label12, full_name → Label13, message → Label14 */
@@ -74,7 +74,7 @@ if (partialMatch) {
       return res.status(200).json({
         license_no: data.license_no,
         full_name: `${data.first_name} ${data.last_name}`,
-        message: 'ยืนยันลิขสิทธิ์สำเร็จแล้ว'
+        message: 'Your copyright has been successfully verified.'
       });
     }
 
@@ -93,7 +93,7 @@ if (partialMatch) {
       return res.status(401).json({
         message: 'ข้อมูลไม่ตรง กรุณาลองใหม่อีกครั้ง',
         verify_count: newCount,
-        attempts_remaining: `กรุณาลองใหม่อีก ${3 - newCount}/3`
+        attempts_remaining: `กรุณาลองใหม่อีก ${4 - newCount}/3`
       });
     }
 
@@ -102,7 +102,7 @@ if (partialMatch) {
     // ───────────────────────────────
     await supabase
       .from('license_holders')
-      .update({ verify_count: 3 })
+      .update({ verify_count: 4 })
       .eq('license_no', license_no);
 
     console.log("🚫 [3] ถูกบล็อก - เกิน 3 ครั้ง:", license_no);
