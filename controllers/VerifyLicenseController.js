@@ -7,7 +7,7 @@ const verifyLicense1 = async (req, res) => {
     // ───────────────────────────────
     // 0. ตรวจสอบว่า input ครบหรือไม่
     // ───────────────────────────────
-    if (!license_no || !national_id || !phone_number) {
+    if (!license_no ||!phone_number) {
       console.log("⚠️ [0] ข้อมูลไม่ครบ");
       return res.status(400).json({
         message: 'กรุณากรอกข้อมูลให้ครบถ้วน'
@@ -38,6 +38,8 @@ const verifyLicense1 = async (req, res) => {
         message: 'รหัสลิขสิทธิ์ได้รับการยืนยันเรียบร้อยแล้ว'
       });
     }
+
+    
 // 1.3  พบ license_no + phone_number ตรง แต่ยังไม่มี national_id
     const { data: partialMatch, error: partialError } = await supabase
   .from('license_holders')
