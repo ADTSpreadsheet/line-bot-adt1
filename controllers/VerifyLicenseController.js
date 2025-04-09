@@ -1,5 +1,7 @@
 const { supabase } = require('../utils/supabaseClient');
 
+const { supabase } = require('../utils/supabaseClient');
+
 // ฟังก์ชันหลักสำหรับตรวจสอบใบอนุญาตด้วย license_no, national_id และ phone_number
 const verifyLicense1 = async (req, res) => {
   try {
@@ -47,7 +49,7 @@ const verifyLicense1 = async (req, res) => {
     // 2.2 ถ้าข้อมูล national_id หรือ phone_number ไม่ตรง
     const verifyCount = licenseCheck.verify_count || 0;
     
-    if (verifyCount < 3) {
+    if (verifyCount < 2) {  // เปลี่ยนเป็น < 2 เพราะเราจะเพิ่มค่าอีก 1 ทำให้สูงสุดเป็น 3
       // อัปเดต verify_count
       await supabase
         .from('license_holders')
@@ -55,11 +57,18 @@ const verifyLicense1 = async (req, res) => {
         .eq('license_no', license_no);
       
       return res.status(404).json({
-        message: 'ข้อมูลไม่ถูกต้อง กรุณาตรวจสอบและลองใหม่อีกครั้ง',
-        verify_count: verifyCount + 1
+        message: 'ข้อมูลลิขสิทธิ์ของคุณไม่ถูกต้อง',
+        verify_count: verifyCount + 1,
+        attempts_remaining: `กรุณาลองใหม่อีก ${3 - (verifyCount + 1)}/3`
       });
     } else {
-      return res.status(404).json({ 
+      // ถ้าลองเกิน 3 ครั้ง (หลังจากอัปเดตเป็น 3 แล้ว)
+      await supabase
+        .from('license_holders')
+        .update({ verify_count: 3 })  // ล็อคที่ 3 ครั้ง
+        .eq('license_no', license_no);
+        
+      return res.status(403).json({  // ใช้รหัส 403 แทน 404
         message: 'คุณตรวจสอบผิดเกินจำนวนที่กำหนด กรุณาติดต่อผู้ดูแลระบบ' 
       });
     }
@@ -106,6 +115,13 @@ const verifyRefCodeAndSerial = async (req, res) => {
     console.error('❌ [VERIFY REF CODE AND SERIAL ERROR]', err);
     return res.status(404).json({ message: 'เกิดข้อผิดพลาดในการตรวจสอบ กรุณาลองใหม่อีกครั้ง' });
   }
+};
+
+// Export functions
+module.exports = {
+  verifyLicense1,
+  verifyLicense2,
+  verifyRefCodeAndSerial
 };
 
 // Export functions
