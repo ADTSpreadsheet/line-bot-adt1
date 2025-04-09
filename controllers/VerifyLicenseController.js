@@ -1,13 +1,12 @@
 const { supabase } = require('../utils/supabaseClient');
-//---------------------------------------------------------------------------------------
-// ฟังก์ชันสำหรับตรวจสอบใบอนุญาตด้วย license_no + national_id + phone_number
+
+// ฟังก์ชันหลักสำหรับตรวจสอบใบอนุญาตด้วย license_no, national_id และ phone_number
 const verifyLicense1 = async (req, res) => {
   try {
     const { license_no, national_id, phone_number } = req.body;
     
     // ตรวจสอบว่ามีการส่งข้อมูลครบถ้วนหรือไม่
     if (!license_no || !national_id || !phone_number) {
-      // เปลี่ยนจาก 400 เป็น 404
       return res.status(404).json({ message: 'Missing required fields.' });
     }
     
@@ -67,11 +66,47 @@ const verifyLicense1 = async (req, res) => {
     
   } catch (err) {
     console.error('❌ [VERIFY LICENSE1 ERROR]', err);
-    // เปลี่ยนจาก 500 เป็น 404
     return res.status(404).json({ message: 'เกิดข้อผิดพลาดในการตรวจสอบ กรุณาลองใหม่อีกครั้ง' });
   }
 };
-//---------------------------------------------------------------------------------------
+
+// ฟังก์ชันสำหรับตรวจสอบใบอนุญาตด้วยวิธีที่ 2 (เตรียมไว้สำหรับใช้งานในอนาคต)
+const verifyLicense2 = async (req, res) => {
+  try {
+    // เตรียมไว้สำหรับการตรวจสอบในรูปแบบที่ 2
+    // เช่น ตรวจสอบด้วย email + license_no หรือวิธีอื่นๆ
+    
+    // สำหรับตอนนี้ส่งข้อความแจ้งว่าฟังก์ชันนี้ยังไม่พร้อมใช้งาน
+    return res.status(200).json({ 
+      message: 'ฟังก์ชัน verifyLicense2 อยู่ระหว่างการพัฒนา'
+    });
+  } catch (err) {
+    console.error('❌ [VERIFY LICENSE2 ERROR]', err);
+    return res.status(404).json({ message: 'เกิดข้อผิดพลาดในการตรวจสอบ กรุณาลองใหม่อีกครั้ง' });
+  }
+};
+
+// ฟังก์ชันสำหรับตรวจสอบ Ref.Code และ Serial Key
+const verifyRefCodeAndSerial = async (req, res) => {
+  try {
+    const { ref_code, serial_key } = req.body;
+    
+    if (!ref_code || !serial_key) {
+      return res.status(404).json({ message: 'กรุณาระบุ Ref.Code และ Serial Key' });
+    }
+    
+    // เตรียมไว้สำหรับการตรวจสอบ Ref.Code และ Serial Key
+    // เช่น ตรวจสอบว่ามีคู่ Ref.Code และ Serial Key นี้ในฐานข้อมูลหรือไม่
+    
+    // สำหรับตอนนี้ส่งข้อความแจ้งว่าฟังก์ชันนี้ยังไม่พร้อมใช้งาน
+    return res.status(200).json({ 
+      message: 'ฟังก์ชัน verifyRefCodeAndSerial อยู่ระหว่างการพัฒนา'
+    });
+  } catch (err) {
+    console.error('❌ [VERIFY REF CODE AND SERIAL ERROR]', err);
+    return res.status(404).json({ message: 'เกิดข้อผิดพลาดในการตรวจสอบ กรุณาลองใหม่อีกครั้ง' });
+  }
+};
 
 // Export functions
 module.exports = {
