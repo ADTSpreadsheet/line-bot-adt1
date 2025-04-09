@@ -81,7 +81,7 @@ if (partialMatch) {
     // 2.2 ข้อมูลผิด → ตรวจนับครั้ง
     const verifyCount = licenseCheck.verify_count || 0;
 
-    if (verifyCount < 2) {
+    if (verifyCount < 4) {
       const newCount = verifyCount + 1;
 
       await supabase
