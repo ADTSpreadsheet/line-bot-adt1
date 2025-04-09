@@ -2,98 +2,70 @@ const { supabase } = require('../utils/supabaseClient');
 
 //---------------------------------------------------------------------------------------
 
-// ฟังก์ชันตรวจสอบ Ref.Code และ Serial Key
-const verifyLicense1 = async (req, res) => {
-  const { ref_code, serial_key } = req.body;
-  
-  // ตรวจสอบ Ref.Code และ Serial Key
-  const { data: refData, error: refError } = await supabase
-    .from('auth_sessions')
-    .select('ref_code, serial_key')
-    .eq('ref_code', ref_code)
-    .single();
-    
-  if (refError || !refData) {
-    return res.status(400).json({ message: 'Invalid Ref.Code or Serial Key' });
-  }
-  
-  // ตรวจสอบ Serial Key ว่าตรงหรือไม่
-  if (refData.serial_key !== serial_key) {
-    return res.status(400).json({ message: 'Serial Key does not match the Ref.Code' });
-  }
-  
-  // อัปเดตสถานะ `source` เป็น 'User_Verify_license' เมื่อข้อมูลถูกต้อง
-  const { error: updateError } = await supabase
-    .from('auth_sessions')
-    .update({ source: 'User_Verify_license' })
-    .eq('ref_code', ref_code);
-    
-  if (updateError) {
-    return res.status(500).json({ message: 'Failed to update source status' });
-  }
-  
-  // เมื่อได้รับข้อมูลถูกต้อง ให้ส่ง Status 200
-  res.status(200).json({ message: 'Ref.Code and Serial Key validated successfully' });
-};
-
-//---------------------------------------------------------------------------------------
-
-// ฟังก์ชันตรวจสอบข้อมูลจาก TextBox 4 รายการ
-const verifyLicense2 = async (req, res) => {
+const verifyLicense = async (req, res) => {
   try {
-    const { first_name, last_name, phone_number, license_no } = req.body;
+    const { license_no, national_id, phone_number } = req.body;
 
-    // ตรวจสอบข้อมูลครบ
-    if (!license_no || !first_name || !last_name || !phone_number) {
-      return res.status(400).json({ message: 'Missing required fields' });
+    if (!license_no || !national_id || !phone_number) {
+      return res.status(400).json({ message: 'Missing required fields.' });
     }
 
-    // ค้นหาในฐานข้อมูล
-    const { data: licenseData, error: licenseError } = await supabase
-      .from('license_holders1')
-      .select('license_no, first_name, last_name, phone_number, attempt_count')
-      .eq('license_no', license_no.trim())
+    // ตรวจสอบข้อมูลจาก license_holders
+    const { data, error } = await supabase
+      .from('license_holders')
+      .select('license_no, first_name, last_name, verify_count, is_verify')
+      .eq('license_no', license_no)
+      .eq('national_id', national_id)
+      .eq('phone_number', phone_number)
       .single();
 
-    if (licenseError || !licenseData) {
-      return res.status(400).json({ message: 'License number not found' });
-    }
+    // ✅ เคส: ถ้าข้อมูลถูกต้อง
+    if (data) {
+      if (data.is_verify === true) {
+        return res.status(409).json({ message: 'License already verified.' });
+      }
 
-    // ตรวจจำนวนครั้งที่ผิด
-    if (licenseData.attempt_count >= 3) {
-      return res.status(400).json({ message: 'Too many incorrect attempts. Please contact support.' });
-    }
-
-    // ตรวจข้อมูลตรงไหม
-    const isFirstNameMatch = licenseData.first_name.trim().toLowerCase() === first_name.trim().toLowerCase();
-    const isLastNameMatch = licenseData.last_name.trim().toLowerCase() === last_name.trim().toLowerCase();
-    const isPhoneMatch = licenseData.phone_number.trim() === phone_number.trim();
-
-    if (!isFirstNameMatch || !isLastNameMatch || !isPhoneMatch) {
-      await supabase
-        .from('license_holders1')
-        .update({ attempt_count: licenseData.attempt_count + 1 })
-        .eq('license_no', license_no);
-
-      return res.status(400).json({
-        message: `Information does not match. You have ${3 - licenseData.attempt_count} attempts left.`,
+      return res.status(200).json({
+        license_no: data.license_no,
+        full_name: `${data.first_name} ${data.last_name}`
       });
     }
 
-    // ถ้าผ่าน → update session
-    await supabase
-      .from('auth_sessions')
-      .update({ source: 'User_Verify_license' })
-      .eq('license_no', license_no);
+    // ❌ เคส: ข้อมูลไม่ตรง
+    // ดึง verify_count จาก license_no อย่างเดียว
+    const { data: fallback, error: fallbackError } = await supabase
+      .from('license_holders')
+      .select('verify_count')
+      .eq('license_no', license_no)
+      .single();
 
-    return res.status(200).json({ message: 'License information validated successfully' });
-  } catch (error) {
-    console.error('🔥 [VERIFY LICENSE] CRASH:', error);
-    return res.status(500).json({ message: 'Internal Server Error' });
+    // ถ้าไม่มี license นี้อยู่เลย → FrameNotFound
+    if (fallbackError || !fallback) {
+      return res.status(403).json({ message: 'ไม่พบหมายเลขลิขสิทธิ์นี้ในระบบ' });
+    }
+
+    const verifyCount = fallback.verify_count || 0;
+
+    if (verifyCount < 3) {
+      // อัปเดต verify_count
+      await supabase
+        .from('license_holders')
+        .update({ verify_count: verifyCount + 1 })
+        .eq('license_no', license_no);
+
+      return res.status(404).json({
+        message: 'กรุณาลองใหม่ได้อีก 1/3 ครั้ง',
+        verify_count: verifyCount + 1
+      });
+    } else {
+      return res.status(403).json({ message: 'คุณตรวจสอบผิดเกินจำนวนที่กำหนด' });
+    }
+
+  } catch (err) {
+    console.error('❌ [VERIFY LICENSE ERROR]', err);
+    return res.status(500).json({ message: 'Internal server error', error: err.message });
   }
 };
-
-
 //---------------------------------------------------------------------------------------
 
 // Export functions
