@@ -83,7 +83,7 @@ if (partialMatch) {
     // 2.2 ข้อมูลผิด → ตรวจนับครั้ง
     const verifyCount = licenseCheck.verify_count || 0;
 
-    if (verifyCount < 4) {
+    if (verifyCount < 3) {
       const newCount = verifyCount + 1;
 
       await supabase
@@ -95,7 +95,7 @@ if (partialMatch) {
       return res.status(401).json({
         message: 'ข้อมูลไม่ตรง กรุณาลองใหม่อีกครั้ง',
         verify_count: newCount,
-        attempts_remaining: `กรุณาลองใหม่อีก ${4 - newCount}/3`
+        attempts_remaining: `กรุณาลองใหม่อีก ${4 - newCount}/4`
       });
     }
 
