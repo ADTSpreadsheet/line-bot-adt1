@@ -4,45 +4,38 @@ const verifyLicense1 = async (req, res) => {
   try {
     const { license_no, national_id, phone_number } = req.body;
 
-    // ตรวจสอบข้อมูลขั้นต้นที่จำเป็นต้องมี
-    if (!license_no || !phone_number) {
-      console.log("⚠️ [0] ข้อมูลไม่ครบ (license_no หรือ phone_number)");
+    // ตรวจสอบว่ามีข้อมูลครบถ้วนหรือไม่
+    if (!license_no || !national_id || !phone_number) {
+      console.log("⚠️ [0] ข้อมูลไม่ครบถ้วน");
+      
+      // แทรกการตรวจสอบกรณี 1.3 ไว้ในเงื่อนไขนี้ - ตรวจว่ามี license_no และ phone_number หรือไม่
+      if (license_no && phone_number) {
+        // ตรวจสอบกรณี 1.3: license_no + phone_number ตรง แต่ในฐานข้อมูลไม่มี national_id
+        const { data: partialMatch, error: partialError } = await supabase
+          .from('license_holders')
+          .select('license_no, first_name, last_name')
+          .eq('license_no', license_no)
+          .eq('phone_number', phone_number)
+          .is('national_id', null) // ตรวจสอบว่า national_id เป็น null ในฐานข้อมูล
+          .single();
+
+        if (partialMatch) {
+          console.log("🟡 [1.3] พบ License + Phone ตรง แต่ยังไม่มีเลขบัตรประชาชนในฐานข้อมูล:", license_no);
+          return res.status(206).json({
+            license_no: partialMatch.license_no,
+            full_name: `${partialMatch.first_name} ${partialMatch.last_name}`,
+            message: 'ระบบตรวจสอบไม่พบเลขบัตรประชาชนของท่าน กรุณากรอกเพื่อยืนยันตัวตน'
+          });
+        }
+      }
+      
+      // ถ้าไม่เข้าเงื่อนไข 1.3 หรือไม่มี license_no หรือ phone_number จะแจ้งว่าข้อมูลไม่ครบถ้วน
       return res.status(400).json({
-        message: 'กรุณากรอกรหัสลิขสิทธิ์และเบอร์โทรศัพท์ให้ครบถ้วน'
+        message: 'กรุณากรอกข้อมูลให้ครบถ้วน'
       });
     }
 
-    // ───────────────────────────────
-    // 1.3 ตรวจสอบ license_no + phone_number ตรง แต่ยังไม่มี national_id
-    // ───────────────────────────────
-    const { data: partialMatch, error: partialError } = await supabase
-      .from('license_holders')
-      .select('license_no, first_name, last_name')
-      .eq('license_no', license_no)
-      .eq('phone_number', phone_number)
-      .is('national_id', null) // ต้องไม่มีเลขบัตร
-      .single();
-
-    if (partialMatch) {
-      console.log("🟡 [1.3] พบ License + Phone ตรง แต่ยังไม่มีเลขบัตรประชาชน:", license_no);
-      return res.status(206).json({
-        license_no: partialMatch.license_no,
-        full_name: `${partialMatch.first_name} ${partialMatch.last_name}`,
-        message: 'ระบบตรวจสอบไม่พบเลขบัตรประชาชนของท่าน กรุณากรอกเพื่อยืนยันตัวตน'
-      });
-    }
-
-    // ตรวจสอบ national_id หลังจากผ่านเงื่อนไข 1.3 แล้ว
-    if (!national_id) {
-      console.log("⚠️ [0] ข้อมูลไม่ครบ (national_id)");
-      return res.status(400).json({
-        message: 'กรุณากรอกเลขบัตรประชาชนให้ครบถ้วน'
-      });
-    }
-
-    // ───────────────────────────────
-    // 1. ตรวจสอบว่า license_no มีอยู่หรือไม่
-    // ───────────────────────────────
+    // ตรวจสอบว่า license_no มีอยู่หรือไม่
     const { data: licenseCheck, error: licenseError } = await supabase
       .from('license_holders')
       .select('license_no, status, verify_count')
@@ -56,6 +49,7 @@ const verifyLicense1 = async (req, res) => {
       });
     }
 
+    // ตรวจสอบสถานะว่าเคยยืนยันแล้วหรือไม่
     if (licenseCheck.status !== 'Pending') {
       console.log("🔁 [1.2] License เคยยืนยันแล้ว:", license_no);
       return res.status(409).json({
@@ -63,9 +57,7 @@ const verifyLicense1 = async (req, res) => {
       });
     }
 
-    // ───────────────────────────────
-    // 2. ตรวจสอบข้อมูลผู้ใช้ว่าตรงกับ license หรือไม่
-    // ───────────────────────────────
+    // ตรวจสอบข้อมูลผู้ใช้ว่าตรงกับ license หรือไม่
     const { data, error } = await supabase
       .from('license_holders')
       .select('license_no, first_name, last_name, verify_count')
@@ -74,7 +66,7 @@ const verifyLicense1 = async (req, res) => {
       .eq('phone_number', phone_number)
       .single();
 
-    // 2.1 ข้อมูลตรง → ยืนยันสำเร็จ
+    // ข้อมูลตรง → ยืนยันสำเร็จ
     if (data) {
       console.log("✅ [2.1] ยืนยันสำเร็จ:", data.license_no);
       return res.status(200).json({
@@ -84,7 +76,7 @@ const verifyLicense1 = async (req, res) => {
       });
     }
 
-    // 2.2 ข้อมูลผิด → ตรวจนับครั้ง
+    // ข้อมูลผิด → ตรวจนับครั้ง
     const verifyCount = licenseCheck.verify_count || 0;
 
     if (verifyCount < 3) {
@@ -103,9 +95,7 @@ const verifyLicense1 = async (req, res) => {
       });
     }
 
-    // ───────────────────────────────
-    // 3. เกิน 3 ครั้ง → บล็อกการตรวจสอบ
-    // ───────────────────────────────
+    // เกิน 3 ครั้ง → บล็อกการตรวจสอบ
     await supabase
       .from('license_holders')
       .update({ verify_count: 4 })
