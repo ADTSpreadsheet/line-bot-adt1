@@ -95,7 +95,7 @@ if (partialMatch) {
       return res.status(401).json({
         message: 'ข้อมูลไม่ตรง กรุณาลองใหม่อีกครั้ง',
         verify_count: newCount,
-        attempts_remaining: `กรุณาลองใหม่อีก ${4 - newCount}/4`
+        attempts_remaining: `กรุณาลองใหม่อีก ${4 - newCount} ครั้ง`
       });
     }
 
