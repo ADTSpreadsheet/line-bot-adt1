@@ -121,10 +121,3 @@ module.exports = {
   verifyLicense2,
   verifyRefCodeAndSerial
 };
-
-// Export functions
-module.exports = {
-  verifyLicense1,
-  verifyLicense2,
-  verifyRefCodeAndSerial
-};
