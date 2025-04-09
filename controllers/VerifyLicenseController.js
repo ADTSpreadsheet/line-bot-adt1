@@ -4,6 +4,14 @@ const verifyLicense1 = async (req, res) => {
   try {
     const { license_no, national_id, phone_number } = req.body;
 
+    // ตรวจสอบข้อมูลขั้นต้นที่จำเป็นต้องมี
+    if (!license_no || !phone_number) {
+      console.log("⚠️ [0] ข้อมูลไม่ครบ (license_no หรือ phone_number)");
+      return res.status(400).json({
+        message: 'กรุณากรอกรหัสลิขสิทธิ์และเบอร์โทรศัพท์ให้ครบถ้วน'
+      });
+    }
+
     // ───────────────────────────────
     // 1.3 ตรวจสอบ license_no + phone_number ตรง แต่ยังไม่มี national_id
     // ───────────────────────────────
@@ -24,13 +32,11 @@ const verifyLicense1 = async (req, res) => {
       });
     }
 
-    // ───────────────────────────────
-    // 0. ตรวจสอบ input ว่าครบหรือไม่ (ย้ายมาตรวจทีหลัง เพราะ 1.3 อนุโลมได้)
-    // ───────────────────────────────
-    if (!license_no || !national_id || !phone_number) {
-      console.log("⚠️ [0] ข้อมูลไม่ครบ");
+    // ตรวจสอบ national_id หลังจากผ่านเงื่อนไข 1.3 แล้ว
+    if (!national_id) {
+      console.log("⚠️ [0] ข้อมูลไม่ครบ (national_id)");
       return res.status(400).json({
-        message: 'กรุณากรอกข้อมูลให้ครบถ้วน'
+        message: 'กรุณากรอกเลขบัตรประชาชนให้ครบถ้วน'
       });
     }
 
@@ -56,7 +62,6 @@ const verifyLicense1 = async (req, res) => {
         message: 'รหัสลิขสิทธิ์ได้รับการยืนยันเรียบร้อยแล้ว'
       });
     }
-
 
     // ───────────────────────────────
     // 2. ตรวจสอบข้อมูลผู้ใช้ว่าตรงกับ license หรือไม่
