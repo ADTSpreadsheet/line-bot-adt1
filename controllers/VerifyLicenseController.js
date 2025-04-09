@@ -1,5 +1,20 @@
 const { supabase } = require('../utils/supabaseClient');
 
+
+//---------------------------------------------------------------------------------------
+
+const verifyLicense1 = async (req, res) => {
+  // ✅ สำหรับตรวจ license_no + national_id + phone_number
+};
+
+const verifyLicense2 = async (req, res) => {
+  // ✅ อีกเคสที่แยกต่างหาก (พี่จะระบุเงื่อนไขภายหลัง)
+};
+
+const verifyRefCodeAndSerial = async (req, res) => {
+  // ✅ สำหรับตรวจ Ref.Code และ Serial Key
+};
+
 //---------------------------------------------------------------------------------------
 
 const verifyLicense = async (req, res) => {
@@ -71,5 +86,6 @@ const verifyLicense = async (req, res) => {
 // Export functions
 module.exports = {
   verifyLicense1,
-  verifyLicense2
+  verifyLicense2,
+  verifyRefCodeAndSerial
 };
