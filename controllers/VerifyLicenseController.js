@@ -1,7 +1,5 @@
 const { supabase } = require('../utils/supabaseClient');
 
-const { supabase } = require('../utils/supabaseClient');
-
 // ฟังก์ชันหลักสำหรับตรวจสอบใบอนุญาตด้วย license_no, national_id และ phone_number
 const verifyLicense1 = async (req, res) => {
   try {
