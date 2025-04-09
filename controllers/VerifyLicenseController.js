@@ -6,103 +6,93 @@ const verifyLicense1 = async (req, res) => {
 
     console.log("📌 ข้อมูลที่ส่งมา:", { license_no, national_id, phone_number });
 
-    // ตรวจสอบว่ามีข้อมูลพื้นฐานที่จำเป็นหรือไม่
-    if (!license_no || !national_id || !phone_number) {
-      console.log("⚠️ [0] ข้อมูลไม่ครบถ้วน");
+    // ตรวจสอบว่ามี license_no และ phone_number หรือไม่ (จำเป็นต้องมี)
+    if (!license_no || !phone_number) {
+      console.log("⚠️ [0] ไม่มี license_no หรือ phone_number");
       
-      // ตรวจสอบกรณี 1.3 แม้ข้อมูลจะไม่ครบ (ถ้ามี license_no และ phone_number)
-      if (license_no && phone_number) {
-        // หาข้อมูล license ในฐานข้อมูล
-        const { data: licenseData, error: licenseQueryError } = await supabase
-          .from('license_holders')
-          .select('license_no, first_name, last_name, national_id, phone_number, status, verify_count')
-          .eq('license_no', license_no)
-          .eq('phone_number', phone_number)
-          .is('national_id', null)
-          .maybeSingle();
+      // ตรวจสอบกรณี 1.3: license_no + phone_number ตรง แต่ในฐานข้อมูลไม่มี national_id
+      const { data: partialMatch, error: partialError } = await supabase
+        .from('license_holders')
+        .select('license_no, first_name, last_name')
+        .eq('license_no', license_no)
+        .eq('phone_number', phone_number)
+        .is('national_id', null)
+        .single();
 
-        console.log("📌 ข้อมูล license กรณี 1.3:", licenseData);
-
-        if (licenseData) {
-          console.log("🟡 [1.3] พบ License + Phone ตรง แต่ยังไม่มีเลขบัตรประชาชนในฐานข้อมูล:", license_no);
-          
-          return res.status(206).json({
-            license_no: licenseData.license_no,
-            full_name: `${licenseData.first_name} ${licenseData.last_name}`,
-            message: 'ระบบตรวจสอบไม่พบเลขบัตรประชาชนของท่าน กรุณากรอกเพื่อยืนยันตัวตน'
-          });
-        }
+      if (partialMatch) {
+        console.log("🟡 [1.3] พบ License + Phone ตรง แต่ยังไม่มีเลขบัตรประชาชนในฐานข้อมูล:", license_no);
+        
+        // ไม่ว่ากรณี national_id ส่งมาหรือไม่ ให้ส่ง status 206 เสมอ
+        return res.status(206).json({
+          license_no: partialMatch.license_no,
+          full_name: `${partialMatch.first_name} ${partialMatch.last_name}`,
+          message: 'ระบบตรวจสอบไม่พบเลขบัตรประชาชนของท่าน กรุณากรอกเพื่อยืนยันตัวตน'
+        });
       }
+    }
+
+    // ตรวจสอบกรณี 1.3 อีกครั้ง (กรณีมีทั้ง license_no และ phone_number)
+    const { data: partialMatch2, error: partialError2 } = await supabase
+      .from('license_holders')
+      .select('license_no, first_name, last_name')
+      .eq('license_no', license_no)
+      .eq('phone_number', phone_number)
+      .is('national_id', null)
+      .single();
+
+    if (partialMatch2) {
+      console.log("🟡 [1.3] พบ License + Phone ตรง แต่ยังไม่มีเลขบัตรประชาชนในฐานข้อมูล:", license_no);
       
-      return res.status(400).json({
-        message: 'กรุณากรอกข้อมูลให้ครบถ้วน'
+      // ไม่ว่ากรณี national_id ส่งมาหรือไม่ ให้ส่ง status 206 เสมอ
+      return res.status(206).json({
+        license_no: partialMatch2.license_no,
+        full_name: `${partialMatch2.first_name} ${partialMatch2.last_name}`,
+        message: 'ระบบตรวจสอบไม่พบเลขบัตรประชาชนของท่าน กรุณากรอกเพื่อยืนยันตัวตน'
       });
     }
 
-    // หาข้อมูล license ในฐานข้อมูล
-    const { data: licenseData, error: licenseQueryError } = await supabase
+    // ตรวจสอบว่า license_no มีอยู่หรือไม่
+    const { data: licenseCheck, error: licenseError } = await supabase
       .from('license_holders')
-      .select('license_no, first_name, last_name, national_id, phone_number, status, verify_count')
+      .select('license_no, status, verify_count')
       .eq('license_no', license_no)
-      .maybeSingle();
+      .single();
 
-    console.log("📌 ข้อมูล license ในฐานข้อมูล:", licenseData);
-
-    // ถ้าไม่พบ license_no ในระบบ
-    if (licenseQueryError || !licenseData) {
+    if (licenseError || !licenseCheck) {
       console.log("❌ [1.1] ไม่พบ license_no:", license_no);
       return res.status(404).json({
         message: 'ระบบตรวจสอบไม่พบรหัสลิขสิทธิ์ของท่าน กรุณาติดต่อ ADT-Admin'
       });
     }
 
-    // ตรวจสอบสถานะว่าเคยยืนยันแล้วหรือไม่
-    if (licenseData.status !== 'Pending') {
+    if (licenseCheck.status !== 'Pending') {
       console.log("🔁 [1.2] License เคยยืนยันแล้ว:", license_no);
       return res.status(409).json({
         message: 'รหัสลิขสิทธิ์ได้รับการยืนยันเรียบร้อยแล้ว'
       });
     }
 
-    // ตรวจสอบกรณี 1.3: phone_number ตรง แต่ national_id เป็น null ในฐานข้อมูล
-    if (licenseData.phone_number === phone_number && licenseData.national_id === null) {
-      console.log("🟡 [1.3] พบ License + Phone ตรง แต่ยังไม่มีเลขบัตรประชาชนในฐานข้อมูล:", license_no);
-      
-      // ถ้าผู้ใช้ส่ง national_id มา ให้อัพเดตในฐานข้อมูล
-      if (national_id) {
-        await supabase
-          .from('license_holders')
-          .update({ national_id: national_id })
-          .eq('license_no', license_no);
-        
-        console.log("✅ [1.3.1] อัพเดต national_id สำเร็จ:", license_no);
-        
-        return res.status(200).json({
-          license_no: licenseData.license_no,
-          full_name: `${licenseData.first_name} ${licenseData.last_name}`,
-          message: 'ยืนยันลิขสิทธิ์สำเร็จ และได้บันทึกเลขบัตรประชาชนของท่านแล้ว'
-        });
-      }
-      
-      return res.status(206).json({
-        license_no: licenseData.license_no,
-        full_name: `${licenseData.first_name} ${licenseData.last_name}`,
-        message: 'ระบบตรวจสอบไม่พบเลขบัตรประชาชนของท่าน กรุณากรอกเพื่อยืนยันตัวตน'
-      });
-    }
+    // ตรวจสอบข้อมูลผู้ใช้ว่าตรงกับ license หรือไม่
+    const { data, error } = await supabase
+      .from('license_holders')
+      .select('license_no, first_name, last_name, verify_count')
+      .eq('license_no', license_no)
+      .eq('national_id', national_id)
+      .eq('phone_number', phone_number)
+      .single();
 
-    // ตรวจสอบว่าข้อมูล national_id และ phone_number ตรงกับในฐานข้อมูลหรือไม่
-    if (licenseData.national_id === national_id && licenseData.phone_number === phone_number) {
-      console.log("✅ [2.1] ยืนยันสำเร็จ:", license_no);
+    // ข้อมูลตรง → ยืนยันสำเร็จ
+    if (data) {
+      console.log("✅ [2.1] ยืนยันสำเร็จ:", data.license_no);
       return res.status(200).json({
-        license_no: licenseData.license_no,
-        full_name: `${licenseData.first_name} ${licenseData.last_name}`,
+        license_no: data.license_no,
+        full_name: `${data.first_name} ${data.last_name}`,
         message: 'Your copyright has been successfully verified.'
       });
     }
 
     // ข้อมูลผิด → ตรวจนับครั้ง
-    const verifyCount = licenseData.verify_count || 0;
+    const verifyCount = licenseCheck.verify_count || 0;
 
     if (verifyCount < 3) {
       const newCount = verifyCount + 1;
@@ -133,7 +123,6 @@ const verifyLicense1 = async (req, res) => {
 
   } catch (err) {
     console.error('❌ [ERROR] VERIFY LICENSE1', err);
-    console.error(err); // เพิ่ม log สำหรับ error เต็มรูปแบบ
     return res.status(500).json({
       message: 'เกิดข้อผิดพลาดในระบบ กรุณาลองใหม่อีกครั้ง'
     });
