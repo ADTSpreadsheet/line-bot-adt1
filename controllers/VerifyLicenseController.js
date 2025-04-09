@@ -52,6 +52,8 @@ const verifyLicense1 = async (req, res) => {
 if (partialMatch) {
   console.log("🟡 [1.3] พบ License + Phone ตรง แต่ยังไม่มีเลขบัตรประชาชน:", license_no);
   return res.status(206).json({
+    license_no: data.license_no,
+    full_name: `${data.first_name} ${data.last_name}`,
     message: 'ระบบตรวจสอบไม่พบเลขบัตรประชาชนของท่าน กรุณากรอกเพื่อยืนยันตัวตน',
    
   });
