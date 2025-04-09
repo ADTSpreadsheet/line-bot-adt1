@@ -26,7 +26,7 @@ const verifyLicense1 = async (req, res) => {
     
     // 1.2 ถ้าสถานะไม่ใช่ Pending
     if (licenseCheck.status !== 'Pending') {
-      return res.status(404).json({ message: 'ลิขสิทธิ์นี้ไม่อยู่ในสถานะที่สามารถตรวจสอบได้' });
+      return res.status(404).json({ message: 'ลิขสิทธิ์นี้ได้ทำการยืนยันสำเร็จแล้ว' });
     }
     
     // 2. ตรวจสอบ national_id และ phone_number
