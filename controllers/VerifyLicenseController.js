@@ -38,6 +38,24 @@ const verifyLicense1 = async (req, res) => {
         message: 'ลิขสิทธิ์นี้ได้ทำการยืนยันแล้ว'
       });
     }
+// 1.3  พบ license_no + phone_number ตรง แต่ยังไม่มี national_id
+    const { data: partialMatch, error: partialError } = await supabase
+  .from('license_holders')
+  .select('license_no, first_name, last_name')
+  .eq('license_no', license_no)
+  .eq('phone_number', phone_number)
+  .is('national_id', null) // national_id เป็น null
+  .single();
+
+if (partialMatch) {
+  console.log("🟡 [1.3] พบ License + Phone ตรง แต่ยังไม่มีเลขบัตรประชาชน:", license_no);
+  return res.status(206).json({
+    message: 'ระบบยังไม่มีเลขบัตรประชาชนของคุณ กรุณากรอกเพื่อยืนยันตัวตน',
+    license_no: partialMatch.license_no,
+    full_name: `${partialMatch.first_name} ${partialMatch.last_name}`
+    /* VBA: แสดง FrameVerifyID แล้วใช้ license_no → Label12, full_name → Label13, message → Label14 */
+  });
+}
 
     // ───────────────────────────────
     // 2. ตรวจสอบข้อมูลผู้ใช้ว่าตรงกับ license หรือไม่
