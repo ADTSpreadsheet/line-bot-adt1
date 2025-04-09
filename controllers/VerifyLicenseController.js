@@ -51,9 +51,7 @@ if (partialMatch) {
   console.log("🟡 [1.3] พบ License + Phone ตรง แต่ยังไม่มีเลขบัตรประชาชน:", license_no);
   return res.status(206).json({
     message: 'ระบบตรวจสอบไม่พบเลขบัตรประชาชนของท่าน กรุณากรอกเพื่อยืนยันตัวตน',
-    license_no: partialMatch.license_no,
-    full_name: `${partialMatch.first_name} ${partialMatch.last_name}`
-    /* VBA: แสดง FrameVerifyID แล้วใช้ license_no → Label12, full_name → Label13, message → Label14 */
+   
   });
 }
 
