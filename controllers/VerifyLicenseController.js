@@ -123,6 +123,28 @@ const verifyLicense1 = async (req, res) => {
 };
 
 //---------------------------------------------------------------
+// ฟังก์ชัน verifyRefCodeAndSerial – สำหรับใช้ในอนาคต
+//---------------------------------------------------------------
+const verifyRefCodeAndSerial = async (req, res) => {
+  try {
+    const { ref_code, serial_key } = req.body;
+
+    if (!ref_code || !serial_key) {
+      return res.status(404).json({ message: 'กรุณาระบุ Ref.Code และ Serial Key' });
+    }
+
+    return res.status(200).json({
+      message: 'ฟังก์ชัน verifyRefCodeAndSerial อยู่ระหว่างการพัฒนา'
+    });
+  } catch (err) {
+    console.error('❌ [VERIFY REF CODE AND SERIAL ERROR]', err);
+    return res.status(404).json({ message: 'เกิดข้อผิดพลาดในการตรวจสอบ กรุณาลองใหม่อีกครั้ง' });
+  }
+};
+
+
+
+//---------------------------------------------------------------
 // ฟังก์ชัน verifyLicense2 – ตรวจสอบจาก Ref.Code + Serial Key + License No
 //---------------------------------------------------------------
 const verifyLicense2 = async (req, res) => {
@@ -198,25 +220,7 @@ const verifyLicense2 = async (req, res) => {
   }
 };
 
-//---------------------------------------------------------------
-// ฟังก์ชัน verifyRefCodeAndSerial – สำหรับใช้ในอนาคต
-//---------------------------------------------------------------
-const verifyRefCodeAndSerial = async (req, res) => {
-  try {
-    const { ref_code, serial_key } = req.body;
 
-    if (!ref_code || !serial_key) {
-      return res.status(404).json({ message: 'กรุณาระบุ Ref.Code และ Serial Key' });
-    }
-
-    return res.status(200).json({
-      message: 'ฟังก์ชัน verifyRefCodeAndSerial อยู่ระหว่างการพัฒนา'
-    });
-  } catch (err) {
-    console.error('❌ [VERIFY REF CODE AND SERIAL ERROR]', err);
-    return res.status(404).json({ message: 'เกิดข้อผิดพลาดในการตรวจสอบ กรุณาลองใหม่อีกครั้ง' });
-  }
-};
 
 module.exports = {
   verifyLicense1,
