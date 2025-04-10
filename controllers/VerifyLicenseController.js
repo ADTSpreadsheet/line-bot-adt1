@@ -129,28 +129,76 @@ const verifyLicense1 = async (req, res) => {
   }
 };
 
-//--------------------------------------------------------------- 
-// ฟังก์ชันสำหรับตรวจสอบใบอนุญาตด้วยวิธีที่ 2 (เตรียมไว้สำหรับใช้งานในอนาคต)
-//--------------------------------------------------------------- 
-
-const verifyLicense2 = async (req, res) => {
-  try {
-    // เตรียมไว้สำหรับการตรวจสอบในรูปแบบที่ 2
-    // เช่น ตรวจสอบด้วย email + license_no หรือวิธีอื่นๆ
-    
-    // สำหรับตอนนี้ส่งข้อความแจ้งว่าฟังก์ชันนี้ยังไม่พร้อมใช้งาน
-    return res.status(200).json({ 
-      message: 'ฟังก์ชัน verifyLicense2 อยู่ระหว่างการพัฒนา'
-    });
-  } catch (err) {
-    console.error('❌ [VERIFY LICENSE2 ERROR]', err);
-    return res.status(404).json({ message: 'เกิดข้อผิดพลาดในการตรวจสอบ กรุณาลองใหม่อีกครั้ง' });
-  }
-};
 
 //---------------------------------------------------------------    
 // ฟังก์ชันสำหรับตรวจสอบ Ref.Code และ Serial Key
 //---------------------------------------------------------------
+
+const verifyLicense2 = async (req, res) => {
+  try {
+    const { license_no, ref_code, serial_key } = req.body;
+
+    // STEP 1: ตรวจสอบข้อมูลที่รับเข้ามา
+    if (!license_no || !ref_code || !serial_key) {
+      return res.status(400).json({ message: 'กรุณาระบุ license_no, ref_code และ serial_key ให้ครบถ้วน' });
+    }
+
+    // STEP 2: ตรวจสอบ Ref.Code + Serial Key จาก auth_sessions
+    const { data: sessionMatch, error: sessionError } = await supabase
+      .from('auth_sessions')
+      .select('*')
+      .eq('ref_code', ref_code)
+      .eq('serial_key', serial_key)
+      .single();
+
+    if (sessionError || !sessionMatch) {
+      return res.status(400).json({ message: 'ไม่พบ Ref.Code หรือ Serial Key นี้ในระบบ' });
+    }
+
+    // STEP 3: ตรวจสอบ license_no ในตาราง license_holders
+    const { data: licenseRow, error: licenseError } = await supabase
+      .from('license_holders')
+      .select('*')
+      .eq('license_no', license_no)
+      .single();
+
+    if (licenseError || !licenseRow) {
+      return res.status(404).json({ message: 'ไม่พบหมายเลขลิขสิทธิ์นี้ในระบบ' });
+    }
+
+    // STEP 4: อัปเดตข้อมูลใน license_holders
+    const { error: updateError } = await supabase
+      .from('license_holders')
+      .update({
+        ref_code: ref_code,
+        serial_key: serial_key,
+        is_verify: true
+      })
+      .eq('license_no', license_no);
+
+    if (updateError) {
+      console.error('❌ [VERIFY LICENSE2 - UPDATE ERROR]', updateError);
+      return res.status(500).json({ message: 'เกิดข้อผิดพลาดในการอัปเดตข้อมูล' });
+    }
+
+    // STEP 5: ตอบกลับเมื่อสำเร็จ
+    console.log(`✅ [VERIFY LICENSE2 SUCCESS] License: ${license_no} -> RefCode: ${ref_code}`);
+    return res.status(200).json({
+      message: 'ยืนยันสิทธิ์สำเร็จแล้ว',
+      license_no: license_no,
+      ref_code: ref_code
+    });
+
+  } catch (err) {
+    console.error('❌ [VERIFY LICENSE2 - SYSTEM ERROR]', err);
+    return res.status(500).json({ message: 'เกิดข้อผิดพลาดในระบบ กรุณาลองใหม่' });
+  }
+};
+
+
+//--------------------------------------------------------------- 
+// ฟังก์ชันสำหรับตรวจสอบใบอนุญาตด้วยวิธีที่ 2 (เตรียมไว้สำหรับใช้งานในอนาคต)
+//--------------------------------------------------------------- -
     
 const verifyRefCodeAndSerial = async (req, res) => {
   try {
