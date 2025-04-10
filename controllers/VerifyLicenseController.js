@@ -176,6 +176,12 @@ const verifyLicense2 = async (req, res) => {
       })
       .eq('license_no', license_no);
 
+    const { data: licenseHolder, error: licenseError } = await supabase
+      .from('license_holders')
+      .select('first_name, last_name, occupation, address, province, postal_code')
+      .eq('license_no', license_no)
+      .single();
+
     if (updateError) {
       console.error('❌ [VERIFY LICENSE2 - UPDATE ERROR]', updateError);
       return res.status(500).json({ message: 'เกิดข้อผิดพลาดในการอัปเดตข้อมูล' });
@@ -186,7 +192,13 @@ const verifyLicense2 = async (req, res) => {
     return res.status(200).json({
       message: 'ยืนยันสิทธิ์สำเร็จแล้ว',
       license_no: license_no,
-      ref_code: ref_code
+      ref_code: ref_code,
+      first_name: licenseHolder.first_name,
+      last_name: licenseHolder.last_name,
+      occupation: licenseHolder.occupation,
+      address: licenseHolder.address,
+      province: licenseHolder.province,
+      postal_code: licenseHolder.postal_code
     });
 
   } catch (err) {
