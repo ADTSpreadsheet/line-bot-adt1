@@ -124,19 +124,20 @@ const verifyLicense1 = async (req, res) => {
   }
 };
 
-//---------------------------------------------------------------
-// ฟังก์ชัน verifyRefCodeAndSerial – ตรวจสอบ Ref.Code + Serial Key และส่ง LINE
-//---------------------------------------------------------------
 const verifyRefCodeAndSerial = async (req, res) => {
+  logger.info('📩 [START] ตรวจสอบ Ref.Code และ Serial Key');
+
   try {
     const { ref_code, serial_key } = req.body;
+    logger.info('📥 [REQUEST BODY]', { ref_code, serial_key });
 
     if (!ref_code || !serial_key) {
-      logger.warn('Missing ref_code or serial_key in request');
+      logger.warn('⚠️ [MISSING DATA] ต้องระบุ ref_code และ serial_key');
       return res.status(400).json({ message: 'กรุณาระบุ Ref.Code และ Serial Key ให้ครบถ้วน' });
     }
 
-    // ค้นหาข้อมูลจากตาราง auth_sessions
+    // ดึงข้อมูลจากตาราง auth_sessions
+    logger.info('🔍 [QUERY] ค้นหา Ref.Code และ Serial Key ใน Supabase');
     const { data, error } = await supabase
       .from('auth_sessions')
       .select('serial_key, line_user_id')
@@ -146,21 +147,32 @@ const verifyRefCodeAndSerial = async (req, res) => {
       .single();
 
     if (error) {
-      logger.error('[Supabase ERROR]', error.message || error);
+      logger.error('❌ [SUPABASE ERROR]', error.message || error);
     }
 
     if (!data) {
-      logger.warn('ไม่พบ Ref.Code หรือ Serial Key ที่ระบุ', { ref_code });
+      logger.warn('🛑 [NOT FOUND] ไม่พบ Ref.Code หรือ Serial Key ในระบบ', { ref_code });
       return res.status(404).json({ message: 'ไม่พบ Ref.Code หรือ Serial Key ที่ระบุในระบบ' });
     }
 
     const { serial_key: matchedSerialKey, line_user_id } = data;
+    logger.info('✅ [DATA FOUND]', { matchedSerialKey, line_user_id });
 
+    // ส่งข้อความผ่าน LINE Bot
     try {
+      logger.info('📤 [LINE BOT] กำลังส่ง Serial Key ผ่าน LINE', {
+        ref_code,
+        line_user_id,
+        serial_key: matchedSerialKey,
+      });
+
       await sendLineMessage(line_user_id, matchedSerialKey, ref_code);
-      logger.info('✅ Serial Key sent via LINE', { ref_code, line_user_id });
+
+      logger.info('✅ [LINE SENT] ส่งข้อความเรียบร้อยแล้ว', { ref_code, line_user_id });
+      return res.status(200).json({ message: 'ส่ง Serial Key ไปยัง LINE เรียบร้อยแล้ว' });
+
     } catch (lineError) {
-      logger.error('❌ LINE message failed to send', {
+      logger.error('❌ [LINE FAILED] ส่ง LINE ไม่สำเร็จ', {
         ref_code,
         line_user_id,
         serial_key: matchedSerialKey,
@@ -169,9 +181,8 @@ const verifyRefCodeAndSerial = async (req, res) => {
       return res.status(500).json({ message: 'ไม่สามารถส่ง Serial Key ทาง LINE ได้' });
     }
 
-    return res.status(200).json({ message: 'ส่ง Serial Key ไปยัง LINE เรียบร้อยแล้ว' });
   } catch (err) {
-    logger.error('❌ [VERIFY REF CODE AND SERIAL ERROR]', err);
+    logger.error('🔥 [UNEXPECTED ERROR] ระบบมีปัญหาภายใน', err);
     return res.status(500).json({ message: 'เกิดข้อผิดพลาดในระบบ กรุณาลองใหม่อีกครั้ง' });
   }
 };
