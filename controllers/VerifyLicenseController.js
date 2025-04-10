@@ -1,4 +1,6 @@
 const { supabase } = require('../utils/supabaseClient');
+const { sendLineMessage } = require('../routes/events/eventLine');
+const logger = require('../utils/logger').createModuleLogger('verifyRefCodeAndSerial');
 
 //---------------------------------------------------------------
 // ฟังก์ชัน verifyLicense1 – ตรวจสอบจาก license_no, national_id, phone_number
@@ -130,30 +132,35 @@ const verifyRefCodeAndSerial = async (req, res) => {
     const { ref_code, serial_key } = req.body;
 
     if (!ref_code || !serial_key) {
+      logger.warn('Missing ref_code or serial_key in request');
       return res.status(400).json({ message: 'กรุณาระบุ Ref.Code และ Serial Key ให้ครบถ้วน' });
     }
 
-    // ค้นหาข้อมูลใน Supabase
+    // ค้นหาข้อมูลจากตาราง auth_sessions
     const { data, error } = await supabase
       .from('auth_sessions')
       .select('serial_key, line_user_id')
       .eq('ref_code', ref_code)
       .eq('serial_key', serial_key)
+      .eq('status', 'ACTIVE')
       .single();
 
-    if (error || !data) {
+    if (error) {
+      logger.error('[Supabase ERROR]', error.message || error);
+    }
+
+    if (!data) {
       logger.warn('ไม่พบ Ref.Code หรือ Serial Key ที่ระบุ', { ref_code });
       return res.status(404).json({ message: 'ไม่พบ Ref.Code หรือ Serial Key ที่ระบุในระบบ' });
     }
 
     const { serial_key: matchedSerialKey, line_user_id } = data;
 
-    // ส่งข้อความทาง LINE
     try {
       await sendLineMessage(line_user_id, matchedSerialKey, ref_code);
-      logger.info('Serial Key sent via LINE', { ref_code, line_user_id });
+      logger.info('✅ Serial Key sent via LINE', { ref_code, line_user_id });
     } catch (lineError) {
-      logger.error('LINE message failed to send', {
+      logger.error('❌ LINE message failed to send', {
         ref_code,
         line_user_id,
         serial_key: matchedSerialKey,
@@ -168,7 +175,6 @@ const verifyRefCodeAndSerial = async (req, res) => {
     return res.status(500).json({ message: 'เกิดข้อผิดพลาดในระบบ กรุณาลองใหม่อีกครั้ง' });
   }
 };
-
 
 
 //---------------------------------------------------------------
