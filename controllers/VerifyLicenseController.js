@@ -129,24 +129,23 @@ const verifyLicense1 = async (req, res) => {
 //---------------------------------------------------------------
 
 const verifyRefCodeAndSerial = async (req, res) => {
-  logger.info('📩 [START] ตรวจสอบ Ref.Code และ Serial Key');
+  logger.info('📩 [START] ตรวจสอบ Ref.Code');
 
   try {
-    const { ref_code, serial_key } = req.body;
-    logger.info('📥 [REQUEST BODY]', { ref_code, serial_key });
+    const { ref_code } = req.body;
+    logger.info('📥 [REQUEST BODY]', { ref_code });
 
-    if (!ref_code || !serial_key) {
-      logger.warn('⚠️ [MISSING DATA] ต้องระบุ ref_code และ serial_key');
-      return res.status(400).json({ message: 'กรุณาระบุ Ref.Code และ Serial Key ให้ครบถ้วน' });
+    if (!ref_code) {
+      logger.warn('⚠️ [MISSING DATA] ต้องระบุ ref_code');
+      return res.status(400).json({ message: 'กรุณาระบุ Ref.Code ให้ครบถ้วน' });
     }
 
-    // ดึงข้อมูลจากตาราง auth_sessions
-    logger.info('🔍 [QUERY] ค้นหา Ref.Code และ Serial Key ใน Supabase');
+    // ดึงข้อมูลจากตาราง auth_sessions โดยใช้เฉพาะ ref_code
+    logger.info('🔍 [QUERY] ค้นหา Ref.Code ใน Supabase');
     const { data, error } = await supabase
       .from('auth_sessions')
       .select('serial_key, line_user_id')
       .eq('ref_code', ref_code)
-      .eq('serial_key', serial_key)
       .eq('status', 'ACTIVE')
       .single();
 
@@ -155,8 +154,8 @@ const verifyRefCodeAndSerial = async (req, res) => {
     }
 
     if (!data) {
-      logger.warn('🛑 [NOT FOUND] ไม่พบ Ref.Code หรือ Serial Key ในระบบ', { ref_code });
-      return res.status(404).json({ message: 'ไม่พบ Ref.Code หรือ Serial Key ที่ระบุในระบบ' });
+      logger.warn('🛑 [NOT FOUND] ไม่พบ Ref.Code ในระบบ', { ref_code });
+      return res.status(404).json({ message: 'ไม่พบ Ref.Code ที่ระบุในระบบ' });
     }
 
     const { serial_key: matchedSerialKey, line_user_id } = data;
@@ -190,7 +189,6 @@ const verifyRefCodeAndSerial = async (req, res) => {
     return res.status(500).json({ message: 'เกิดข้อผิดพลาดในระบบ กรุณาลองใหม่อีกครั้ง' });
   }
 };
-
 
 //---------------------------------------------------------------
 // ฟังก์ชัน verifyLicense2 – ตรวจสอบจาก Ref.Code + Serial Key + License No
