@@ -124,6 +124,10 @@ const verifyLicense1 = async (req, res) => {
   }
 };
 
+//---------------------------------------------------------------
+// ฟังก์ชัน verifyRefCodeAndSerial – ตรวจสอบจาก Ref.Code + Serial Key + ส่ง serial key ใน Line
+//---------------------------------------------------------------
+
 const verifyRefCodeAndSerial = async (req, res) => {
   logger.info('📩 [START] ตรวจสอบ Ref.Code และ Serial Key');
 
