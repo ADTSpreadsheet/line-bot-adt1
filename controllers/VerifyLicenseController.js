@@ -83,6 +83,19 @@ const verifyLicense1 = async (req, res) => {
       .single();
 
     if (data) {
+      // เพิ่มการอัปเดตสถานะ is_verify เป็น true
+      const { error: updateError } = await supabase
+        .from('license_holders')
+        .update({ is_verify: true })
+        .eq('license_no', license_no);
+      
+      if (updateError) {
+        console.error("❌ [2.1] อัปเดตสถานะไม่สำเร็จ:", updateError);
+        // ยังคงส่งสถานะ 200 เนื่องจากการตรวจสอบยังสำเร็จ
+      } else {
+        console.log("✅ [2.1] อัปเดตสถานะเป็น TRUE สำเร็จ:", license_no);
+      }
+      
       console.log("✅ [2.1] ยืนยันสำเร็จ:", data.license_no);
       return res.status(200).json({
         license_no: data.license_no,
@@ -126,6 +139,7 @@ const verifyLicense1 = async (req, res) => {
     });
   }
 };
+
 
 //---------------------------------------------------------------
 // ฟังก์ชัน verifyRefCodeAndSerial – ตรวจสอบจาก Ref.Code + Serial Key + ส่ง serial key ใน Line
