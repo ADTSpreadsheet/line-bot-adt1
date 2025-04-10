@@ -123,22 +123,49 @@ const verifyLicense1 = async (req, res) => {
 };
 
 //---------------------------------------------------------------
-// ฟังก์ชัน verifyRefCodeAndSerial – สำหรับใช้ในอนาคต
+// ฟังก์ชัน verifyRefCodeAndSerial – ตรวจสอบ Ref.Code + Serial Key และส่ง LINE
 //---------------------------------------------------------------
 const verifyRefCodeAndSerial = async (req, res) => {
   try {
     const { ref_code, serial_key } = req.body;
 
     if (!ref_code || !serial_key) {
-      return res.status(404).json({ message: 'กรุณาระบุ Ref.Code และ Serial Key' });
+      return res.status(400).json({ message: 'กรุณาระบุ Ref.Code และ Serial Key ให้ครบถ้วน' });
     }
 
-    return res.status(200).json({
-      message: 'ฟังก์ชัน verifyRefCodeAndSerial อยู่ระหว่างการพัฒนา'
-    });
+    // ค้นหาข้อมูลใน Supabase
+    const { data, error } = await supabase
+      .from('auth_sessions')
+      .select('serial_key, line_user_id')
+      .eq('ref_code', ref_code)
+      .eq('serial_key', serial_key)
+      .single();
+
+    if (error || !data) {
+      logger.warn('ไม่พบ Ref.Code หรือ Serial Key ที่ระบุ', { ref_code });
+      return res.status(404).json({ message: 'ไม่พบ Ref.Code หรือ Serial Key ที่ระบุในระบบ' });
+    }
+
+    const { serial_key: matchedSerialKey, line_user_id } = data;
+
+    // ส่งข้อความทาง LINE
+    try {
+      await sendLineMessage(line_user_id, matchedSerialKey, ref_code);
+      logger.info('Serial Key sent via LINE', { ref_code, line_user_id });
+    } catch (lineError) {
+      logger.error('LINE message failed to send', {
+        ref_code,
+        line_user_id,
+        serial_key: matchedSerialKey,
+        error: lineError.message,
+      });
+      return res.status(500).json({ message: 'ไม่สามารถส่ง Serial Key ทาง LINE ได้' });
+    }
+
+    return res.status(200).json({ message: 'ส่ง Serial Key ไปยัง LINE เรียบร้อยแล้ว' });
   } catch (err) {
-    console.error('❌ [VERIFY REF CODE AND SERIAL ERROR]', err);
-    return res.status(404).json({ message: 'เกิดข้อผิดพลาดในการตรวจสอบ กรุณาลองใหม่อีกครั้ง' });
+    logger.error('❌ [VERIFY REF CODE AND SERIAL ERROR]', err);
+    return res.status(500).json({ message: 'เกิดข้อผิดพลาดในระบบ กรุณาลองใหม่อีกครั้ง' });
   }
 };
 
