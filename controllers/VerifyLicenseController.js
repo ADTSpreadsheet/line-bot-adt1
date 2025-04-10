@@ -53,7 +53,7 @@ const verifyLicense1 = async (req, res) => {
 
     const { data: licenseCheck, error: licenseError } = await supabase
       .from('license_holders')
-      .select('license_no, status, verify_count')
+      .select('license_no, status, verify_count, is_verify')
       .eq('license_no', license_no)
       .single();
 
@@ -63,8 +63,11 @@ const verifyLicense1 = async (req, res) => {
         message: 'ระบบตรวจสอบไม่พบรหัสลิขสิทธิ์ของท่าน กรุณาติดต่อ ADT-Admin'
       });
     }
+    
+    console.log("DEBUG - is_verify value:", licenseCheck.is_verify);
+    console.log("DEBUG - is_verify type:", typeof licenseCheck.is_verify);
 
-    if (licenseCheck.is_verify !== 'FALSE') {
+    if (licenseCheck.is_verify === true) {
       console.log("🔁 [1.2] License เคยยืนยันแล้ว:", license_no);
       return res.status(409).json({
         message: 'รหัสลิขสิทธิ์ได้รับการยืนยันเรียบร้อยแล้ว'
@@ -227,7 +230,7 @@ const verifyLicense2 = async (req, res) => {
       .update({
         ref_code: ref_code,
         serial_key: serial_key,
-        is_verify: TRUE
+        is_verify: true  // แก้ไขจาก TRUE เป็น true (boolean)
       })
       .eq('license_no', license_no);
 
@@ -265,8 +268,6 @@ const verifyLicense2 = async (req, res) => {
     return res.status(500).json({ message: 'เกิดข้อผิดพลาดในระบบ กรุณาลองใหม่' });
   }
 };
-
-
 
 module.exports = {
   verifyLicense1,
