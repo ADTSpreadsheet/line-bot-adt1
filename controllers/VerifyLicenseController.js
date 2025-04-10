@@ -64,7 +64,7 @@ const verifyLicense1 = async (req, res) => {
       });
     }
 
-    if (licenseCheck.is_verify !== 'false') {
+    if (licenseCheck.is_verify !== 'TRUE') {
       console.log("🔁 [1.2] License เคยยืนยันแล้ว:", license_no);
       return res.status(409).json({
         message: 'รหัสลิขสิทธิ์ได้รับการยืนยันเรียบร้อยแล้ว'
@@ -227,7 +227,7 @@ const verifyLicense2 = async (req, res) => {
       .update({
         ref_code: ref_code,
         serial_key: serial_key,
-        is_verify: true
+        is_verify: TRUE
       })
       .eq('license_no', license_no);
 
