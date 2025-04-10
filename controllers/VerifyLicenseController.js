@@ -167,45 +167,45 @@ const verifyLicense2 = async (req, res) => {
     }
 
     // STEP 4: อัปเดตข้อมูลใน license_holders
-    const { error: updateError } = await supabase
-      .from('license_holders')
-      .update({
-        ref_code: ref_code,
-        serial_key: serial_key,
-        is_verify: true
-      })
-      .eq('license_no', license_no);
+const { error: updateError } = await supabase
+  .from('license_holders')
+  .update({
+    ref_code: ref_code,
+    serial_key: serial_key,
+    is_verify: true
+  })
+  .eq('license_no', license_no);
 
-    const { data: licenseHolder, error: licenseError } = await supabase
-      .from('license_holders')
-      .select('first_name, last_name, occupation, address, province, postal_code')
-      .eq('license_no', license_no)
-      .single();
+if (updateError) {
+  console.error('❌ [VERIFY LICENSE2 - UPDATE ERROR]', updateError);
+  return res.status(500).json({ message: 'เกิดข้อผิดพลาดในการอัปเดตข้อมูล' });
+}
 
-    if (updateError) {
-      console.error('❌ [VERIFY LICENSE2 - UPDATE ERROR]', updateError);
-      return res.status(500).json({ message: 'เกิดข้อผิดพลาดในการอัปเดตข้อมูล' });
-    }
+// STEP 5: ดึงข้อมูลเพื่อส่งกลับ
+const { data: licenseHolderInfo, error: infoError } = await supabase
+  .from('license_holders')
+  .select('first_name, last_name, occupation, address, province, postal_code')
+  .eq('license_no', license_no)
+  .single();
 
-    // STEP 5: ตอบกลับเมื่อสำเร็จ
-    console.log(`✅ [VERIFY LICENSE2 SUCCESS] License: ${license_no} -> RefCode: ${ref_code}`);
-    return res.status(200).json({
-      message: 'ยืนยันสิทธิ์สำเร็จแล้ว',
-      license_no: license_no,
-      ref_code: ref_code,
-      first_name: licenseHolder.first_name,
-      last_name: licenseHolder.last_name,
-      occupation: licenseHolder.occupation,
-      address: licenseHolder.address,
-      province: licenseHolder.province,
-      postal_code: licenseHolder.postal_code
-    });
+if (infoError || !licenseHolderInfo) {
+  console.error('❌ [VERIFY LICENSE2 - FETCH INFO ERROR]', infoError);
+  return res.status(500).json({ message: 'ไม่สามารถดึงข้อมูลสำหรับตอบกลับได้' });
+}
 
-  } catch (err) {
-    console.error('❌ [VERIFY LICENSE2 - SYSTEM ERROR]', err);
-    return res.status(500).json({ message: 'เกิดข้อผิดพลาดในระบบ กรุณาลองใหม่' });
-  }
-};
+// STEP 6: ตอบกลับเมื่อสำเร็จ
+console.log(`✅ [VERIFY LICENSE2 SUCCESS] License: ${license_no} -> RefCode: ${ref_code}`);
+return res.status(200).json({
+  message: 'ยืนยันสิทธิ์สำเร็จแล้ว',
+  license_no: license_no,
+  ref_code: ref_code,
+  first_name: licenseHolderInfo.first_name,
+  last_name: licenseHolderInfo.last_name,
+  occupation: licenseHolderInfo.occupation,
+  address: licenseHolderInfo.address,
+  province: licenseHolderInfo.province,
+  postal_code: licenseHolderInfo.postal_code
+});
 
 
 //--------------------------------------------------------------- 
