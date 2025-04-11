@@ -25,7 +25,7 @@ const confirmRegistrationRoutes = require('./routes/ConfirmRegistration');
 const otpRoutes = require('./routes/otp');
 const confirmOtpRoutes = require('./routes/confirmOtp'); // เพิ่มเส้นทางใหม่สำหรับ ConfirmOtp
 const verifyLicenseRoute = require('./routes/verifyLicenseRoute'); // ✅ เส้นทาง verifyLicense1
-const verifyLicense2Route = require('./routes/verifyLicense2Route'); // ✅ เส้นทาง verifyLicense2
+
 
 
 // ==============================================
