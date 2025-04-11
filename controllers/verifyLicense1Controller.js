@@ -212,49 +212,96 @@ const confirmDevice2 = async (req, res) => {
 //---------------------------------------------------------------
 // submitNationalID – รับเลขบัตรประชาชนและอัปเดตสถานะเป็น is_verify: true
 //---------------------------------------------------------------
+// ส่วนตัวอย่างการอัพเดตข้อมูลพร้อมบันทึกล็อกโดยละเอียด
 const submitNationalID = async (req, res) => {
   try {
     const { license_no, national_id, machine_id } = req.body;
 
-    logger.info(`[SUBMIT NID] 📥 รับเลขบัตรประชาชนสำหรับ license: ${license_no}, machine_id: ${machine_id}`);
-
-    // ตรวจสอบว่ามี machine_id ส่งมาหรือไม่
-    if (!machine_id) {
-      logger.warn(`[SUBMIT NID] ⚠️ [STATUS 400] ไม่มี machine_id → license: ${license_no}`);
-      return res.status(400).json({ message: 'กรุณาระบุ machine_id' });
+    logger.info(`[SUBMIT NID] 📥 รับข้อมูล → license: ${license_no}, national_id: ${national_id}, machine_id: ${machine_id || 'ไม่มี'}`);
+    
+    // ตรวจสอบเงื่อนไขก่อนอัพเดต
+    if (!license_no) {
+      logger.warn(`[SUBMIT NID] ⚠️ ไม่มี license_no ในคำขอ`);
+      return res.status(400).json({ message: 'กรุณาระบุรหัสลิขสิทธิ์' });
     }
-
-    // อัปเดตข้อมูลแบบตรงไปตรงมา ไม่ซับซ้อน
+    
+    if (!machine_id) {
+      logger.warn(`[SUBMIT NID] ⚠️ ไม่มี machine_id ในคำขอ → license: ${license_no}`);
+      return res.status(400).json({ message: 'กรุณาระบุรหัสเครื่อง' });
+    }
+    
+    // ตรวจสอบก่อนว่ามีข้อมูล license_no ในฐานข้อมูลหรือไม่
+    const { data: checkData, error: checkError } = await supabase
+      .from('license_holders')
+      .select('license_no, is_verify, machine_id_1, machine_id_2, mid_status')
+      .eq('license_no', license_no)
+      .single();
+      
+    if (checkError) {
+      logger.error(`[SUBMIT NID] ❌ ไม่พบข้อมูลในฐานข้อมูล → license: ${license_no}, error: ${checkError.message}`);
+      return res.status(404).json({ message: 'ไม่พบข้อมูลลิขสิทธิ์ในระบบ' });
+    }
+    
+    logger.info(`[SUBMIT NID] 🔍 ข้อมูลปัจจุบันในฐานข้อมูล → license: ${license_no}, is_verify: ${checkData.is_verify}, machine_id_1: ${checkData.machine_id_1 || 'NULL'}, machine_id_2: ${checkData.machine_id_2 || 'NULL'}, mid_status: ${checkData.mid_status || 'NULL'}`);
+    
+    // กำหนดข้อมูลที่จะอัพเดต
     const updateObj = { 
       national_id: national_id,
-      is_verify: 'TRUE',
-      machine_id_1: machine_id, 
-      mid_status: '1-DEVICE'
+      is_verify: true
     };
     
-    // ล็อกข้อมูลที่จะอัปเดต
-    logger.info(`[SUBMIT NID] 🔄 กำลังอัปเดตข้อมูล → ${JSON.stringify(updateObj)}`);
-
-    const { data, error } = await supabase
+    // ตัดสินใจว่าจะอัพเดต machine_id ไปที่คอลัมน์ไหน
+    if (!checkData.machine_id_1) {
+      logger.info(`[SUBMIT NID] 📝 บันทึกเป็นเครื่องแรก → license: ${license_no}, machine_id: ${machine_id}`);
+      updateObj.machine_id_1 = machine_id;
+      updateObj.mid_status = '1-DEVICE';
+    } else if (checkData.machine_id_1 === machine_id) {
+      logger.info(`[SUBMIT NID] 📝 เครื่องนี้ตรงกับเครื่องแรกที่บันทึกแล้ว → license: ${license_no}`);
+      updateObj.mid_status = '1-DEVICE';
+    } else if (!checkData.machine_id_2) {
+      logger.info(`[SUBMIT NID] 📝 บันทึกเป็นเครื่องที่สอง → license: ${license_no}, machine_id: ${machine_id}`);
+      updateObj.machine_id_2 = machine_id;
+      updateObj.mid_status = '2-DEVICE';
+    } else if (checkData.machine_id_2 === machine_id) {
+      logger.info(`[SUBMIT NID] 📝 เครื่องนี้ตรงกับเครื่องที่สองที่บันทึกแล้ว → license: ${license_no}`);
+      updateObj.mid_status = '2-DEVICE';
+    } else {
+      logger.warn(`[SUBMIT NID] ⚠️ มีการบันทึกครบ 2 เครื่องแล้ว และเครื่องนี้ไม่ตรงกับทั้งสองเครื่อง → license: ${license_no}`);
+      return res.status(422).json({ 
+        message: 'คุณได้ใช้ลิขสิทธิ์นี้กับอุปกรณ์ 2 เครื่องแล้ว กรุณาติดต่อผู้ดูแลระบบ',
+        is_verify: 'DEVICE_LIMIT_REACHED'
+      });
+    }
+    
+    // บันทึกข้อมูลที่จะอัพเดต
+    logger.info(`[SUBMIT NID] 🔄 ข้อมูลที่จะอัพเดต → ${JSON.stringify(updateObj)}`);
+    
+    // ดำเนินการอัพเดต
+    const { data: updateData, error: updateError } = await supabase
       .from('license_holders')
       .update(updateObj)
       .eq('license_no', license_no)
       .select()
       .single();
-
-    if (error || !data) {
-      logger.warn(`[SUBMIT NID] ❌ [STATUS 404] ไม่สามารถอัปเดตข้อมูลได้ → license: ${license_no}, error: ${error?.message || 'ไม่พบข้อมูล'}`);
-      return res.status(404).json({ message: 'ไม่สามารถอัปเดตข้อมูลได้' });
+    
+    // ตรวจสอบผลลัพธ์
+    if (updateError) {
+      logger.error(`[SUBMIT NID] ❌ อัพเดตไม่สำเร็จ → license: ${license_no}, error: ${updateError.message}`);
+      return res.status(500).json({ message: `เกิดข้อผิดพลาดในการอัพเดตข้อมูล: ${updateError.message}` });
     }
-
-    logger.info(`[SUBMIT NID] ✅ [STATUS 200] อัปเดตข้อมูลสำเร็จ → license: ${license_no}, is_verify: ${data.is_verify}, mid_status: ${data.mid_status}`);
+    
+    // บันทึกข้อมูลหลังอัพเดต
+    logger.info(`[SUBMIT NID] ✅ อัพเดตสำเร็จ → license: ${license_no}`);
+    logger.info(`[SUBMIT NID] 📊 ข้อมูลหลังอัพเดต → is_verify: ${updateData.is_verify}, machine_id_1: ${updateData.machine_id_1 || 'NULL'}, machine_id_2: ${updateData.machine_id_2 || 'NULL'}, mid_status: ${updateData.mid_status || 'NULL'}`);
+    
     return res.status(200).json({
-      message: 'National ID saved and license verified successfully.',
+      message: 'บันทึกข้อมูลเรียบร้อยแล้ว',
       is_verify: 'TRUE'
     });
   } catch (err) {
-    logger.error(`[SUBMIT NID] ❌ [STATUS 500] เกิดข้อผิดพลาด: ${err.message}`);
-    return res.status(500).json({ message: 'เกิดข้อผิดพลาดในการบันทึกข้อมูล' });
+    logger.error(`[SUBMIT NID] ❌ เกิดข้อผิดพลาดที่ไม่คาดคิด: ${err.message}`);
+    logger.error(`[SUBMIT NID] 🔍 Stack trace: ${err.stack}`);
+    return res.status(500).json({ message: 'เกิดข้อผิดพลาดในระบบ กรุณาลองใหม่อีกครั้ง' });
   }
 };
 
