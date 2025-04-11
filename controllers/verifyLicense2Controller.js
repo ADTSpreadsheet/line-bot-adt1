@@ -30,7 +30,6 @@ const verifyLicense2 = async (req, res) => {
       .from('auth_sessions')
       .select('serial_key')
       .eq('ref_code', ref_code)
-      .eq('status', 'ACTIVE')
       .single();
 
     if (error || !data) {
@@ -71,7 +70,6 @@ const verifyRefCodeAndSerial = async (req, res) => {
       .select('ref_code, serial_key, line_user_id')
       .eq('ref_code', ref_code)
       .eq('serial_key', serial_key)
-      .eq('status', 'ACTIVE')
       .single();
 
     if (authError || !authSession) {
