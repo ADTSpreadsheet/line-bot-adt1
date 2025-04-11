@@ -16,7 +16,7 @@ const verifyLicense1 = async (req, res) => {
         .select('license_no, first_name, last_name')
         .eq('license_no', license_no)
         .eq('phone_number', phone_number)
-        .is('national_id', null)
+        .or('national_id.is.null,national_id.eq.EMPTY')
         .single();
 
       if (partialMatch) {
