@@ -1,5 +1,5 @@
 //---------------------------------------------------------------
-// controllers/VerifyLicenseController.js (เฉพาะ verifyLicense1)
+// controllers/verifyLicense1Controller.js
 //---------------------------------------------------------------
 const { supabase } = require('../utils/supabaseClient');
 const logger = require('../utils/logger');
@@ -84,7 +84,8 @@ const verifyLicense1 = async (req, res) => {
       return res.status(200).json({
         status: 'MATCHED_AND_ADDED',
         message: 'Device registered successfully.',
-        license_no
+        license_no,
+        ask_user: true
       });
     }
 
