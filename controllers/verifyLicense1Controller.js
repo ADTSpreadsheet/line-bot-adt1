@@ -134,3 +134,7 @@ const verifyLicense1 = async (req, res) => {
     return res.status(500).json({ message: 'เกิดข้อผิดพลาดในระบบ กรุณาลองใหม่อีกครั้ง' });
   }
 };
+module.exports = {
+  verifyLicense1,
+  confirmDevice2
+};
