@@ -44,7 +44,7 @@ const verifyLicense1 = async (req, res) => {
     if (licenseCheck.is_verify === true) {
       const { data: licenseData } = await supabase
         .from('license_holders')
-        .select('machine_id_1, machine_id_2')
+        .select('license_no, first_name, last_name, machine_id_1, machine_id_2, mid_status')
         .eq('license_no', license_no)
         .single();
 
@@ -53,9 +53,10 @@ const verifyLicense1 = async (req, res) => {
         licenseData.machine_id_2 === machine_id
       ) {
         return res.status(200).json({
-          status: 'ALREADY_MATCHED',
+          is_verify: licenseData.mid_status,
           message: 'This device is already verified and authorized.',
-          license_no
+          license_no: licenseData.license_no,
+          full_name: `${licenseData.first_name} ${licenseData.last_name}`
         });
       }
 
@@ -66,15 +67,16 @@ const verifyLicense1 = async (req, res) => {
         licenseData.machine_id_2 !== machine_id
       ) {
         return res.status(422).json({
-          status: 'DEVICE_LIMIT_REACHED',
+          is_verify: 'DEVICE_LIMIT_REACHED',
           message: 'You have already used this license on 2 devices. Please contact ADT-Admin.'
         });
       }
 
       return res.status(202).json({
-        status: 'NEED_CONFIRM_DEVICE_2',
+        is_verify: 'NEED_CONFIRM_DEVICE_2',
         message: 'Second device detected. Please confirm registration.',
-        license_no
+        license_no: licenseData.license_no,
+        full_name: `${licenseData.first_name} ${licenseData.last_name}`
       });
     }
 
@@ -95,7 +97,8 @@ const verifyLicense1 = async (req, res) => {
       return res.status(200).json({
         license_no: data.license_no,
         full_name: `${data.first_name} ${data.last_name}`,
-        message: 'Your copyright has been successfully verified.'
+        message: 'Your copyright has been successfully verified.',
+        is_verify: '1-DEVICE'
       });
     }
 
@@ -145,13 +148,20 @@ const confirmDevice2 = async (req, res) => {
     }
 
     if (data.machine_id_1 === machine_id || data.machine_id_2 === machine_id) {
-      return res.status(200).json({ message: 'Device already registered.', status: 'ALREADY_MATCHED' });
+      return res.status(200).json({ message: 'Device already registered.', is_verify: data.machine_id_1 === machine_id ? '1-DEVICE' : '2-DEVICE' });
     }
 
     let updateObj = {};
-    if (!data.machine_id_1) updateObj = { machine_id_1: machine_id, mid_status: '1-DEVICE' };
-    else if (!data.machine_id_2) updateObj = { machine_id_2: machine_id, mid_status: '2-DEVICE' };
-    else return res.status(422).json({ message: 'Device limit exceeded.', status: 'DEVICE_LIMIT_REACHED' });
+    let newStatus = '';
+    if (!data.machine_id_1) {
+      updateObj = { machine_id_1: machine_id, mid_status: '1-DEVICE' };
+      newStatus = '1-DEVICE';
+    } else if (!data.machine_id_2) {
+      updateObj = { machine_id_2: machine_id, mid_status: '2-DEVICE' };
+      newStatus = '2-DEVICE';
+    } else {
+      return res.status(422).json({ message: 'Device limit exceeded.', is_verify: 'DEVICE_LIMIT_REACHED' });
+    }
 
     await supabase
       .from('license_holders')
@@ -160,7 +170,7 @@ const confirmDevice2 = async (req, res) => {
 
     return res.status(200).json({
       message: 'Device registered as second device successfully.',
-      status: 'DEVICE_2_CONFIRMED'
+      is_verify: newStatus
     });
 
   } catch (err) {
