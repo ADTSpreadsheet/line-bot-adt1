@@ -71,21 +71,11 @@ const verifyLicense1 = async (req, res) => {
         });
       }
 
-      let updateObj = {};
-      if (!licenseData.machine_id_1) updateObj.machine_id_1 = machine_id;
-      else if (!licenseData.machine_id_2) updateObj.machine_id_2 = machine_id;
-      updateObj.mid_status = !!(updateObj.machine_id_1 && updateObj.machine_id_2);
-
-      await supabase
-        .from('license_holders')
-        .update(updateObj)
-        .eq('license_no', license_no);
-
-      return res.status(200).json({
-        status: 'MATCHED_AND_ADDED',
-        message: 'Device registered successfully.',
-        license_no,
-        ask_user: true
+      // 👉 ตอบกลับก่อน ยังไม่บันทึก ต้องให้ผู้ใช้ยืนยันจาก VBA ก่อน
+      return res.status(202).json({
+        status: 'NEED_CONFIRM_DEVICE_2',
+        message: 'ระบบพบว่าเครื่องนี้สามารถลงทะเบียนเป็นเครื่องที่ 2 ได้ กรุณายืนยันจากผู้ใช้',
+        license_no
       });
     }
 
