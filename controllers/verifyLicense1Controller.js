@@ -89,7 +89,7 @@ const verifyLicense1 = async (req, res) => {
     if (data) {
       await supabase
         .from('license_holders')
-        .update({ is_verify: true, status: 'ACTIVATED', machine_id_1: machine_id, mid_status: '1-DEVICE' })
+        .update({ is_verify: true, machine_id_1: machine_id, mid_status: '1-DEVICE' })
         .eq('license_no', license_no);
 
       return res.status(200).json({
