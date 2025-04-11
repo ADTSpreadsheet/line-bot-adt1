@@ -181,3 +181,7 @@ const verifyLicense1 = async (req, res) => {
     });
   }
 };
+
+module.exports = {
+  verifyLicense1
+};
