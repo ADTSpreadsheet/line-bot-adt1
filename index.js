@@ -77,7 +77,8 @@ app.use('/router/confirmOtp', confirmOtpRoutes); // เพิ่มเส้น�
 
 // ส่วนที่ 8: Verify License Routes (สำหรับการยืนยันลิขสิทธิ์)
 app.use('/router/verifyLicense1', verifyLicenseRoute);
-app.use('/router/verifyLicense2', verifyLicense2Route);
+app.use('/router/verifyLicense2', verifyLicenseRoute);
+
 // ==============================================
 // API ENDPOINTS FOR VBA INTEGRATION (เก็บไว้เป็น fallback)
 // ==============================================
