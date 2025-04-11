@@ -7,6 +7,6 @@ const { checkMachineID } = require('../controllers/checkMachineController');
 // POST /router/license/check-machine
 // ตรวจสอบ Machine ID จากฝั่ง VBA
 //------------------------------------------------------------
-router.post('/check-machine', checkMachineID);
+router.post('/check-machine', checkMachineStatus);
 
 module.exports = router;
