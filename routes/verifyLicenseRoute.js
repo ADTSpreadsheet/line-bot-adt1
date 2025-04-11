@@ -6,6 +6,7 @@ const { verifyLicense1 } = require('../controllers/verifyLicense1Controller');
 const { verifyLicense2, verifyRefCodeAndSerial } = require('../controllers/verifyLicense2Controller');
 
 router.post('/verify-license1', verifyLicense1);
+router.post('/confirm-device2', confirmDevice2); 
 router.post('/verify-license2', verifyLicense2);
 router.post('/verifyRefCodeAndSerial', verifyRefCodeAndSerial);
 
