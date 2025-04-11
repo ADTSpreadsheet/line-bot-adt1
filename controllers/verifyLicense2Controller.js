@@ -74,9 +74,9 @@ const verifyLicense2 = async (req, res) => {
 //---------------------------------------------------------------
 const verifyRefCodeAndSerial = async (req, res) => {
   try {
-    const { license_no, national_id, ref_code, serial_key, machine_id } = req.body;
+    const { license_no, ref_code, serial_key } = req.body;
 
-    logger.info(`[VERIFY2] 📥 รับข้อมูลตรวจสอบ Ref.Code + Serial Key → license_no: ${license_no}, ref_code: ${ref_code}, serial_key: ${serial_key}`);
+    logger.info(`[VERIFY2] 📥 รับข้อมูลตรวจสอบ Ref.Code + Serial Key → license_no: ${license_no}, ref_code: ${ref_code}`);
 
     if (!ref_code || !serial_key || !license_no) {
       logger.warn(`[VERIFY2] ⚠️ [STATUS 400] ข้อมูลไม่ครบถ้วน`);
@@ -92,24 +92,14 @@ const verifyRefCodeAndSerial = async (req, res) => {
       .single();
 
     if (authError || !authSession) {
-      logger.warn(`[VERIFY2] ❌ [STATUS 400] ไม่พบ Ref.Code หรือ Serial Key ไม่ตรง → ref_code: ${ref_code}, error: ${authError?.message || 'ไม่พบข้อมูล'}`);
+      logger.warn(`[VERIFY2] ❌ [STATUS 400] ไม่พบ Ref.Code หรือ Serial Key ไม่ตรง → ref_code: ${ref_code}`);
       return res.status(400).json({ message: 'Ref.Code หรือ Serial Key ไม่ถูกต้อง' });
     }
 
-    logger.info(`[VERIFY2] ✅ ตรวจสอบ Ref.Code และ Serial Key สำเร็จ → line_user_id: ${authSession.line_user_id || 'ไม่มี'}`);
-
-    // อัปเดตข้อมูลในตาราง license_holders
+    // อัปเดตเฉพาะ ref_code ไม่ต้องอัปเดต machine_id และอื่นๆ
     const updateData = {
       ref_code: ref_code,
-      is_verify: true,
-      machine_id_1: machine_id,
-      mid_status: '1-DEVICE'
     };
-
-    // เพิ่ม national_id ถ้ามี
-    if (national_id) {
-      updateData.national_id = national_id;
-    }
 
     // เพิ่ม line_user_id ถ้ามี
     if (authSession.line_user_id) {
@@ -119,18 +109,15 @@ const verifyRefCodeAndSerial = async (req, res) => {
     // บันทึกข้อมูลที่จะอัปเดต
     logger.info(`[VERIFY2] 🔄 ข้อมูลที่จะอัปเดต → ${JSON.stringify(updateData)}`);
 
-    const { data: updateResult, error: updateError } = await supabase
+    const { error: updateError } = await supabase
       .from('license_holders')
       .update(updateData)
-      .eq('license_no', license_no)
-      .select();
+      .eq('license_no', license_no);
 
     if (updateError) {
-      logger.error(`[VERIFY2] ❌ [STATUS 500] อัปเดต license_holders ไม่สำเร็จ → license_no: ${license_no}, error: ${updateError.message}`);
+      logger.error(`[VERIFY2] ❌ [STATUS 500] อัปเดต license_holders ไม่สำเร็จ → license_no: ${license_no}`);
       return res.status(500).json({ message: 'ไม่สามารถอัปเดตข้อมูลผู้ใช้ได้' });
     }
-
-    logger.info(`[VERIFY2] ✅ อัปเดตข้อมูลสำเร็จ → license_no: ${license_no}`);
 
     // ดึงข้อมูลผู้ใช้หลังอัปเดต
     const { data: userData, error: userError } = await supabase
@@ -140,7 +127,7 @@ const verifyRefCodeAndSerial = async (req, res) => {
       .single();
 
     if (userError || !userData) {
-      logger.warn(`[VERIFY2] ❌ [STATUS 404] ไม่พบข้อมูลผู้ใช้หลังอัปเดต → license: ${license_no}, error: ${userError?.message || 'ไม่พบข้อมูล'}`);
+      logger.warn(`[VERIFY2] ❌ [STATUS 404] ไม่พบข้อมูลผู้ใช้หลังอัปเดต → license: ${license_no}`);
       return res.status(404).json({ message: 'ไม่พบข้อมูลหลังการยืนยันตัวตน' });
     }
 
@@ -155,11 +142,8 @@ const verifyRefCodeAndSerial = async (req, res) => {
       } catch (lineErr) {
         logger.warn(`[VERIFY2] ⚠️ ไม่สามารถแจ้งเตือนผ่าน LINE ได้ → ${lineErr.message}`);
       }
-    } else {
-      logger.warn(`[VERIFY2] ℹ️ ไม่มี line_user_id จึงไม่ได้ส่งข้อความแจ้งเตือน`);
     }
 
-    // ส่งข้อมูลกลับไปให้ไม่ว่าจะส่ง LINE ได้หรือไม่
     return res.status(200).json({
       license_no: userData.license_no,
       first_name: userData.first_name,
@@ -173,7 +157,6 @@ const verifyRefCodeAndSerial = async (req, res) => {
 
   } catch (err) {
     logger.error(`[VERIFY2] ❌ [STATUS 500] เกิดข้อผิดพลาด: ${err.message}`);
-    logger.error(`[VERIFY2] 🔍 Stack trace: ${err.stack}`);
     return res.status(500).json({ message: 'เกิดข้อผิดพลาดในระบบ กรุณาลองใหม่อีกครั้ง' });
   }
 };
