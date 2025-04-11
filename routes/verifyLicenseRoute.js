@@ -1,11 +1,12 @@
 const express = require('express');
 const router = express.Router();
 
-const { verifyLicense1 } = require('../controllers/VerifyLicenseController');
+// ดึงจากหลายไฟล์ได้เลย
+const { verifyLicense1 } = require('../controllers/verifyLicense1Controller');
+const { verifyLicense2, verifyRefCodeAndSerial } = require('../controllers/verifyLicense2Controller');
 
-// ===========================
-// POST Routes
-// ===========================
 router.post('/verify-license1', verifyLicense1);
+router.post('/verify-license2', verifyLicense2);
+router.post('/verifyRefCodeAndSerial', verifyRefCodeAndSerial);
 
 module.exports = router;
