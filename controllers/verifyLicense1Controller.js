@@ -10,13 +10,21 @@ const verifyLicense1 = async (req, res) => {
 
     logger.info(`[VERIFY1] 📥 รับข้อมูลเข้ามา → license_no: ${license_no}, machine_id: ${machine_id}`);
 
+    // ตรวจสอบว่ามี license_no และ phone_number มาหรือไม่
     if (!license_no || !phone_number) {
-      const { data: partialMatch } = await supabase
+      logger.warn(`[VERIFY1] ⚠️ [STATUS 400] ข้อมูลไม่ครบถ้วน → ไม่มี license_no หรือ phone_number`);
+      return res.status(400).json({ message: 'กรุณาระบุรหัสลิขสิทธิ์และเบอร์โทรศัพท์' });
+    }
+
+    // ตรวจสอบก่อนว่ามีการส่ง national_id มาหรือไม่
+    // ถ้าไม่มีการส่ง national_id มา ให้ตรวจสอบข้อมูล license_no และ phone_number
+    if (!national_id || national_id === '') {
+      const { data: partialMatch, error: partialError } = await supabase
         .from('license_holders')
         .select('license_no, first_name, last_name')
         .eq('license_no', license_no)
         .eq('phone_number', phone_number)
-        .or('national_id.is.NULL,national_id.eq.""')
+        .or('national_id.is.null,national_id.eq.""')
         .single();
 
       if (partialMatch) {
@@ -29,6 +37,7 @@ const verifyLicense1 = async (req, res) => {
       }
     }
 
+    // ตรวจสอบว่ามี license_no ในระบบหรือไม่
     const { data: licenseCheck, error: licenseError } = await supabase
       .from('license_holders')
       .select('license_no, status, verify_count, is_verify')
@@ -82,27 +91,30 @@ const verifyLicense1 = async (req, res) => {
       });
     }
 
-    const { data } = await supabase
-      .from('license_holders')
-      .select('license_no, first_name, last_name, verify_count')
-      .eq('license_no', license_no)
-      .eq('national_id', national_id)
-      .eq('phone_number', phone_number)
-      .single();
-
-    if (data) {
-      await supabase
+    // ถ้ามี national_id ให้ตรวจสอบข้อมูลครบถ้วน
+    if (national_id) {
+      const { data } = await supabase
         .from('license_holders')
-        .update({ is_verify: true, machine_id_1: machine_id, mid_status: '1-DEVICE' })
-        .eq('license_no', license_no);
+        .select('license_no, first_name, last_name, verify_count')
+        .eq('license_no', license_no)
+        .eq('national_id', national_id)
+        .eq('phone_number', phone_number)
+        .single();
 
-      logger.info(`[VERIFY1] 🚀 [STATUS 200] ยืนยันสิทธิ์ครั้งแรกสำเร็จ → license: ${license_no}`);
-      return res.status(200).json({
-        license_no: data.license_no,
-        full_name: `${data.first_name} ${data.last_name}`,
-        message: 'Your copyright has been successfully verified.',
-        is_verify: '1-DEVICE'
-      });
+      if (data) {
+        await supabase
+          .from('license_holders')
+          .update({ is_verify: true, machine_id_1: machine_id, mid_status: '1-DEVICE' })
+          .eq('license_no', license_no);
+
+        logger.info(`[VERIFY1] 🚀 [STATUS 200] ยืนยันสิทธิ์ครั้งแรกสำเร็จ → license: ${license_no}`);
+        return res.status(200).json({
+          license_no: data.license_no,
+          full_name: `${data.first_name} ${data.last_name}`,
+          message: 'Your copyright has been successfully verified.',
+          is_verify: '1-DEVICE'
+        });
+      }
     }
 
     const verifyCount = licenseCheck.verify_count || 0;
@@ -118,7 +130,7 @@ const verifyLicense1 = async (req, res) => {
       return res.status(401).json({
         message: 'ข้อมูลไม่ตรง กรุณาลองใหม่อีกครั้ง',
         verify_count: newCount,
-        attempts_remaining: `ลองใหม่ได้อีก ${4 - newCount} ครั้ง`
+        attempts_remaining: `ลองใหม่ได้อีก ${3 - newCount} ครั้ง`
       });
     }
 
