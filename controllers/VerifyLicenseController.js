@@ -1,19 +1,20 @@
 //---------------------------------------------------------------
-// ฟังก์ชัน verifyLicense1 – ตรวจสอบจาก license_no, national_id, phone_number
+// controllers/VerifyLicenseController.js (เวอร์ชันเดิมพร้อม 3 endpoint)
 //---------------------------------------------------------------
 const { supabase } = require('../utils/supabaseClient');
 const logger = require('../utils/logger');
 
+//---------------------------------------------------------------
+// verifyLicense1 – ตรวจสอบจาก license_no, national_id, phone_number
+//---------------------------------------------------------------
 const verifyLicense1 = async (req, res) => {
   try {
-    const { license_no, national_id, phone_number, machine_id } = req.body;
+    const { license_no, national_id, phone_number } = req.body;
 
-    console.log("📌 ข้อมูลที่ส่งมา:", { license_no, national_id, phone_number, machine_id });
+    console.log("📌 ข้อมูลที่ส่งมา:", { license_no, national_id, phone_number });
 
     if (!license_no || !phone_number) {
-      console.log("⚠️ [0] ไม่มี license_no หรือ phone_number");
-
-      const { data: partialMatch, error: partialError } = await supabase
+      const { data: partialMatch } = await supabase
         .from('license_holders')
         .select('license_no, first_name, last_name')
         .eq('license_no', license_no)
@@ -22,32 +23,12 @@ const verifyLicense1 = async (req, res) => {
         .single();
 
       if (partialMatch) {
-        console.log("🟡 [1.3] พบ License + Phone ตรง แต่ยังไม่มีเลขบัตรประชาชนในฐานข้อมูล:", license_no);
-
         return res.status(206).json({
           license_no: partialMatch.license_no,
           full_name: `${partialMatch.first_name} ${partialMatch.last_name}`,
           message: 'ระบบตรวจสอบไม่พบเลขบัตรประชาชนของท่าน กรุณากรอกเพื่อยืนยันตัวตน'
         });
       }
-    }
-
-    const { data: partialMatch2 } = await supabase
-      .from('license_holders')
-      .select('license_no, first_name, last_name')
-      .eq('license_no', license_no)
-      .eq('phone_number', phone_number)
-      .is('national_id', null)
-      .single();
-
-    if (partialMatch2) {
-      console.log("🟡 [1.3] พบ License + Phone ตรง แต่ยังไม่มีเลขบัตรประชาชนในฐานข้อมูล:", license_no);
-
-      return res.status(206).json({
-        license_no: partialMatch2.license_no,
-        full_name: `${partialMatch2.first_name} ${partialMatch2.last_name}`,
-        message: 'ระบบตรวจสอบไม่พบเลขบัตรประชาชนของท่าน กรุณากรอกเพื่อยืนยันตัวตน'
-      });
     }
 
     const { data: licenseCheck, error: licenseError } = await supabase
@@ -57,68 +38,14 @@ const verifyLicense1 = async (req, res) => {
       .single();
 
     if (licenseError || !licenseCheck) {
-      console.log("❌ [1.1] ไม่พบ license_no:", license_no);
-      return res.status(404).json({
-        message: 'ระบบตรวจสอบไม่พบรหัสลิขสิทธิ์ของท่าน กรุณาติดต่อ ADT-Admin'
-      });
+      return res.status(404).json({ message: 'ไม่พบรหัสลิขสิทธิ์ในระบบ' });
     }
-
-    console.log("DEBUG - is_verify value:", licenseCheck.is_verify);
-    console.log("DEBUG - is_verify type:", typeof licenseCheck.is_verify);
 
     if (licenseCheck.is_verify === true) {
-      console.log("🔁 [1.2] License เคยยืนยันแล้ว:", license_no);
-
-      const { data: licenseData } = await supabase
-        .from('license_holders')
-        .select('machine_id_1, machine_id_2, mid_status')
-        .eq('license_no', license_no)
-        .single();
-
-      if (
-        licenseData.machine_id_1 === machine_id ||
-        licenseData.machine_id_2 === machine_id
-      ) {
-        console.log("✅ เครื่องนี้ได้รับสิทธิ์แล้ว (Login ได้เลย)");
-        return res.status(200).json({
-          status: 'ALREADY_MATCHED',
-          message: 'This device is already verified and authorized.',
-          license_no
-        });
-      }
-
-      if (
-        licenseData.machine_id_1 &&
-        licenseData.machine_id_2 &&
-        licenseData.machine_id_1 !== machine_id &&
-        licenseData.machine_id_2 !== machine_id
-      ) {
-        console.warn("🚫 เครื่องที่ 3 พยายามเข้าใช้งาน");
-        return res.status(422).json({
-          status: 'DEVICE_LIMIT_REACHED',
-          message: 'You have already used this license on 2 devices. Please contact ADT-Admin.'
-        });
-      }
-
-      let updateObj = {};
-      if (!licenseData.machine_id_1) updateObj.machine_id_1 = machine_id;
-      else if (!licenseData.machine_id_2) updateObj.machine_id_2 = machine_id;
-      updateObj.mid_status = !!(updateObj.machine_id_1 && updateObj.machine_id_2);
-
-      await supabase
-        .from('license_holders')
-        .update(updateObj)
-        .eq('license_no', license_no);
-
-      console.log("✅ ลงทะเบียนเครื่องเพิ่มเติมสำเร็จ");
-      return res.status(200).json({
-        status: 'MATCHED_AND_ADDED',
-        message: 'Device registered successfully.',
-        license_no
-      });
+      return res.status(409).json({ message: 'รหัสลิขสิทธิ์ได้รับการยืนยันเรียบร้อยแล้ว' });
     }
 
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from('license_holders')
       .select('license_no, first_name, last_name, verify_count')
       .eq('license_no', license_no)
@@ -127,18 +54,11 @@ const verifyLicense1 = async (req, res) => {
       .single();
 
     if (data) {
-      const { error: updateError } = await supabase
+      await supabase
         .from('license_holders')
         .update({ is_verify: true })
         .eq('license_no', license_no);
 
-      if (updateError) {
-        console.error("❌ [2.1] อัปเดตสถานะไม่สำเร็จ:", updateError);
-      } else {
-        console.log("✅ [2.1] อัปเดตสถานะเป็น TRUE สำเร็จ:", license_no);
-      }
-
-      console.log("✅ [2.1] ยืนยันสำเร็จ:", data.license_no);
       return res.status(200).json({
         license_no: data.license_no,
         full_name: `${data.first_name} ${data.last_name}`,
@@ -150,13 +70,11 @@ const verifyLicense1 = async (req, res) => {
 
     if (verifyCount < 3) {
       const newCount = verifyCount + 1;
-
       await supabase
         .from('license_holders')
         .update({ verify_count: newCount })
         .eq('license_no', license_no);
 
-      console.log(`⚠️ [2.2] ข้อมูลผิด (ครั้งที่ ${newCount}) → ${license_no}`);
       return res.status(401).json({
         message: 'ข้อมูลไม่ตรง กรุณาลองใหม่อีกครั้ง',
         verify_count: newCount,
@@ -169,19 +87,76 @@ const verifyLicense1 = async (req, res) => {
       .update({ verify_count: 4 })
       .eq('license_no', license_no);
 
-    console.log("🚫 [3] ถูกบล็อก - เกิน 3 ครั้ง:", license_no);
-    return res.status(403).json({
-      message: 'คุณตรวจสอบผิดเกินจำนวนที่กำหนด กรุณาติดต่อผู้ดูแลระบบ'
-    });
-
+    return res.status(403).json({ message: 'คุณตรวจสอบผิดเกินจำนวนที่กำหนด กรุณาติดต่อผู้ดูแลระบบ' });
   } catch (err) {
     console.error('❌ [ERROR] VERIFY LICENSE1', err);
-    return res.status(500).json({
-      message: 'เกิดข้อผิดพลาดในระบบ กรุณาลองใหม่อีกครั้ง'
+    return res.status(500).json({ message: 'เกิดข้อผิดพลาดในระบบ กรุณาลองใหม่อีกครั้ง' });
+  }
+};
+
+//---------------------------------------------------------------
+// verifyLicense2 – ตรวจสอบ Ref.Code และ Serial Key จากฝั่ง VBA
+//---------------------------------------------------------------
+const verifyLicense2 = async (req, res) => {
+  try {
+    const { ref_code, serial_key } = req.body;
+
+    const { data, error } = await supabase
+      .from('auth_sessions')
+      .select('ref_code, serial_key')
+      .eq('ref_code', ref_code)
+      .eq('serial_key', serial_key)
+      .eq('status', 'ACTIVE')
+      .single();
+
+    if (error || !data) {
+      return res.status(404).json({ message: 'ไม่พบข้อมูล Ref.Code หรือ Serial Key ไม่ถูกต้อง' });
+    }
+
+    return res.status(200).json({
+      ref_code: data.ref_code,
+      serial_key: data.serial_key,
+      message: 'Serial Key ตรวจสอบผ่านแล้ว'
     });
+  } catch (err) {
+    console.error('❌ [ERROR] VERIFY LICENSE2', err);
+    return res.status(500).json({ message: 'เกิดข้อผิดพลาดในระบบ กรุณาลองใหม่อีกครั้ง' });
+  }
+};
+
+//---------------------------------------------------------------
+// verifyRefCodeAndSerial – ตรวจสอบ Ref.Code เพื่อส่ง Serial Key ไป LINE
+//---------------------------------------------------------------
+const verifyRefCodeAndSerial = async (req, res) => {
+  try {
+    const { ref_code } = req.body;
+
+    const { data, error } = await supabase
+      .from('auth_sessions')
+      .select('serial_key, line_user_id')
+      .eq('ref_code', ref_code)
+      .eq('status', 'ACTIVE')
+      .single();
+
+    if (error || !data) {
+      return res.status(404).json({ message: 'Ref.Code ไม่ถูกต้องหรือหมดอายุ' });
+    }
+
+    logger.info('[LINE BOT] กำลังส่ง Serial Key ผ่าน LINE', data);
+
+    return res.status(200).json({
+      ref_code,
+      serial_key: data.serial_key,
+      message: 'Serial Key ถูกส่งไปยัง LINE แล้ว'
+    });
+  } catch (err) {
+    console.error('❌ [ERROR] VERIFY REF CODE AND SERIAL', err);
+    return res.status(500).json({ message: 'เกิดข้อผิดพลาดในการส่ง Serial Key' });
   }
 };
 
 module.exports = {
-  verifyLicense1
+  verifyLicense1,
+  verifyLicense2,
+  verifyRefCodeAndSerial
 };
