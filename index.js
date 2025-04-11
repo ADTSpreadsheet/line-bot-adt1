@@ -3,6 +3,7 @@
 // ==============================================
 const express = require('express');
 const bodyParser = require('body-parser');
+const licenseRouter = require('./routes/licenseRouter');
 require('dotenv').config();
 
 // LINE SDK
@@ -41,6 +42,7 @@ const lineConfig = {
 // ==============================================
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
+app.use('/router/license', licenseRouter);
 
 // ส่วนที่ 6: Logs สำหรับตรวจสอบข้อผิดพลาด
 app.use((req, res, next) => {
