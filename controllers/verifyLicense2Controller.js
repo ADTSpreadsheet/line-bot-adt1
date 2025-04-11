@@ -119,7 +119,9 @@ const verifyRefCodeAndSerial = async (req, res) => {
       return res.status(404).json({ message: 'ไม่พบข้อมูลหลังการยืนยันตัวตน' });
     }
 
-    res.status(200).json({
+    
+    logger.info(`[VERIFY2] ✅ [STATUS 200] ยืนยันตัวตนสำเร็จ → license: ${license_no}`);
+    return res.status(200).json({
       license_no: userData.license_no,
       first_name: userData.first_name,
       last_name: userData.last_name,
