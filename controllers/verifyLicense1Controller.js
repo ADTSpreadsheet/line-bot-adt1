@@ -55,9 +55,10 @@ const verifyLicense1 = async (req, res) => {
         licenseData.machine_id_1 === machine_id ||
         licenseData.machine_id_2 === machine_id
       ) {
-        logger.info(`[VERIFY1] ✅ [STATUS 200] เครื่องนี้ได้รับสิทธิ์แล้ว → license: ${license_no}, is_verify: ${licenseData.mid_status}`);
+        logger.info(`[VERIFY1] ✅ [STATUS 200] เครื่องนี้ได้รับสิทธิ์แล้ว → license: ${license_no}, mid_status: ${licenseData.mid_status}`);
         return res.status(200).json({
-          is_verify: licenseData.mid_status,
+          is_verify: true,
+          mid_status: licenseData.mid_status,
           message: 'This device is already verified and authorized.',
           license_no: licenseData.license_no,
           full_name: `${licenseData.first_name} ${licenseData.last_name}`
@@ -72,14 +73,15 @@ const verifyLicense1 = async (req, res) => {
       ) {
         logger.warn(`[VERIFY1] ❌ [STATUS 422] ใช้งานครบ 2 เครื่องแล้ว → license: ${license_no}`);
         return res.status(422).json({
-          is_verify: 'DEVICE_LIMIT_REACHED',
+          is_verify: false,
           message: 'You have already used this license on 2 devices. Please contact ADT-Admin.'
         });
       }
 
       logger.info(`[VERIFY1] 🟨 [STATUS 202] พบเครื่องใหม่ ต้องยืนยันการใช้งาน → license: ${license_no}`);
       return res.status(200).json({
-        is_verify: 'NEED_CONFIRM_DEVICE_2',
+        is_verify: false,
+        mid_status: 'NEED_CONFIRM_DEVICE_2',
         message: 'Second device detected. Please confirm registration.',
         license_no: licenseData.license_no,
         full_name: `${licenseData.first_name} ${licenseData.last_name}`
@@ -106,7 +108,8 @@ const verifyLicense1 = async (req, res) => {
           license_no: data.license_no,
           full_name: `${data.first_name} ${data.last_name}`,
           message: 'Your copyright has been successfully verified.',
-          is_verify: '1-DEVICE'
+          is_verify: true,
+          mid_status: '1-DEVICE'
         });
       }
     }
@@ -165,17 +168,17 @@ const confirmDevice2 = async (req, res) => {
       logger.info(`[CONFIRM2] ✅ [STATUS 200] เครื่องนี้เคยลงทะเบียนแล้ว → license: ${license_no}`);
       return res.status(200).json({
         message: 'Device already registered.',
-        is_verify: data.machine_id_1 === machine_id ? '1-DEVICE' : '2-DEVICE'
+        mid_status: data.machine_id_1 === machine_id ? '1-DEVICE' : '2-DEVICE'
       });
     }
 
-    let updateObj = {};
+    let updateObj = { is_verify: true };
     let newStatus = '';
     if (!data.machine_id_1) {
-      updateObj = { machine_id_1: machine_id, mid_status: '1-DEVICE' };
+      updateObj = { ...updateObj, machine_id_1: machine_id, mid_status: '1-DEVICE' };
       newStatus = '1-DEVICE';
     } else if (!data.machine_id_2) {
-      updateObj = { machine_id_2: machine_id, mid_status: '2-DEVICE' };
+      updateObj = { ...updateObj, machine_id_2: machine_id, mid_status: '2-DEVICE' };
       newStatus = '2-DEVICE';
     } else {
       logger.warn(`[CONFIRM2] ❌ [STATUS 422] เครื่องครบ 2 เครื่องแล้ว → license: ${license_no}`);
@@ -190,7 +193,8 @@ const confirmDevice2 = async (req, res) => {
     logger.info(`[CONFIRM2] 🎯 [STATUS 200] ลงทะเบียนเครื่องที่ 2 สำเร็จ → license: ${license_no}`);
     return res.status(200).json({
       message: 'Device registered as second device successfully.',
-      is_verify: newStatus
+      is_verify: true,
+      mid_status: newStatus
     });
 
   } catch (err) {
