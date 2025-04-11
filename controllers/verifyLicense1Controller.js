@@ -206,7 +206,9 @@ const confirmDevice2 = async (req, res) => {
 };
 
 
+// ตอนท้ายของไฟล์ controllers/verifyLicenseController.js
 module.exports = {
   verifyLicense1,
-  confirmDevice2
+  confirmDevice2,
+  submitNationalID  // ต้องมีการเพิ่มตรงนี้
 };
