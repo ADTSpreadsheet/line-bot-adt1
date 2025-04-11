@@ -135,6 +135,65 @@ const verifyLicense1 = async (req, res) => {
   }
 };
 
+//---------------------------------------------------------------
+// confirmDevice2 – ยืนยันว่าเครื่องนี้จะถูกใช้เป็นเครื่องที่สอง
+//---------------------------------------------------------------
+const confirmDevice2 = async (req, res) => {
+  try {
+    const { license_no, machine_id } = req.body;
+
+    logger.info(`[CONFIRM2] 📥 รับคำร้องขอยืนยันเครื่องที่ 2 → license: ${license_no}, machine_id: ${machine_id}`);
+
+    const { data } = await supabase
+      .from('license_holders')
+      .select('machine_id_1, machine_id_2')
+      .eq('license_no', license_no)
+      .single();
+
+    if (!data) {
+      logger.warn(`[CONFIRM2] ❌ [STATUS 404] ไม่พบ license_no: ${license_no}`);
+      return res.status(404).json({ message: 'License not found.' });
+    }
+
+    if (data.machine_id_1 === machine_id || data.machine_id_2 === machine_id) {
+      logger.info(`[CONFIRM2] ✅ [STATUS 200] เครื่องนี้เคยลงทะเบียนแล้ว → license: ${license_no}`);
+      return res.status(200).json({
+        message: 'Device already registered.',
+        is_verify: data.machine_id_1 === machine_id ? '1-DEVICE' : '2-DEVICE'
+      });
+    }
+
+    let updateObj = {};
+    let newStatus = '';
+    if (!data.machine_id_1) {
+      updateObj = { machine_id_1: machine_id, mid_status: '1-DEVICE' };
+      newStatus = '1-DEVICE';
+    } else if (!data.machine_id_2) {
+      updateObj = { machine_id_2: machine_id, mid_status: '2-DEVICE' };
+      newStatus = '2-DEVICE';
+    } else {
+      logger.warn(`[CONFIRM2] ❌ [STATUS 422] เครื่องครบ 2 เครื่องแล้ว → license: ${license_no}`);
+      return res.status(422).json({ message: 'Device limit exceeded.', is_verify: 'DEVICE_LIMIT_REACHED' });
+    }
+
+    await supabase
+      .from('license_holders')
+      .update(updateObj)
+      .eq('license_no', license_no);
+
+    logger.info(`[CONFIRM2] 🎯 [STATUS 200] ลงทะเบียนเครื่องที่ 2 สำเร็จ → license: ${license_no}`);
+    return res.status(200).json({
+      message: 'Device registered as second device successfully.',
+      is_verify: newStatus
+    });
+
+  } catch (err) {
+    logger.error(`[CONFIRM2] ❌ [STATUS 500] เกิดข้อผิดพลาด: ${err.message}`);
+    return res.status(500).json({ message: 'Internal server error.' });
+  }
+};
+
+
 module.exports = {
   verifyLicense1,
   confirmDevice2
