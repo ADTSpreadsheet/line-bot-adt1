@@ -104,7 +104,11 @@ const verifyLicense1 = async (req, res) => {
       if (data) {
         await supabase
           .from('license_holders')
-          .update({ is_verify: true, machine_id_1: machine_id, mid_status: '1-DEVICE' })
+          .update({ 
+            is_verify: true, 
+            machine_id_1: machine_id, 
+            mid_status: '1-DEVICE' 
+          })
           .eq('license_no', license_no);
 
         logger.info(`[VERIFY1] 🚀 [STATUS 200] ยืนยันสิทธิ์ครั้งแรกสำเร็จ → license: ${license_no}`);
@@ -112,7 +116,7 @@ const verifyLicense1 = async (req, res) => {
           license_no: data.license_no,
           full_name: `${data.first_name} ${data.last_name}`,
           message: 'Your copyright has been successfully verified.',
-          is_verify: '1-DEVICE'
+          is_verify: 'TRUE'
         });
       }
     }
@@ -171,17 +175,17 @@ const confirmDevice2 = async (req, res) => {
       logger.info(`[CONFIRM2] ✅ [STATUS 200] เครื่องนี้เคยลงทะเบียนแล้ว → license: ${license_no}`);
       return res.status(200).json({
         message: 'Device already registered.',
-        is_verify: data.machine_id_1 === machine_id ? '1-DEVICE' : '2-DEVICE'
+        mid_status: data.machine_id_1 === machine_id ? '1-DEVICE' : '2-DEVICE'
       });
     }
 
-    let updateObj = {};
+    let updateObj = { is_verify: true }; // เพิ่ม is_verify ตรงนี้ด้วย
     let newStatus = '';
     if (!data.machine_id_1) {
-      updateObj = { machine_id_1: machine_id, mid_status: '1-DEVICE' };
+      updateObj = { ...updateObj, machine_id_1: machine_id, mid_status: '1-DEVICE' };
       newStatus = '1-DEVICE';
     } else if (!data.machine_id_2) {
-      updateObj = { machine_id_2: machine_id, mid_status: '2-DEVICE' };
+      updateObj = { ...updateObj, machine_id_2: machine_id, mid_status: '2-DEVICE' };
       newStatus = '2-DEVICE';
     } else {
       logger.warn(`[CONFIRM2] ❌ [STATUS 422] เครื่องครบ 2 เครื่องแล้ว → license: ${license_no}`);
@@ -196,7 +200,7 @@ const confirmDevice2 = async (req, res) => {
     logger.info(`[CONFIRM2] 🎯 [STATUS 200] ลงทะเบียนเครื่องที่ 2 สำเร็จ → license: ${license_no}`);
     return res.status(200).json({
       message: 'Device registered as second device successfully.',
-      is_verify: newStatus
+      is_verify: 'TRUE'
     });
 
   } catch (err) {
@@ -220,43 +224,17 @@ const submitNationalID = async (req, res) => {
       return res.status(400).json({ message: 'กรุณาระบุ machine_id' });
     }
 
-    // ตรวจสอบก่อนว่าเครื่องนี้เคยลงทะเบียนแล้วหรือไม่
-    const { data: existingData } = await supabase
-      .from('license_holders')
-      .select('machine_id_1, machine_id_2, mid_status')
-      .eq('license_no', license_no)
-      .single();
-
-    // กำหนดค่าที่จะอัปเดต
-    let updateObj = { 
-      national_id: national_id, 
-      is_verify: true 
+    // อัปเดตข้อมูลแบบตรงไปตรงมา ไม่ซับซ้อน
+    const updateObj = { 
+      national_id: national_id,
+      is_verify: true,
+      machine_id_1: machine_id, 
+      mid_status: '1-DEVICE'
     };
+    
+    // ล็อกข้อมูลที่จะอัปเดต
+    logger.info(`[SUBMIT NID] 🔄 กำลังอัปเดตข้อมูล → ${JSON.stringify(updateObj)}`);
 
-    // ตรวจสอบการกำหนด machine_id
-    if (existingData) {
-      // ถ้ามี machine_id อยู่แล้ว ให้ตรวจสอบว่าเป็นเครื่องเดิมหรือไม่
-      if (existingData.machine_id_1 === machine_id || existingData.machine_id_2 === machine_id) {
-        // ถ้าเป็นเครื่องเดิม ไม่ต้องทำอะไร
-        logger.info(`[SUBMIT NID] ℹ️ เครื่องนี้ลงทะเบียนแล้ว → machine_id: ${machine_id}`);
-      } else if (existingData.machine_id_1 && !existingData.machine_id_2) {
-        // ถ้ามีเครื่องที่ 1 แล้ว แต่ยังไม่มีเครื่องที่ 2
-        updateObj.machine_id_2 = machine_id;
-        updateObj.mid_status = '2-DEVICE';
-      } else if (!existingData.machine_id_1) {
-        // ถ้ายังไม่มีเครื่องที่ 1
-        updateObj.machine_id_1 = machine_id;
-        updateObj.mid_status = '1-DEVICE';
-      }
-      // กรณีเครื่องเต็มแล้ว (มีทั้ง machine_id_1 และ machine_id_2) และเป็นเครื่องใหม่
-      // จะไม่บันทึก machine_id เพิ่มเติม แต่ยังคงอัปเดต national_id และ is_verify
-    } else {
-      // กรณีไม่มีข้อมูลเดิม ให้กำหนดเป็นเครื่องแรก
-      updateObj.machine_id_1 = machine_id;
-      updateObj.mid_status = '1-DEVICE';
-    }
-
-    // อัปเดตข้อมูลในฐานข้อมูล
     const { data, error } = await supabase
       .from('license_holders')
       .update(updateObj)
@@ -269,10 +247,10 @@ const submitNationalID = async (req, res) => {
       return res.status(404).json({ message: 'ไม่สามารถอัปเดตข้อมูลได้' });
     }
 
-    logger.info(`[SUBMIT NID] ✅ [STATUS 200] อัปเดตข้อมูลสำเร็จ → license: ${license_no}, mid_status: ${data.mid_status}`);
+    logger.info(`[SUBMIT NID] ✅ [STATUS 200] อัปเดตข้อมูลสำเร็จ → license: ${license_no}, is_verify: ${data.is_verify}, mid_status: ${data.mid_status}`);
     return res.status(200).json({
       message: 'National ID saved and license verified successfully.',
-      is_verify: 'TRUE'  // ส่งค่าให้ตรงกับที่ verifyLicense1 ส่งกลับเมื่อสำเร็จ
+      is_verify: 'TRUE'
     });
   } catch (err) {
     logger.error(`[SUBMIT NID] ❌ [STATUS 500] เกิดข้อผิดพลาด: ${err.message}`);
@@ -280,8 +258,6 @@ const submitNationalID = async (req, res) => {
   }
 };
 
-
-// ตอนท้ายของไฟล์ controllers/verifyLicenseController.js
 module.exports = {
   verifyLicense1,
   confirmDevice2,
