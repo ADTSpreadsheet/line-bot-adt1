@@ -74,7 +74,7 @@ const verifyLicense1 = async (req, res) => {
       }
 
       logger.info(`[VERIFY1] 🟨 [STATUS 202] พบเครื่องใหม่ ต้องยืนยันการใช้งาน → license: ${license_no}`);
-      return res.status(202).json({
+      return res.status(200).json({
         is_verify: 'NEED_CONFIRM_DEVICE_2',
         message: 'Second device detected. Please confirm registration.',
         license_no: licenseData.license_no,
