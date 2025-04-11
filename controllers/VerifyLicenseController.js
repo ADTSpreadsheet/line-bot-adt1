@@ -1,17 +1,17 @@
 //---------------------------------------------------------------
-// controllers/VerifyLicenseController.js (เวอร์ชันเดิมพร้อม 3 endpoint)
+// controllers/VerifyLicenseController.js (เพิ่ม logic ตรวจ machine_id และ status 422)
 //---------------------------------------------------------------
 const { supabase } = require('../utils/supabaseClient');
 const logger = require('../utils/logger');
 
 //---------------------------------------------------------------
-// verifyLicense1 – ตรวจสอบจาก license_no, national_id, phone_number
+// verifyLicense1 – ตรวจสอบจาก license_no, national_id, phone_number, machine_id
 //---------------------------------------------------------------
 const verifyLicense1 = async (req, res) => {
   try {
-    const { license_no, national_id, phone_number } = req.body;
+    const { license_no, national_id, phone_number, machine_id } = req.body;
 
-    console.log("📌 ข้อมูลที่ส่งมา:", { license_no, national_id, phone_number });
+    console.log("📌 ข้อมูลที่ส่งมา:", { license_no, national_id, phone_number, machine_id });
 
     if (!license_no || !phone_number) {
       const { data: partialMatch } = await supabase
@@ -42,7 +42,50 @@ const verifyLicense1 = async (req, res) => {
     }
 
     if (licenseCheck.is_verify === true) {
-      return res.status(409).json({ message: 'รหัสลิขสิทธิ์ได้รับการยืนยันเรียบร้อยแล้ว' });
+      const { data: licenseData } = await supabase
+        .from('license_holders')
+        .select('machine_id_1, machine_id_2')
+        .eq('license_no', license_no)
+        .single();
+
+      if (
+        licenseData.machine_id_1 === machine_id ||
+        licenseData.machine_id_2 === machine_id
+      ) {
+        return res.status(200).json({
+          status: 'ALREADY_MATCHED',
+          message: 'This device is already verified and authorized.',
+          license_no
+        });
+      }
+
+      if (
+        licenseData.machine_id_1 &&
+        licenseData.machine_id_2 &&
+        licenseData.machine_id_1 !== machine_id &&
+        licenseData.machine_id_2 !== machine_id
+      ) {
+        return res.status(422).json({
+          status: 'DEVICE_LIMIT_REACHED',
+          message: 'You have already used this license on 2 devices. Please contact ADT-Admin.'
+        });
+      }
+
+      let updateObj = {};
+      if (!licenseData.machine_id_1) updateObj.machine_id_1 = machine_id;
+      else if (!licenseData.machine_id_2) updateObj.machine_id_2 = machine_id;
+      updateObj.mid_status = !!(updateObj.machine_id_1 && updateObj.machine_id_2);
+
+      await supabase
+        .from('license_holders')
+        .update(updateObj)
+        .eq('license_no', license_no);
+
+      return res.status(200).json({
+        status: 'MATCHED_AND_ADDED',
+        message: 'Device registered successfully.',
+        license_no
+      });
     }
 
     const { data } = await supabase
