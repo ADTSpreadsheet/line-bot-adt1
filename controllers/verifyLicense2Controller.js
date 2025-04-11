@@ -1,6 +1,12 @@
 const { supabase } = require('../utils/supabaseClient');
 const logger = require('../utils/logger');
-const { sendLineMessage } = require('../utils/lineClient'); // ใช้ Push message ธรรมดา
+const line = require('@line/bot-sdk');
+
+const config = {
+  channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN,
+  channelSecret: process.env.LINE_CHANNEL_SECRET
+};
+const client = new line.Client(config);
 
 //---------------------------------------------------------------
 // verifyLicense2 – ตรวจสอบ ref_code และส่ง serial_key ไปยัง line_user_id
@@ -28,8 +34,15 @@ const verifyLicense2 = async (req, res) => {
       return res.status(404).json({ message: 'Ref.Code ไม่ถูกต้องหรือหมดอายุ' });
     }
 
-    await sendLineMessage(line_user_id, `🔐 Serial Key ของคุณคือ: ${data.serial_key}`);
-    logger.info(`[VERIFY2] ✅ พบข้อมูล Ref.Code ส่ง Serial Key ไปยัง LINE → serial_key: ${data.serial_key}`);
+    try {
+      await client.pushMessage(line_user_id, {
+        type: 'text',
+        text: `🔐 Serial Key ของคุณคือ: ${data.serial_key}`
+      });
+      logger.info(`[VERIFY2] ✅ ส่ง Serial Key ไปยัง LINE สำเร็จ → user: ${line_user_id}`);
+    } catch (err) {
+      logger.warn(`[VERIFY2] ⚠️ ไม่สามารถส่งข้อความ LINE ได้ → ${err.message}`);
+    }
 
     return res.status(200).json({
       message: 'Serial Key ถูกส่งไปยัง LINE แล้ว',
@@ -50,7 +63,7 @@ const verifyRefCodeAndSerial = async (req, res) => {
   try {
     const { license_no, national_id, ref_code, serial_key, machine_id } = req.body;
 
-    logger.info(`[VERIFY2] 📥 รับข้อมูลตรวจสอบ Ref.Code + Serial Key → license_no: ${license_no}, ref_code: ${ref_code}`);
+    logger.info(`[VERIFY2] 📥 ตรวจสอบ Ref.Code + Serial Key → license_no: ${license_no}, ref_code: ${ref_code}`);
 
     if (!license_no || !national_id || !ref_code || !serial_key || !machine_id) {
       logger.warn(`[VERIFY2] ⚠️ [STATUS 400] ข้อมูลไม่ครบถ้วน`);
@@ -67,16 +80,16 @@ const verifyRefCodeAndSerial = async (req, res) => {
       .single();
 
     if (authError || !authSession) {
-      logger.warn(`[VERIFY2] ❌ [STATUS 400] ไม่พบ Ref.Code หรือ Serial Key ไม่ตรง → ref_code: ${ref_code}`);
+      logger.warn(`[VERIFY2] ❌ [STATUS 400] ไม่พบ Ref.Code หรือ Serial Key ไม่ตรง`);
       return res.status(400).json({ message: 'Ref.Code หรือ Serial Key ไม่ถูกต้อง' });
     }
 
-    // STEP 2: อัปเดตข้อมูลใน license_holders
+    // STEP 2: อัปเดต license_holders
     const updateResult = await supabase
       .from('license_holders')
       .update({
-        ref_code: ref_code,
-        national_id: national_id,
+        ref_code,
+        national_id,
         line_user_id: authSession.line_user_id,
         is_verify: true,
         machine_id_1: machine_id,
@@ -85,11 +98,11 @@ const verifyRefCodeAndSerial = async (req, res) => {
       .eq('license_no', license_no);
 
     if (updateResult.error) {
-      logger.error(`[VERIFY2] ❌ [STATUS 500] อัปเดต license_holders ไม่สำเร็จ → license_no: ${license_no}`);
+      logger.error(`[VERIFY2] ❌ [STATUS 500] ไม่สามารถอัปเดตข้อมูล → license: ${license_no}`);
       return res.status(500).json({ message: 'ไม่สามารถอัปเดตข้อมูลผู้ใช้ได้' });
     }
 
-    // STEP 3: ดึงข้อมูลเพื่อตอบกลับไปยัง VBA
+    // STEP 3: ดึงข้อมูลตอบกลับ
     const { data: userData, error: userError } = await supabase
       .from('license_holders')
       .select('license_no, first_name, last_name, occupation, address, province, postal_code')
@@ -101,12 +114,15 @@ const verifyRefCodeAndSerial = async (req, res) => {
       return res.status(404).json({ message: 'ไม่พบข้อมูลหลังการยืนยันตัวตน' });
     }
 
-    // STEP 4: ส่งข้อความธรรมดาใน LINE
+    // STEP 4: แจ้งเตือนผ่าน LINE
     try {
-      await sendLineMessage(authSession.line_user_id, `✅ ยืนยันตัวตนสำเร็จ\nกรุณาอัปเดตข้อมูล และตั้ง Username / Password`);
-      logger.info(`[VERIFY2] ✅ ส่งข้อความแจ้งเตือนผ่าน LINE สำเร็จ`);
+      await client.pushMessage(authSession.line_user_id, {
+        type: 'text',
+        text: `✅ ยืนยันตัวตนสำเร็จ!\nกรุณาอัปเดตข้อมูล และตั้งค่า Username / Password เพื่อเข้าใช้งาน ADTSpreadsheet ครับ`
+      });
+      logger.info(`[VERIFY2] ✅ แจ้งเตือนผ่าน LINE สำเร็จ → user: ${authSession.line_user_id}`);
     } catch (err) {
-      logger.warn(`[VERIFY2] ⚠️ ส่งข้อความ LINE ไม่สำเร็จ → ${err.message}`);
+      logger.warn(`[VERIFY2] ⚠️ ไม่สามารถแจ้งเตือนผ่าน LINE ได้ → ${err.message}`);
     }
 
     logger.info(`[VERIFY2] ✅ [STATUS 200] ยืนยันตัวตนสำเร็จ → license: ${license_no}`);
