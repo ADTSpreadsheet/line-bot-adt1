@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 
-const { checkMachineID } = require('../controllers/checkMachineController');
++ const { checkMachineStatus } = require('../controllers/checkMachineController');
 
 //------------------------------------------------------------
 // POST /router/license/check-machine
