@@ -24,7 +24,8 @@ const verifyRefcodeRoutes = require('./routes/verify-refcode');
 const confirmRegistrationRoutes = require('./routes/ConfirmRegistration');
 const otpRoutes = require('./routes/otp');
 const confirmOtpRoutes = require('./routes/confirmOtp'); // เพิ่มเส้นทางใหม่สำหรับ ConfirmOtp
-const verifyLicenseRoute = require('./routes/verifyLicenseRoute'); // เพิ่มเส้นทางสำหรับ Verify License
+const verifyLicenseRoute = require('./routes/verifyLicenseRoute'); // ✅ เส้นทาง verifyLicense1
+const verifyLicense2Route = require('./routes/verifyLicense2Route'); // ✅ เส้นทาง verifyLicense2
 
 
 // ==============================================
@@ -75,7 +76,8 @@ app.use('/router', otpRoutes);
 app.use('/router/confirmOtp', confirmOtpRoutes); // เพิ่มเส้นทางสำหรับ Confirm OTP
 
 // ส่วนที่ 8: Verify License Routes (สำหรับการยืนยันลิขสิทธิ์)
-app.use('/router/verify-license', verifyLicenseRoute);
+app.use('/router/verifyLicense1', verifyLicenseRoute);
+app.use('/router/verifyLicense2', verifyLicense2Route);
 // ==============================================
 // API ENDPOINTS FOR VBA INTEGRATION (เก็บไว้เป็น fallback)
 // ==============================================
