@@ -105,7 +105,7 @@ const verifyLicense1 = async (req, res) => {
         await supabase
           .from('license_holders')
           .update({ 
-            is_verify: true, 
+            is_verify: 'TRUE', 
             machine_id_1: machine_id, 
             mid_status: '1-DEVICE' 
           })
@@ -227,7 +227,7 @@ const submitNationalID = async (req, res) => {
     // อัปเดตข้อมูลแบบตรงไปตรงมา ไม่ซับซ้อน
     const updateObj = { 
       national_id: national_id,
-      is_verify: true,
+      is_verify: 'TRUE',
       machine_id_1: machine_id, 
       mid_status: '1-DEVICE'
     };
