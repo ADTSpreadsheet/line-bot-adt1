@@ -71,10 +71,9 @@ const verifyLicense1 = async (req, res) => {
         });
       }
 
-      // 👉 ตอบกลับก่อน ยังไม่บันทึก ต้องให้ผู้ใช้ยืนยันจาก VBA ก่อน
       return res.status(202).json({
         status: 'NEED_CONFIRM_DEVICE_2',
-        message: 'ระบบพบว่าเครื่องนี้สามารถลงทะเบียนเป็นเครื่องที่ 2 ได้ กรุณายืนยันจากผู้ใช้',
+        message: 'Second device detected. Please confirm registration.',
         license_no
       });
     }
@@ -90,7 +89,7 @@ const verifyLicense1 = async (req, res) => {
     if (data) {
       await supabase
         .from('license_holders')
-        .update({ is_verify: true })
+        .update({ is_verify: true, status: 'ACTIVATED', machine_id_1: machine_id, mid_status: '1-DEVICE' })
         .eq('license_no', license_no);
 
       return res.status(200).json({
@@ -128,6 +127,49 @@ const verifyLicense1 = async (req, res) => {
   }
 };
 
+//---------------------------------------------------------------
+// confirmDevice2 – ยืนยันว่าเครื่องนี้จะถูกใช้เป็นเครื่องที่สอง
+//---------------------------------------------------------------
+const confirmDevice2 = async (req, res) => {
+  const { license_no, machine_id } = req.body;
+
+  try {
+    const { data } = await supabase
+      .from('license_holders')
+      .select('machine_id_1, machine_id_2')
+      .eq('license_no', license_no)
+      .single();
+
+    if (!data) {
+      return res.status(404).json({ message: 'License not found.' });
+    }
+
+    if (data.machine_id_1 === machine_id || data.machine_id_2 === machine_id) {
+      return res.status(200).json({ message: 'Device already registered.', status: 'ALREADY_MATCHED' });
+    }
+
+    let updateObj = {};
+    if (!data.machine_id_1) updateObj = { machine_id_1: machine_id, mid_status: '1-DEVICE' };
+    else if (!data.machine_id_2) updateObj = { machine_id_2: machine_id, mid_status: '2-DEVICE' };
+    else return res.status(422).json({ message: 'Device limit exceeded.', status: 'DEVICE_LIMIT_REACHED' });
+
+    await supabase
+      .from('license_holders')
+      .update(updateObj)
+      .eq('license_no', license_no);
+
+    return res.status(200).json({
+      message: 'Device registered as second device successfully.',
+      status: 'DEVICE_2_CONFIRMED'
+    });
+
+  } catch (err) {
+    console.error('❌ [ERROR] CONFIRM DEVICE 2', err);
+    return res.status(500).json({ message: 'Internal server error.' });
+  }
+};
+
 module.exports = {
-  verifyLicense1
+  verifyLicense1,
+  confirmDevice2
 };
