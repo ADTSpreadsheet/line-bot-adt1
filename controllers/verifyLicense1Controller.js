@@ -205,6 +205,81 @@ const confirmDevice2 = async (req, res) => {
   }
 };
 
+//---------------------------------------------------------------
+// submitNationalID – รับเลขบัตรประชาชนและอัปเดตสถานะเป็น is_verify: true
+//---------------------------------------------------------------
+const submitNationalID = async (req, res) => {
+  try {
+    const { license_no, national_id, machine_id } = req.body;
+
+    logger.info(`[SUBMIT NID] 📥 รับเลขบัตรประชาชนสำหรับ license: ${license_no}, machine_id: ${machine_id}`);
+
+    // ตรวจสอบว่ามี machine_id ส่งมาหรือไม่
+    if (!machine_id) {
+      logger.warn(`[SUBMIT NID] ⚠️ [STATUS 400] ไม่มี machine_id → license: ${license_no}`);
+      return res.status(400).json({ message: 'กรุณาระบุ machine_id' });
+    }
+
+    // ตรวจสอบก่อนว่าเครื่องนี้เคยลงทะเบียนแล้วหรือไม่
+    const { data: existingData } = await supabase
+      .from('license_holders')
+      .select('machine_id_1, machine_id_2, mid_status')
+      .eq('license_no', license_no)
+      .single();
+
+    // กำหนดค่าที่จะอัปเดต
+    let updateObj = { 
+      national_id: national_id, 
+      is_verify: true 
+    };
+
+    // ตรวจสอบการกำหนด machine_id
+    if (existingData) {
+      // ถ้ามี machine_id อยู่แล้ว ให้ตรวจสอบว่าเป็นเครื่องเดิมหรือไม่
+      if (existingData.machine_id_1 === machine_id || existingData.machine_id_2 === machine_id) {
+        // ถ้าเป็นเครื่องเดิม ไม่ต้องทำอะไร
+        logger.info(`[SUBMIT NID] ℹ️ เครื่องนี้ลงทะเบียนแล้ว → machine_id: ${machine_id}`);
+      } else if (existingData.machine_id_1 && !existingData.machine_id_2) {
+        // ถ้ามีเครื่องที่ 1 แล้ว แต่ยังไม่มีเครื่องที่ 2
+        updateObj.machine_id_2 = machine_id;
+        updateObj.mid_status = '2-DEVICE';
+      } else if (!existingData.machine_id_1) {
+        // ถ้ายังไม่มีเครื่องที่ 1
+        updateObj.machine_id_1 = machine_id;
+        updateObj.mid_status = '1-DEVICE';
+      }
+      // กรณีเครื่องเต็มแล้ว (มีทั้ง machine_id_1 และ machine_id_2) และเป็นเครื่องใหม่
+      // จะไม่บันทึก machine_id เพิ่มเติม แต่ยังคงอัปเดต national_id และ is_verify
+    } else {
+      // กรณีไม่มีข้อมูลเดิม ให้กำหนดเป็นเครื่องแรก
+      updateObj.machine_id_1 = machine_id;
+      updateObj.mid_status = '1-DEVICE';
+    }
+
+    // อัปเดตข้อมูลในฐานข้อมูล
+    const { data, error } = await supabase
+      .from('license_holders')
+      .update(updateObj)
+      .eq('license_no', license_no)
+      .select()
+      .single();
+
+    if (error || !data) {
+      logger.warn(`[SUBMIT NID] ❌ [STATUS 404] ไม่สามารถอัปเดตข้อมูลได้ → license: ${license_no}, error: ${error?.message || 'ไม่พบข้อมูล'}`);
+      return res.status(404).json({ message: 'ไม่สามารถอัปเดตข้อมูลได้' });
+    }
+
+    logger.info(`[SUBMIT NID] ✅ [STATUS 200] อัปเดตข้อมูลสำเร็จ → license: ${license_no}, mid_status: ${data.mid_status}`);
+    return res.status(200).json({
+      message: 'National ID saved and license verified successfully.',
+      is_verify: 'TRUE'  // ส่งค่าให้ตรงกับที่ verifyLicense1 ส่งกลับเมื่อสำเร็จ
+    });
+  } catch (err) {
+    logger.error(`[SUBMIT NID] ❌ [STATUS 500] เกิดข้อผิดพลาด: ${err.message}`);
+    return res.status(500).json({ message: 'เกิดข้อผิดพลาดในการบันทึกข้อมูล' });
+  }
+};
+
 
 // ตอนท้ายของไฟล์ controllers/verifyLicenseController.js
 module.exports = {
