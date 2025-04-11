@@ -148,11 +148,6 @@ const verifyRefCodeAndSerial = async (req, res) => {
       license_no: userData.license_no,
       first_name: userData.first_name,
       last_name: userData.last_name,
-      occupation: userData.occupation,
-      address: userData.address,
-      province: userData.province,
-      postal_code: userData.postal_code,
-      email: userData.email
       
     });
 
