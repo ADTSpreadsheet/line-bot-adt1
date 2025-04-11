@@ -152,8 +152,8 @@ const verifyRefCodeAndSerial = async (req, res) => {
       address: userData.address,
       province: userData.province,
       postal_code: userData.postal_code,
-      email: userData.email,
-      message: '✅ ยืนยันตัวตนสำเร็จ และส่งข้อมูลกลับ VBA เรียบร้อยแล้ว'
+      email: userData.email
+      
     });
 
   } catch (err) {
