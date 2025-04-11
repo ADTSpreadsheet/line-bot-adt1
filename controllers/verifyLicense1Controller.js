@@ -8,7 +8,7 @@ const verifyLicense1 = async (req, res) => {
   try {
     const { license_no, national_id, phone_number, machine_id } = req.body;
 
-    logger.info(`[VERIFY1] 📥 รับข้อมูลเข้ามา → license_no: ${license_no}, machine_id: ${machine_id}`);
+    logger.info(`[VERIFY1] 📥 รับข้อมูลเข้ามา → license_no: ${license_no}, national_id: ${national_id || 'ไม่มี'}, phone_number: ${phone_number || 'ไม่มี'}, machine_id: ${machine_id}`);
 
     // ตรวจสอบว่ามี license_no และ phone_number มาหรือไม่
     if (!license_no || !phone_number) {
@@ -16,22 +16,22 @@ const verifyLicense1 = async (req, res) => {
       return res.status(400).json({ message: 'กรุณาระบุรหัสลิขสิทธิ์และเบอร์โทรศัพท์' });
     }
 
-    // ตรวจสอบก่อนว่ามีการส่ง national_id มาหรือไม่
-    // ถ้าไม่มีการส่ง national_id มา ให้ตรวจสอบข้อมูล license_no และ phone_number
-    if (!national_id || national_id === '') {
-      const { data: partialMatch, error: partialError } = await supabase
-        .from('license_holders')
-        .select('license_no, first_name, last_name')
-        .eq('license_no', license_no)
-        .eq('phone_number', phone_number)
-        .or('national_id.is.null,national_id.eq.""')
-        .single();
+    // ตรวจสอบว่า license_no และ phone_number ถูกต้องหรือไม่
+    const { data: userCheck, error: userError } = await supabase
+      .from('license_holders')
+      .select('license_no, first_name, last_name, national_id')
+      .eq('license_no', license_no)
+      .eq('phone_number', phone_number)
+      .single();
 
-      if (partialMatch) {
+    // ถ้าพบข้อมูลตรงกับ license_no และ phone_number
+    if (userCheck) {
+      // ถ้าในฐานข้อมูลไม่มี national_id หรือเป็นค่าว่าง
+      if (!userCheck.national_id || userCheck.national_id === '') {
         logger.info(`[VERIFY1] 🟦 [STATUS 206] ยังไม่เคยกรอกเลขบัตรประชาชน → license: ${license_no}`);
         return res.status(206).json({
-          license_no: partialMatch.license_no,
-          full_name: `${partialMatch.first_name} ${partialMatch.last_name}`,
+          license_no: userCheck.license_no,
+          full_name: `${userCheck.first_name} ${userCheck.last_name}`,
           message: 'ระบบตรวจสอบไม่พบเลขบัตรประชาชนของท่าน กรุณากรอกเพื่อยืนยันตัวตน'
         });
       }
