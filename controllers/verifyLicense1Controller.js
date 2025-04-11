@@ -10,13 +10,11 @@ const verifyLicense1 = async (req, res) => {
 
     logger.info(`[VERIFY1] 📥 รับข้อมูลเข้ามา → license_no: ${license_no}, national_id: ${national_id || 'ไม่มี'}, phone_number: ${phone_number || 'ไม่มี'}, machine_id: ${machine_id}`);
 
-    // ตรวจสอบว่ามี license_no และ phone_number มาหรือไม่
     if (!license_no || !phone_number) {
       logger.warn(`[VERIFY1] ⚠️ [STATUS 400] ข้อมูลไม่ครบถ้วน → ไม่มี license_no หรือ phone_number`);
       return res.status(400).json({ message: 'กรุณาระบุรหัสลิขสิทธิ์และเบอร์โทรศัพท์' });
     }
 
-    // ตรวจสอบว่า license_no และ phone_number ถูกต้องหรือไม่
     const { data: userCheck, error: userError } = await supabase
       .from('license_holders')
       .select('license_no, first_name, last_name, national_id')
@@ -24,9 +22,7 @@ const verifyLicense1 = async (req, res) => {
       .eq('phone_number', phone_number)
       .single();
 
-    // ถ้าพบข้อมูลตรงกับ license_no และ phone_number
     if (userCheck) {
-      // ถ้าในฐานข้อมูลไม่มี national_id หรือเป็นค่าว่าง
       if (!userCheck.national_id || userCheck.national_id === '') {
         logger.info(`[VERIFY1] 🟦 [STATUS 206] ยังไม่เคยกรอกเลขบัตรประชาชน → license: ${license_no}`);
         return res.status(206).json({
@@ -37,7 +33,6 @@ const verifyLicense1 = async (req, res) => {
       }
     }
 
-    // ตรวจสอบว่ามี license_no ในระบบหรือไม่
     const { data: licenseCheck, error: licenseError } = await supabase
       .from('license_holders')
       .select('license_no, status, verify_count, is_verify')
@@ -91,7 +86,6 @@ const verifyLicense1 = async (req, res) => {
       });
     }
 
-    // ถ้ามี national_id ให้ตรวจสอบข้อมูลครบถ้วน
     if (national_id) {
       const { data } = await supabase
         .from('license_holders')
@@ -205,8 +199,39 @@ const confirmDevice2 = async (req, res) => {
   }
 };
 
+//---------------------------------------------------------------
+// submitNationalID – รับเลขบัตรประชาชนและอัปเดตสถานะเป็น is_verify: true
+//---------------------------------------------------------------
+const submitNationalID = async (req, res) => {
+  try {
+    const { license_no, national_id } = req.body;
+
+    logger.info(`[SUBMIT NID] 📥 รับเลขบัตรประชาชนสำหรับ license: ${license_no}`);
+
+    const { data, error } = await supabase
+      .from('license_holders')
+      .update({ national_id: national_id, is_verify: true })
+      .eq('license_no', license_no)
+      .select()
+      .single();
+
+    if (error || !data) {
+      logger.warn(`[SUBMIT NID] ❌ [STATUS 404] ไม่สามารถอัปเดตข้อมูลได้ → license: ${license_no}`);
+      return res.status(404).json({ message: 'ไม่สามารถอัปเดตข้อมูลได้' });
+    }
+
+    logger.info(`[SUBMIT NID] ✅ [STATUS 200] อัปเดตข้อมูลสำเร็จ → license: ${license_no}`);
+    return res.status(200).json({
+      message: 'National ID saved and license verified successfully.'
+    });
+  } catch (err) {
+    logger.error(`[SUBMIT NID] ❌ [STATUS 500] เกิดข้อผิดพลาด: ${err.message}`);
+    return res.status(500).json({ message: 'เกิดข้อผิดพลาดในการบันทึกข้อมูล' });
+  }
+};
 
 module.exports = {
   verifyLicense1,
-  confirmDevice2
+  confirmDevice2,
+  submitNationalID
 };
