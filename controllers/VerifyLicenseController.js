@@ -1,6 +1,9 @@
 //---------------------------------------------------------------
 // ฟังก์ชัน verifyLicense1 – ตรวจสอบจาก license_no, national_id, phone_number
 //---------------------------------------------------------------
+const { supabase } = require('../utils/supabaseClient');
+const logger = require('../utils/logger');
+
 const verifyLicense1 = async (req, res) => {
   try {
     const { license_no, national_id, phone_number, machine_id } = req.body;
