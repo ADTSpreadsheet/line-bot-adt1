@@ -10,7 +10,7 @@ const setupUsername = async (req, res) => {
     const requiredFields = [
       'ref_code', 'license_no', 'gender', 'first_name', 'last_name', 'nickname', 'age',
       'occupation', 'phone_number', 'email', 'address', 'district', 'province',
-      'postal_code', 'facebook_url', 'line_id', 'username', 'pdpa_status'
+      'postal_code', 'facebook_url', 'line_id', 'eng_license', 'username', 'pdpa_status'
     ];
 
     for (const field of requiredFields) {
