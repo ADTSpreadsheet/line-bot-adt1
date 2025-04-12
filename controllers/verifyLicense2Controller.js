@@ -36,6 +36,7 @@ const verifyLicense2 = async (req, res) => {
 
     logger.info(`[VERIFY2] ✅ พบข้อมูล Ref.Code → serial_key: ${data.serial_key}, line_user_id: ${data.line_user_id || 'ไม่มี'}`);
 
+    let messageSent = false;
     if (data.line_user_id) {
       try {
         await client.pushMessage(data.line_user_id, {
@@ -43,6 +44,7 @@ const verifyLicense2 = async (req, res) => {
           text: `🔐 Serial Key ของคุณคือ: ${data.serial_key}`
         });
         logger.info(`[VERIFY2] ✅ ส่ง Serial Key ไปยัง LINE สำเร็จ → line_user_id: ${data.line_user_id}`);
+        messageSent = true;
       } catch (lineErr) {
         logger.warn(`[VERIFY2] ⚠️ ไม่สามารถส่งข้อความไปยัง LINE ได้: ${lineErr.message}`);
       }
@@ -51,9 +53,11 @@ const verifyLicense2 = async (req, res) => {
     }
 
     return res.status(200).json({
-      message: data.line_user_id ? 'Serial Key ถูกส่งไปยัง LINE แล้ว' : 'Serial Key ถูกตรวจสอบแล้ว',
+      message: messageSent ? 'Serial Key ถูกส่งไปยัง LINE แล้ว' : 'Serial Key ถูกตรวจสอบแล้ว',
       serial_key: data.serial_key,
-      ref_code
+      ref_code,
+      line_user_id: data.line_user_id || null,
+      messageSent
     });
 
   } catch (err) {
@@ -104,7 +108,7 @@ const verifyRefCodeAndSerial = async (req, res) => {
       .eq('license_no', license_no);
 
     if (updateError) {
-      logger.error(`[VERIFY2] ❌ [STATUS 500] อัปเดต license_holders ไม่สำเร็จ → license_no: ${license_no}`);
+      logger.error(`[VERIFY2] ❌ [STATUS 500] อัปเดต license_holders ไม่สำเร็จ → license_no: ${license_no}, error: ${updateError.message}`);
       return res.status(500).json({ message: 'ไม่สามารถอัปเดตข้อมูลผู้ใช้ได้' });
     }
 
@@ -115,10 +119,26 @@ const verifyRefCodeAndSerial = async (req, res) => {
       .single();
 
     if (userError || !userData) {
-      logger.warn(`[VERIFY2] ❌ [STATUS 404] ไม่พบข้อมูลผู้ใช้หลังอัปเดต → license: ${license_no}`);
+      logger.warn(`[VERIFY2] ❌ [STATUS 404] ไม่พบข้อมูลผู้ใช้หลังอัปเดต → license: ${license_no}, error: ${userError?.message || 'ไม่พบข้อมูล'}`);
       return res.status(404).json({ message: 'ไม่พบข้อมูลหลังการยืนยันตัวตน' });
     }
 
+    // ส่งข้อความแจ้งเตือนผ่าน LINE ก่อนที่จะ return ผลลัพธ์
+    let lineNotificationSent = false;
+    if (authSession.line_user_id) {
+      try {
+        await client.pushMessage(authSession.line_user_id, {
+          type: 'text',
+          text: `✅ ยืนยันตัวตนสำเร็จ\nกรุณาอัปเดตข้อมูล และตั้งค่า Username / Password เพื่อเข้าใช้งาน ADTSpreadsheet ครับ`
+        });
+        logger.info(`[VERIFY2] ✅ แจ้งเตือนผ่าน LINE สำเร็จ → user: ${authSession.line_user_id}`);
+        lineNotificationSent = true;
+      } catch (lineErr) {
+        logger.warn(`[VERIFY2] ⚠️ ไม่สามารถแจ้งเตือนผ่าน LINE ได้ → ${lineErr.message}`);
+      }
+    } else {
+      logger.warn(`[VERIFY2] ⚠️ ไม่พบ line_user_id สำหรับการแจ้งเตือน`);
+    }
     
     logger.info(`[VERIFY2] ✅ [STATUS 200] ยืนยันตัวตนสำเร็จ → license: ${license_no}`);
     return res.status(200).json({
@@ -128,20 +148,10 @@ const verifyRefCodeAndSerial = async (req, res) => {
       occupation: userData.occupation,
       address: userData.address,
       province: userData.province,
-      postal_code: userData.postal_code
+      postal_code: userData.postal_code,
+      line_user_id: authSession.line_user_id || null,
+      lineNotificationSent
     });
-
-    if (authSession.line_user_id) {
-      try {
-        await client.pushMessage(authSession.line_user_id, {
-          type: 'text',
-          text: `✅ ยืนยันตัวตนสำเร็จ\nกรุณาอัปเดตข้อมูล และตั้งค่า Username / Password เพื่อเข้าใช้งาน ADTSpreadsheet ครับ`
-        });
-        logger.info(`[VERIFY2] ✅ แจ้งเตือนผ่าน LINE สำเร็จ → user: ${authSession.line_user_id}`);
-      } catch (lineErr) {
-        logger.warn(`[VERIFY2] ⚠️ ไม่สามารถแจ้งเตือนผ่าน LINE ได้ → ${lineErr.message}`);
-      }
-    }
 
   } catch (err) {
     logger.error(`[VERIFY2] ❌ [STATUS 500] เกิดข้อผิดพลาด: ${err.message}`);
