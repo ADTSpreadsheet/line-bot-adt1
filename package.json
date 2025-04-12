@@ -19,6 +19,7 @@
     "uuid": "^9.0.1",
     "@line/bot-sdk": "^7.5.2",
     "node-fetch": "^2.6.9"
+    "bcryptjs": "^2.4.3"
   },
   "devDependencies": {
     "nodemon": "^3.0.3"
