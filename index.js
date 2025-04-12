@@ -26,7 +26,7 @@ const otpRoutes = require('./routes/otp');
 const confirmOtpRoutes = require('./routes/confirmOtp'); // เพิ่มเส้นทางใหม่สำหรับ ConfirmOtp
 const verifyLicenseRoute = require('./routes/verifyLicenseRoute'); // ✅ เส้นทาง verifyLicense1
 const setupUsernameRoute = require('./routes/setupUsernameRoute');
-
+const setupPasswordRoutes = require('./routes/setupPasswordRoute');
 
 
 // ==============================================
@@ -83,7 +83,7 @@ app.use('/router/verifyLicense2', verifyLicenseRoute);
 // ส่วนที่ 8: การ set Username + Password
 app.use('/router', setupUsernameRoute);
 app.use('/router/user', require('./routes/userRoute'));
-
+app.use('/router/setup-password', setupPasswordRoutes);
 // ==============================================
 // API ENDPOINTS FOR VBA INTEGRATION (เก็บไว้เป็น fallback)
 // ==============================================
