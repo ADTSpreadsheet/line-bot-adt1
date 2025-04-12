@@ -32,16 +32,15 @@ const setupUsername = async (req, res) => {
         occupation: data.occupation,
         phone_number: data.phone_number,
         email: data.email,
-        address: data.address,
+        house_number: data.address,
         district: data.district,
         province: data.province,
         postal_code: data.postal_code,
         facebook_url: data.facebook_url,
         line_id: data.line_id,
-        username: data.username,
         pdpa_status: data.pdpa_status,
-        source: 'license_verified',
-        status: 'COMPLETED'
+        source: 'license_verified'
+        
       })
       .eq('ref_code', data.ref_code);
 
@@ -69,11 +68,10 @@ const setupUsername = async (req, res) => {
         province: data.province,
         postal_code: data.postal_code,
         eng_license: data.eng_license || null,
-        facebook_url: data.facebook_url,
         line_id: data.line_id,
         username: data.username,
         pdpa_status: data.pdpa_status,
-        is_verify: true
+        
       })
       .match({ ref_code: data.ref_code, license_no: data.license_no });
 
