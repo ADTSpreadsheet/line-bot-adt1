@@ -1,10 +1,10 @@
-// controllers/setupUsernameController.js
-
 const { supabase } = require('../utils/supabaseClient');
 
 const setupUsername = async (req, res) => {
   try {
     const data = req.body;
+
+    console.log('📥 [SETUP USERNAME] รับข้อมูลเข้ามา →', JSON.stringify(data, null, 2));
 
     // STEP 1: ตรวจสอบข้อมูลที่รับมา
     const requiredFields = [
@@ -15,11 +15,12 @@ const setupUsername = async (req, res) => {
 
     for (const field of requiredFields) {
       if (!data[field] || data[field].toString().trim() === '') {
+        console.warn(`⚠️ [VALIDATION] ข้อมูลไม่ครบ: ${field}`);
         return res.status(400).json({ message: `กรุณาระบุข้อมูลให้ครบถ้วน: ${field}` });
       }
     }
 
-    // STEP 2: อัปเดตตาราง auth_sessions ด้วย ref_code
+    // STEP 2: อัปเดต auth_sessions
     const { error: authError } = await supabase
       .from('auth_sessions')
       .update({
@@ -45,10 +46,13 @@ const setupUsername = async (req, res) => {
       .eq('ref_code', data.ref_code);
 
     if (authError) {
+      console.error('❌ [auth_sessions] อัปเดตไม่สำเร็จ:', authError.message);
       return res.status(500).json({ message: 'เกิดข้อผิดพลาดขณะอัปเดต auth_sessions', error: authError.message });
     }
 
-    // STEP 3: อัปเดต license_holders โดยใช้ ref_code และ license_no
+    console.log('✅ [auth_sessions] อัปเดตสำเร็จแล้ว');
+
+    // STEP 3: อัปเดต license_holders
     const { error: licenseError } = await supabase
       .from('license_holders')
       .update({
@@ -74,26 +78,36 @@ const setupUsername = async (req, res) => {
       .match({ ref_code: data.ref_code, license_no: data.license_no });
 
     if (licenseError) {
+      console.error('❌ [license_holders] อัปเดตไม่สำเร็จ:', licenseError.message);
       return res.status(500).json({ message: 'เกิดข้อผิดพลาดขณะอัปเดต license_holders', error: licenseError.message });
     }
 
-    // STEP 4: ตรวจสอบว่ามี username คล้ายกันหรือไม่
+    console.log('✅ [license_holders] อัปเดตสำเร็จแล้ว');
+
+    // STEP 4: ตรวจสอบ username ซ้ำ
     const { data: similarUsers, error: usernameError } = await supabase
       .from('license_holders')
       .select('username')
       .ilike('username', `%${data.username}%`);
 
     if (usernameError) {
+      console.error('❌ [username-check] ตรวจสอบ Username ล้มเหลว:', usernameError.message);
       return res.status(500).json({ message: 'เกิดข้อผิดพลาดขณะตรวจสอบ Username', error: usernameError.message });
     }
 
     if (similarUsers && similarUsers.length > 0) {
+      console.warn('⚠️ [username-check] พบ Username ซ้ำหรือคล้ายกัน:', similarUsers.map(u => u.username));
       return res.status(409).json({ message: 'Username นี้มีความคล้ายกับผู้ใช้งานอื่นในระบบ กรุณาใช้ชื่ออื่น' });
     }
 
-    // STEP 5: สำเร็จทุกขั้นตอน
+    console.log('✅ [username-check] ไม่พบ Username ซ้ำ ใช้งานได้');
+
+    // STEP 5: สำเร็จ
+    console.log('🎉 [COMPLETE] ข้อมูลผู้ใช้งานถูกบันทึกเรียบร้อยแล้ว');
     return res.status(200).json({ message: 'ข้อมูลถูกบันทึกและ Username ผ่านการตรวจสอบแล้ว' });
+
   } catch (err) {
+    console.error('🔥 [UNEXPECTED ERROR] เกิดข้อผิดพลาดไม่ทราบสาเหตุ:', err.message);
     return res.status(500).json({ message: 'เกิดข้อผิดพลาดไม่ทราบสาเหตุ', error: err.message });
   }
 };
