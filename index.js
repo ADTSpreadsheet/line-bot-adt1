@@ -82,6 +82,7 @@ app.use('/router/verifyLicense2', verifyLicenseRoute);
 
 // ส่วนที่ 8: การ set Username + Password
 app.use('/router', setupUsernameRoute);
+app.use('/router/user', require('./routes/userRoute'));
 
 // ==============================================
 // API ENDPOINTS FOR VBA INTEGRATION (เก็บไว้เป็น fallback)
