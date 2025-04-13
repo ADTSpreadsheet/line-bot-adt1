@@ -1,27 +1,21 @@
 const { supabase } = require('../utils/supabaseClient');
-const bcrypt = require('bcryptjs');
 const line = require('@line/bot-sdk');
-const logger = require('../utils/logger');
 
+// LINE Client
 const config = {
   channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN,
-  channelSecret: process.env.LINE_CHANNEL_SECRET
+  channelSecret: process.env.LINE_CHANNEL_SECRET,
 };
-
 const client = new line.Client(config);
 
 const setupPassword = async (req, res) => {
   try {
     const { ref_code, license_no, password } = req.body;
 
-    logger.info(`[SETUP-PASSWORD] 📥 รับข้อมูล → ref_code: ${ref_code}, license_no: ${license_no}`);
-
     if (!ref_code || !license_no || !password) {
-      logger.warn(`[SETUP-PASSWORD] ⚠️ ข้อมูลไม่ครบ`);
+      console.warn(`[SETUP-PASSWORD] ⚠️ ข้อมูลไม่ครบ`);
       return res.status(400).json({ message: 'กรุณาระบุข้อมูลให้ครบถ้วน' });
     }
-
-    const hashedPassword = await bcrypt.hash(password, 10);
 
     // 🔍 ดึง line_user_id จาก license_holders
     const { data: sessionData, error: sessionError } = await supabase
@@ -31,7 +25,7 @@ const setupPassword = async (req, res) => {
       .maybeSingle();
 
     if (sessionError) {
-      logger.error(`[SETUP-PASSWORD] ❌ ดึง line_user_id ไม่สำเร็จ: ${sessionError.message}`);
+      console.error(`[SETUP-PASSWORD] ❌ ดึง line_user_id ไม่สำเร็จ: ${sessionError.message}`);
       return res.status(500).json({ message: 'ไม่สามารถดึง line_user_id ได้' });
     }
 
@@ -46,67 +40,58 @@ const setupPassword = async (req, res) => {
       .maybeSingle();
 
     if (userError || !userData) {
-      logger.warn(`[SETUP-PASSWORD] ❌ ไม่พบ username จาก license_holders`);
-      return res.status(404).json({ message: 'ไม่พบข้อมูลผู้ใช้งาน' });
+      return res.status(404).json({ message: 'ไม่พบข้อมูลผู้ใช้' });
     }
 
-    // ✅ อัปเดตรหัสผ่าน
+    // ✅ อัปเดตรหัสผ่านแบบ plain-text และสถานะ
     const { error: updateError } = await supabase
       .from('license_holders')
       .update({
-        password: hashedPassword,
+        password: password, // ❗ บันทึก plain-text password
         status: 'ACTIVATED'
       })
-      .eq('ref_code', ref_code)
-      .eq('license_no', license_no);
+      .match({ ref_code, license_no });
 
     if (updateError) {
-      logger.error(`[SETUP-PASSWORD] ❌ อัปเดต password ล้มเหลว: ${updateError.message}`);
-      return res.status(500).json({ message: 'อัปเดตรหัสผ่านไม่สำเร็จ' });
+      console.error(`[SETUP-PASSWORD] ❌ อัปเดต password ล้มเหลว: ${updateError.message}`);
+      return res.status(500).json({ message: 'ไม่สามารถอัปเดตรหัสผ่านได้' });
     }
 
-    // ✉️ เตรียมข้อความ LINE
+    // 📩 ส่ง LINE แจ้ง username + password
     const message = [
-      '✅ บัญชีของคุณถูกสร้างแล้วเรียบร้อยครับ',
+      `✅ บัญชีของคุณถูกสร้างแล้วเรียบร้อยครับ`,
       `License No: ${license_no}`,
       `Ref.Code: ${ref_code}`,
       `Username: ${userData.username}`,
       `Password: ${password}`
     ].join('\n');
 
-    // ✅ ส่ง LINE ถ้าเจอ line_user_id
     let messageSent = false;
-
     if (lineUserId) {
       try {
         await client.pushMessage(lineUserId, {
           type: 'text',
           text: message
         });
-        logger.info(`[SETUP-PASSWORD] ✅ ส่ง LINE สำเร็จ → ${lineUserId}`);
+        console.log(`[SETUP-PASSWORD] ✅ ส่งข้อความไปยัง LINE: ${lineUserId}`);
         messageSent = true;
       } catch (lineErr) {
-        logger.warn(`[SETUP-PASSWORD] ⚠️ ส่ง LINE ล้มเหลว: ${lineErr.message}`);
+        console.warn(`[SETUP-PASSWORD] ⚠️ ส่ง LINE ไม่สำเร็จ: ${lineErr.message}`);
       }
-    } else {
-      logger.warn(`[SETUP-PASSWORD] ⚠️ ไม่พบ line_user_id สำหรับ ref_code: ${ref_code}`);
     }
 
-    // ✅ ส่งผลลัพธ์กลับ VBA
     return res.status(200).json({
-      success: true,
-      message: messageSent
-        ? 'สร้างบัญชีสำเร็จ และส่งรหัสผ่านผ่าน LINE แล้ว'
-        : 'สร้างบัญชีสำเร็จ (ไม่สามารถส่ง LINE ได้)'
+      message: 'บัญชีผู้ใช้ของคุณถูกสร้างเรียบร้อยแล้ว',
+      ref_code,
+      license_no,
+      username: userData.username,
+      password, // ส่ง plain-text กลับให้ VBA ด้วย
+      messageSent
     });
 
   } catch (err) {
-    logger.error(`[SETUP-PASSWORD] ❌ Exception: ${err.message}`);
-    return res.status(500).json({
-      success: false,
-      message: 'Internal Server Error',
-      error: err.message
-    });
+    console.error(`[SETUP-PASSWORD] ❌ [STATUS 500] เกิดข้อผิดพลาด: ${err.message}`);
+    return res.status(500).json({ message: 'เกิดข้อผิดพลาดไม่ทราบสาเหตุ', error: err.message });
   }
 };
 
