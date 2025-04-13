@@ -1,6 +1,14 @@
 const { supabase } = require('../utils/supabaseClient');
 const bcrypt = require('bcryptjs');
-const { sendLineText } = require('../utils/sendLineMessage'); // <-- ใช้ฟังก์ชันส่ง LINE ที่มีอยู่แล้ว
+const line = require('@line/bot-sdk');
+const logger = require('../utils/logger');
+
+const config = {
+  channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN,
+  channelSecret: process.env.LINE_CHANNEL_SECRET
+};
+
+const client = new line.Client(config);
 
 const setupPassword = async (req, res) => {
   try {
@@ -12,7 +20,7 @@ const setupPassword = async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // 🔍 ดึงข้อมูลผู้ใช้ก่อน (username + line_id)
+    // ดึงข้อมูล line_user_id และ username
     const { data: userData, error: userError } = await supabase
       .from('license_holders')
       .select('username, line_id')
@@ -21,25 +29,26 @@ const setupPassword = async (req, res) => {
       .maybeSingle();
 
     if (userError || !userData) {
-      console.error('❌ [FETCH USER ERROR]', userError?.message);
+      logger.warn(`[SETUP-PASSWORD] ❌ ไม่พบข้อมูลผู้ใช้สำหรับ ref_code: ${ref_code}`);
       return res.status(404).json({ message: 'ไม่พบข้อมูลผู้ใช้งาน' });
     }
 
-    // ✅ อัปเดต password และสถานะ
+    // อัปเดตรหัสผ่าน
     const { error: updateError } = await supabase
       .from('license_holders')
       .update({
         password: hashedPassword,
         status: 'ACTIVATED'
       })
-      .match({ ref_code, license_no });
+      .eq('ref_code', ref_code)
+      .eq('license_no', license_no);
 
     if (updateError) {
-      console.error('❌ [UPDATE ERROR]', updateError.message);
-      return res.status(500).json({ message: 'อัปเดตรหัสผ่านไม่สำเร็จ', error: updateError.message });
+      logger.error(`[SETUP-PASSWORD] ❌ อัปเดตรหัสผ่านล้มเหลว: ${updateError.message}`);
+      return res.status(500).json({ message: 'อัปเดตรหัสผ่านไม่สำเร็จ' });
     }
 
-    // ✉️ ส่งข้อความ 4 บรรทัดผ่าน LINE
+    // ส่งข้อความทางไลน์
     const message = [
       '✅ บัญชีของคุณถูกสร้างแล้วเรียบร้อยครับ',
       `Ref.Code: ${ref_code}`,
@@ -47,21 +56,32 @@ const setupPassword = async (req, res) => {
       `Password: ${password}`
     ].join('\n');
 
-    await sendLineText(userData.line_id, message);
-    console.log('📤 ส่งข้อความไปยัง LINE แล้ว:', userData.line_id);
+    let messageSent = false;
+    if (userData.line_id) {
+      try {
+        await client.pushMessage(userData.line_id, {
+          type: 'text',
+          text: message
+        });
+        logger.info(`[SETUP-PASSWORD] ✅ ส่งข้อความผ่าน LINE สำเร็จ → ${userData.line_id}`);
+        messageSent = true;
+      } catch (lineErr) {
+        logger.warn(`[SETUP-PASSWORD] ⚠️ ไม่สามารถส่ง LINE ได้: ${lineErr.message}`);
+      }
+    } else {
+      logger.warn(`[SETUP-PASSWORD] ⚠️ ไม่พบ line_id สำหรับ ref_code: ${ref_code}`);
+    }
 
-    // ✅ ตอบกลับให้ VBA แบบสั้น ๆ
     return res.status(200).json({
       success: true,
-      message: 'บัญชีถูกสร้างแล้ว กรุณาตรวจสอบ LINE สำหรับรหัสผ่าน'
+      message: messageSent
+        ? 'สร้างบัญชีสำเร็จ และส่งข้อมูลไปยัง LINE แล้ว'
+        : 'สร้างบัญชีสำเร็จ (ไม่สามารถส่ง LINE ได้)'
     });
 
   } catch (err) {
-    console.error('🔥 [UNEXPECTED ERROR]', err.message);
-    return res.status(500).json({
-      message: 'เกิดข้อผิดพลาดไม่ทราบสาเหตุ',
-      error: err.message
-    });
+    logger.error(`[SETUP-PASSWORD] ❌ เกิดข้อผิดพลาด: ${err.message}`);
+    return res.status(500).json({ message: 'เกิดข้อผิดพลาดในระบบ' });
   }
 };
 
