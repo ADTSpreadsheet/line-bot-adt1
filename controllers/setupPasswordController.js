@@ -7,6 +7,7 @@ const config = {
   channelSecret: process.env.LINE_CHANNEL_SECRET,
 };
 const client = new line.Client(config);
+const fullName = `${userData.first_name} ${userData.last_name}`;
 
 const setupPassword = async (req, res) => {
   try {
@@ -84,8 +85,7 @@ const setupPassword = async (req, res) => {
     return res.status(200).json({
       license_no,
       ref_code,
-      first_name: userData.first_name,
-      last_name: userData.last_name,
+      fullName: `${userData.first_name} ${userData.last_name}`,
       message: 'บัญชีนี้ทำการ Activate License โดยสมบูรณ์ กรุณาดู Username และ Password ในไลน์ เพื่อเข้าระบบของคุณ',
       messageSent
     });
