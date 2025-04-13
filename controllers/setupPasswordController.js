@@ -1,5 +1,6 @@
 const { supabase } = require('../utils/supabaseClient');
 const bcrypt = require('bcryptjs');
+const { sendLineText } = require('../utils/sendLineMessage'); // <-- ใช้ฟังก์ชันส่ง LINE ที่มีอยู่แล้ว
 
 const setupPassword = async (req, res) => {
   try {
@@ -11,19 +12,20 @@ const setupPassword = async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // ดึง username ก่อนอัปเดต เพื่อส่งกลับ
+    // 🔍 ดึงข้อมูลผู้ใช้ก่อน (username + line_id)
     const { data: userData, error: userError } = await supabase
       .from('license_holders')
-      .select('username')
+      .select('username, line_id')
       .eq('ref_code', ref_code)
       .eq('license_no', license_no)
-      .single();
+      .maybeSingle();
 
     if (userError || !userData) {
+      console.error('❌ [FETCH USER ERROR]', userError?.message);
       return res.status(404).json({ message: 'ไม่พบข้อมูลผู้ใช้งาน' });
     }
 
-    // อัปเดตรหัสผ่าน + สถานะ
+    // ✅ อัปเดต password และสถานะ
     const { error: updateError } = await supabase
       .from('license_holders')
       .update({
@@ -33,19 +35,33 @@ const setupPassword = async (req, res) => {
       .match({ ref_code, license_no });
 
     if (updateError) {
+      console.error('❌ [UPDATE ERROR]', updateError.message);
       return res.status(500).json({ message: 'อัปเดตรหัสผ่านไม่สำเร็จ', error: updateError.message });
     }
 
-    // ส่งค่ากลับให้ VBA ใช้แสดงผลใน FrameSuccess
+    // ✉️ ส่งข้อความ 4 บรรทัดผ่าน LINE
+    const message = [
+      '✅ บัญชีของคุณถูกสร้างแล้วเรียบร้อยครับ',
+      `Ref.Code: ${ref_code}`,
+      `Username: ${userData.username}`,
+      `Password: ${password}`
+    ].join('\n');
+
+    await sendLineText(userData.line_id, message);
+    console.log('📤 ส่งข้อความไปยัง LINE แล้ว:', userData.line_id);
+
+    // ✅ ตอบกลับให้ VBA แบบสั้น ๆ
     return res.status(200).json({
-      message: 'บัญชีผู้ใช้ของคุณถูกสร้างเรียบร้อยแล้ว',
-      ref_code,
-      license_no,
-      username: userData.username,
-      password // ส่งกลับแบบ plain ตามที่พี่เก่งขอใช้แสดงผล
+      success: true,
+      message: 'บัญชีถูกสร้างแล้ว กรุณาตรวจสอบ LINE สำหรับรหัสผ่าน'
     });
+
   } catch (err) {
-    return res.status(500).json({ message: 'เกิดข้อผิดพลาดไม่ทราบสาเหตุ', error: err.message });
+    console.error('🔥 [UNEXPECTED ERROR]', err.message);
+    return res.status(500).json({
+      message: 'เกิดข้อผิดพลาดไม่ทราบสาเหตุ',
+      error: err.message
+    });
   }
 };
 
