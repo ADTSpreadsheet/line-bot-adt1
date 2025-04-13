@@ -14,26 +14,43 @@ const setupPassword = async (req, res) => {
   try {
     const { ref_code, license_no, password } = req.body;
 
+    logger.info(`[SETUP-PASSWORD] 📥 รับข้อมูล → ref_code: ${ref_code}, license_no: ${license_no}`);
+
     if (!ref_code || !license_no || !password) {
+      logger.warn(`[SETUP-PASSWORD] ⚠️ ข้อมูลไม่ครบ`);
       return res.status(400).json({ message: 'กรุณาระบุข้อมูลให้ครบถ้วน' });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // ดึงข้อมูล line_user_id และ username
+    // 🔍 ดึง line_user_id จาก auth_sessions
+    const { data: sessionData, error: sessionError } = await supabase
+      .from('auth_sessions')
+      .select('line_user_id')
+      .eq('ref_code', ref_code)
+      .maybeSingle();
+
+    if (sessionError) {
+      logger.error(`[SETUP-PASSWORD] ❌ ดึง line_user_id ไม่สำเร็จ: ${sessionError.message}`);
+      return res.status(500).json({ message: 'ไม่สามารถดึง line_user_id ได้' });
+    }
+
+    const lineUserId = sessionData?.line_user_id || null;
+
+    // 🔍 ดึง username จาก license_holders
     const { data: userData, error: userError } = await supabase
       .from('license_holders')
-      .select('username, line_id')
+      .select('username')
       .eq('ref_code', ref_code)
       .eq('license_no', license_no)
       .maybeSingle();
 
     if (userError || !userData) {
-      logger.warn(`[SETUP-PASSWORD] ❌ ไม่พบข้อมูลผู้ใช้สำหรับ ref_code: ${ref_code}`);
+      logger.warn(`[SETUP-PASSWORD] ❌ ไม่พบ username จาก license_holders`);
       return res.status(404).json({ message: 'ไม่พบข้อมูลผู้ใช้งาน' });
     }
 
-    // อัปเดตรหัสผ่าน
+    // ✅ อัปเดตรหัสผ่าน
     const { error: updateError } = await supabase
       .from('license_holders')
       .update({
@@ -44,11 +61,11 @@ const setupPassword = async (req, res) => {
       .eq('license_no', license_no);
 
     if (updateError) {
-      logger.error(`[SETUP-PASSWORD] ❌ อัปเดตรหัสผ่านล้มเหลว: ${updateError.message}`);
+      logger.error(`[SETUP-PASSWORD] ❌ อัปเดต password ล้มเหลว: ${updateError.message}`);
       return res.status(500).json({ message: 'อัปเดตรหัสผ่านไม่สำเร็จ' });
     }
 
-    // ส่งข้อความทางไลน์
+    // ✉️ เตรียมข้อความ LINE
     const message = [
       '✅ บัญชีของคุณถูกสร้างแล้วเรียบร้อยครับ',
       `Ref.Code: ${ref_code}`,
@@ -56,32 +73,39 @@ const setupPassword = async (req, res) => {
       `Password: ${password}`
     ].join('\n');
 
+    // ✅ ส่ง LINE ถ้าเจอ line_user_id
     let messageSent = false;
-    if (userData.line_id) {
+
+    if (lineUserId) {
       try {
-        await client.pushMessage(userData.line_id, {
+        await client.pushMessage(lineUserId, {
           type: 'text',
           text: message
         });
-        logger.info(`[SETUP-PASSWORD] ✅ ส่งข้อความผ่าน LINE สำเร็จ → ${userData.line_id}`);
+        logger.info(`[SETUP-PASSWORD] ✅ ส่ง LINE สำเร็จ → ${lineUserId}`);
         messageSent = true;
       } catch (lineErr) {
-        logger.warn(`[SETUP-PASSWORD] ⚠️ ไม่สามารถส่ง LINE ได้: ${lineErr.message}`);
+        logger.warn(`[SETUP-PASSWORD] ⚠️ ส่ง LINE ล้มเหลว: ${lineErr.message}`);
       }
     } else {
-      logger.warn(`[SETUP-PASSWORD] ⚠️ ไม่พบ line_id สำหรับ ref_code: ${ref_code}`);
+      logger.warn(`[SETUP-PASSWORD] ⚠️ ไม่พบ line_user_id สำหรับ ref_code: ${ref_code}`);
     }
 
+    // ✅ ส่งผลลัพธ์กลับ VBA
     return res.status(200).json({
       success: true,
       message: messageSent
-        ? 'สร้างบัญชีสำเร็จ และส่งข้อมูลไปยัง LINE แล้ว'
+        ? 'สร้างบัญชีสำเร็จ และส่งรหัสผ่านผ่าน LINE แล้ว'
         : 'สร้างบัญชีสำเร็จ (ไม่สามารถส่ง LINE ได้)'
     });
 
   } catch (err) {
-    logger.error(`[SETUP-PASSWORD] ❌ เกิดข้อผิดพลาด: ${err.message}`);
-    return res.status(500).json({ message: 'เกิดข้อผิดพลาดในระบบ' });
+    logger.error(`[SETUP-PASSWORD] ❌ Exception: ${err.message}`);
+    return res.status(500).json({
+      success: false,
+      message: 'Internal Server Error',
+      error: err.message
+    });
   }
 };
 
