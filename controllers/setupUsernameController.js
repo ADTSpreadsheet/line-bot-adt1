@@ -82,32 +82,34 @@ const setupUsername = async (req, res) => {
 
     console.log('✅ [license_holders] อัปเดตสำเร็จแล้ว');
 
-    // STEP 4: ตรวจสอบ username ซ้ำ
-    const { data: similarUsers, error: usernameError } = await supabase
-      .from('license_holders')
-      .select('username')
-      .ilike('username', `%${data.username}%`);
+    // STEP 4: ตรวจสอบ username ซ้ำแบบ exact match
+const { data: sameUsername, error: usernameError } = await supabase
+  .from('license_holders')
+  .select('username')
+  .eq('username', data.username); // 🔄 แก้จาก .ilike → .eq
 
-    if (usernameError) {
-      console.error('❌ [username-check] ตรวจสอบ Username ล้มเหลว:', usernameError.message);
-      return res.status(500).json({ message: 'เกิดข้อผิดพลาดขณะตรวจสอบ Username', error: usernameError.message });
-    }
+if (usernameError) {
+  console.error('❌ [username-check] ตรวจสอบ Username ล้มเหลว:', usernameError.message);
+  return res.status(500).json({
+    message: 'เกิดข้อผิดพลาดขณะตรวจสอบ Username',
+    error: usernameError.message
+  });
+}
 
-    if (similarUsers && similarUsers.length > 0) {
-      console.warn('⚠️ [username-check] พบ Username ซ้ำหรือคล้ายกัน:', similarUsers.map(u => u.username));
-      return res.status(409).json({ message: 'Username นี้มีความคล้ายกับผู้ใช้งานอื่นในระบบ กรุณาใช้ชื่ออื่น' });
-    }
+if (sameUsername && sameUsername.length > 0) {
+  console.warn('⚠️ [username-check] พบ Username ซ้ำ:', sameUsername.map(u => u.username));
+  return res.status(409).json({
+    message: 'Username นี้มีผู้ใช้งานแล้ว กรุณาใช้ชื่ออื่น'
+  });
+}
 
-    console.log('✅ [username-check] ไม่พบ Username ซ้ำ ใช้งานได้');
+console.log('✅ [username-check] ไม่พบ Username ซ้ำ ใช้งานได้');
 
-    // STEP 5: สำเร็จ
-    console.log('🎉 [COMPLETE] ข้อมูลผู้ใช้งานถูกบันทึกเรียบร้อยแล้ว');
-    return res.status(200).json({ message: 'ข้อมูลถูกบันทึกและ Username ผ่านการตรวจสอบแล้ว' });
+// STEP 5: สำเร็จ
+console.log('🎉 [COMPLETE] ข้อมูลผู้ใช้งานถูกบันทึกเรียบร้อยแล้ว');
+return res.status(200).json({
+  message: 'Username นี้สามารถใช้งานได้'
+});
 
-  } catch (err) {
-    console.error('🔥 [UNEXPECTED ERROR] เกิดข้อผิดพลาดไม่ทราบสาเหตุ:', err.message);
-    return res.status(500).json({ message: 'เกิดข้อผิดพลาดไม่ทราบสาเหตุ', error: err.message });
-  }
-};
 
 module.exports = { setupUsername };
