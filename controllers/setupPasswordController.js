@@ -68,6 +68,7 @@ const setupPassword = async (req, res) => {
     // ✉️ เตรียมข้อความ LINE
     const message = [
       '✅ บัญชีของคุณถูกสร้างแล้วเรียบร้อยครับ',
+      `License No: ${license_no}`,
       `Ref.Code: ${ref_code}`,
       `Username: ${userData.username}`,
       `Password: ${password}`
