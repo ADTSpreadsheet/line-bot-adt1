@@ -31,10 +31,10 @@ const setupPassword = async (req, res) => {
 
     const lineUserId = sessionData?.line_user_id || null;
 
-    // 🔍 ดึง username จาก license_holders
+    // 🔍 ดึงข้อมูลผู้ใช้
     const { data: userData, error: userError } = await supabase
       .from('license_holders')
-      .select('username')
+      .select('username, first_name, last_name')
       .eq('ref_code', ref_code)
       .eq('license_no', license_no)
       .maybeSingle();
@@ -47,7 +47,7 @@ const setupPassword = async (req, res) => {
     const { error: updateError } = await supabase
       .from('license_holders')
       .update({
-        password: password, // ❗ บันทึก plain-text password
+        password: password,
         status: 'ACTIVATED'
       })
       .match({ ref_code, license_no });
@@ -58,7 +58,7 @@ const setupPassword = async (req, res) => {
     }
 
     // 📩 ส่ง LINE แจ้ง username + password
-    const message = [
+    const lineMessage = [
       `✅ บัญชีของคุณถูกสร้างแล้วเรียบร้อยครับ`,
       `License No: ${license_no}`,
       `Ref.Code: ${ref_code}`,
@@ -71,7 +71,7 @@ const setupPassword = async (req, res) => {
       try {
         await client.pushMessage(lineUserId, {
           type: 'text',
-          text: message
+          text: lineMessage
         });
         console.log(`[SETUP-PASSWORD] ✅ ส่งข้อความไปยัง LINE: ${lineUserId}`);
         messageSent = true;
@@ -80,12 +80,13 @@ const setupPassword = async (req, res) => {
       }
     }
 
+    // ✅ ส่งข้อมูลกลับ VBA
     return res.status(200).json({
-      message: 'บัญชีผู้ใช้ของคุณถูกสร้างเรียบร้อยแล้ว',
-      ref_code,
       license_no,
-      username: userData.username,
-      password, // ส่ง plain-text กลับให้ VBA ด้วย
+      ref_code,
+      first_name: userData.first_name,
+      last_name: userData.last_name,
+      message: 'บัญชีนี้ทำการ Activate License โดยสมบูรณ์ กรุณาดู Username และ Password ในไลน์ เพื่อเข้าระบบของคุณ',
       messageSent
     });
 
