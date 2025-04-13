@@ -7,7 +7,6 @@ const config = {
   channelSecret: process.env.LINE_CHANNEL_SECRET,
 };
 const client = new line.Client(config);
-const fullName = `${userData.first_name} ${userData.last_name}`;
 
 const setupPassword = async (req, res) => {
   try {
@@ -32,7 +31,7 @@ const setupPassword = async (req, res) => {
 
     const lineUserId = sessionData?.line_user_id || null;
 
-    // 🔍 ดึงข้อมูลผู้ใช้
+    // 🔍 ดึงข้อมูล username และชื่อจริง
     const { data: userData, error: userError } = await supabase
       .from('license_holders')
       .select('username, first_name, last_name')
@@ -44,11 +43,14 @@ const setupPassword = async (req, res) => {
       return res.status(404).json({ message: 'ไม่พบข้อมูลผู้ใช้' });
     }
 
+    // ✅ full name สำหรับส่งให้ VBA
+    const fullName = `${userData.first_name} ${userData.last_name}`;
+
     // ✅ อัปเดตรหัสผ่านแบบ plain-text และสถานะ
     const { error: updateError } = await supabase
       .from('license_holders')
       .update({
-        password: password,
+        password: password, // ❗ บันทึก plain-text password
         status: 'ACTIVATED'
       })
       .match({ ref_code, license_no });
@@ -59,7 +61,7 @@ const setupPassword = async (req, res) => {
     }
 
     // 📩 ส่ง LINE แจ้ง username + password
-    const lineMessage = [
+    const message = [
       `✅ บัญชีของคุณถูกสร้างแล้วเรียบร้อยครับ`,
       `License No: ${license_no}`,
       `Ref.Code: ${ref_code}`,
@@ -72,7 +74,7 @@ const setupPassword = async (req, res) => {
       try {
         await client.pushMessage(lineUserId, {
           type: 'text',
-          text: lineMessage
+          text: message
         });
         console.log(`[SETUP-PASSWORD] ✅ ส่งข้อความไปยัง LINE: ${lineUserId}`);
         messageSent = true;
@@ -81,12 +83,12 @@ const setupPassword = async (req, res) => {
       }
     }
 
-    // ✅ ส่งข้อมูลกลับ VBA
+    // ✅ ส่งข้อมูลกลับไปให้ VBA
     return res.status(200).json({
       license_no,
       ref_code,
-      fullName: `${userData.first_name} ${userData.last_name}`,
-      message: 'บัญชีนี้ทำการ Activate License โดยสมบูรณ์ กรุณาดู Username และ Password ในไลน์ เพื่อเข้าระบบของคุณ',
+      fullName,
+      message: 'บัญชีนี้ทำการ Activate License โดยสมบูรณ์ กรุณาดู Username และ Password ในไลน์ เพื่อเข้าสู่ระบบของคุณ',
       messageSent
     });
 
