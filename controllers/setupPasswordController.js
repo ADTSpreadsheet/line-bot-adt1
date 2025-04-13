@@ -23,9 +23,9 @@ const setupPassword = async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // 🔍 ดึง line_user_id จาก auth_sessions
+    // 🔍 ดึง line_user_id จาก license_holders
     const { data: sessionData, error: sessionError } = await supabase
-      .from('auth_sessions')
+      .from('license_holders')
       .select('line_user_id')
       .eq('ref_code', ref_code)
       .maybeSingle();
