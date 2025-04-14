@@ -28,6 +28,7 @@ const verifyLicenseRoute = require('./routes/verifyLicenseRoute'); // ✅ เส
 const setupUsernameRoute = require('./routes/setupUsernameRoute');
 const setupPasswordRoutes = require('./routes/setupPasswordRoute');
 const loginRoute = require('./routes/loginRoute');
+const logoutRoute = require('./routes/logoutRoute');
 
 
 // ==============================================
@@ -88,6 +89,10 @@ app.use('/router/setup-password', setupPasswordRoutes);
 
 // ส่วนที่ 9: การ Login เข้าใช้งาน
 app.use('/router', loginRoute);
+
+
+// ส่วนที่ 10: การ Logout การออกจากระบบ
+app.use('/router/logout', logoutRoute);
 
 // ==============================================
 // API ENDPOINTS FOR VBA INTEGRATION (เก็บไว้เป็น fallback)
