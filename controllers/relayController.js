@@ -3,8 +3,8 @@ const { supabase } = require('../utils/supabaseClient');
 const line = require('@line/bot-sdk');
 
 const config = {
-  channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN,
-  channelSecret: process.env.LINE_CHANNEL_SECRET
+  channelAccessToken: process.env.BOT2_LINE_CHANNEL_ACCESS_TOKEN,
+  channelSecret: process.env.BOT2_LINE_SECRET
 };
 
 const client = new line.Client(config);
@@ -14,6 +14,7 @@ const relayMessage = async (destinationBot, messageText) => {
   try {
     let lineUserId;
 
+    // หา userId ตาม Bot ปลายทาง
     if (destinationBot === 'BOT2') {
       lineUserId = process.env.BOT2_LINE_USER_ID;
     } else if (destinationBot === 'BOT3') {
