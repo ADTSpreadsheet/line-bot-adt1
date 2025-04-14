@@ -9,7 +9,7 @@ const checkMachineStatus = async (req, res) => {
 
     const { data, error } = await supabase
       .from('license_holders')
-      .select('ref_code, machine_id_1, machine_id_2')
+      .select('ref_code, username, machine_id_1, machine_id_2') // ✅ เพิ่ม username
       .or(`machine_id_1.eq.${machine_id},machine_id_2.eq.${machine_id}`)
       .single();
 
@@ -18,8 +18,11 @@ const checkMachineStatus = async (req, res) => {
       return res.status(404).json({ message: 'Device not found' });
     }
 
-    logger.info(`[CHECK MACHINE] ✅ Found → ref_code: ${data.ref_code}`);
-    return res.status(200).json({ ref_code: data.ref_code });
+    logger.info(`[CHECK MACHINE] ✅ Found → ref_code: ${data.ref_code}, username: ${data.username}`);
+    return res.status(200).json({
+      ref_code: data.ref_code,
+      username: data.username // ✅ ส่งกลับมาด้วย
+    });
 
   } catch (err) {
     logger.error(`[CHECK MACHINE] ❌ Error: ${err.message}`);
