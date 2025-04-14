@@ -1,10 +1,5 @@
 // controllers/LineMessage3DController.js
-const {
-  relayFromBot1ToBot2,
-  relayFromBot1ToBot3,
-  relayFromBot2ToBot1
-} = require('./relayController');
-
+const { relayFromBot1ToBot2, relayFromBot1ToBot3, relayFromBot2ToBot1 } = require('./relayController');
 const { client } = require('../utils/lineClient');
 const log = require('../utils/logger').createModuleLogger('Line3D');
 const { supabase } = require('../utils/supabaseClient');
@@ -20,9 +15,12 @@ const handleLine3DMessage = async (event) => {
     const refInfo = await getRefRouting(userId);
     const refCode = refInfo?.ref_code || "???";
     const source = refInfo?.source || "Unknown";
-    let destination = refInfo?.destination_bot || "BOT2";
+    const destination = refInfo?.destination_bot || "BOT2";
 
-    // 🔁 เปลี่ยนเส้นทางถ้าผู้ใช้กดปุ่ม
+    const fullName = await getFullNameFromRefCode(refCode);
+    const licenseNo = await getLicenseNoFromRefCode(refCode);
+
+    // 🔄 เปลี่ยนเส้นทางเป็น BOT3 ถ้าเจอ !switch_to_sales
     if (msg.text === '!switch_to_sales') {
       await supabase
         .from('auth_sessions')
@@ -36,14 +34,19 @@ const handleLine3DMessage = async (event) => {
       return;
     }
 
-    // 🧠 ถ้าข้อความมีคำว่า "สนใจ" → ส่ง Flex Message
+    // ✅ ถ้ามีคำว่า “สนใจ” → ส่ง Flex Message พร้อมปุ่ม
     if (msg.text.includes("สนใจ")) {
       await sendFlexSwitchToSales(event.replyToken, refCode, source);
       return;
     }
 
-    // 📨 ส่งข้อความไปยังปลายทางตาม destination_bot
-    const formattedMsg = `Ref.code : ${refCode} (${source})\n${msg.text}`;
+    // 🎨 สร้างข้อความตามประเภทผู้ใช้
+    let formattedMsg;
+    if (source === 'license_verified') {
+      formattedMsg = `🪪 ${licenseNo} ${fullName}\n${msg.text}`;
+    } else {
+      formattedMsg = `🧪 Ref.: ${refCode} ${fullName}\n${msg.text}`;
+    }
 
     if (destination === 'BOT3') {
       await relayFromBot1ToBot3(refCode, userId, formattedMsg);
@@ -53,7 +56,7 @@ const handleLine3DMessage = async (event) => {
     return;
   }
 
-  // 🔁 ถ้าข้อความจากแอดมิน หรือเป็น non-text เช่น sticker/image
+  // 🔁 ข้อความจากแอดมินหรือประเภทอื่น
   switch (msg.type) {
     case 'text':
       await relayFromBot2ToBot1(userId, msg.text);
@@ -94,13 +97,34 @@ const handleLine3DMessage = async (event) => {
 };
 
 const getRefRouting = async (userId) => {
-  const { data, error } = await supabase
+  const { data } = await supabase
     .from('auth_sessions')
     .select('ref_code, source, destination_bot')
     .eq('line_user_id', userId)
     .maybeSingle();
 
   return data || null;
+};
+
+const getFullNameFromRefCode = async (refCode) => {
+  const { data } = await supabase
+    .from('license_holders')
+    .select('first_name, last_name')
+    .eq('ref_code', refCode)
+    .maybeSingle();
+
+  if (data) return `${data.first_name} ${data.last_name}`;
+  return "(ไม่พบชื่อ)";
+};
+
+const getLicenseNoFromRefCode = async (refCode) => {
+  const { data } = await supabase
+    .from('license_holders')
+    .select('license_no')
+    .eq('ref_code', refCode)
+    .maybeSingle();
+
+  return data?.license_no || "(ไม่มี ADT)";
 };
 
 const sendFlexSwitchToSales = async (replyToken, refCode, source) => {
