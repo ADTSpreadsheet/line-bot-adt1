@@ -11,6 +11,9 @@ const {
   getRandomAnnoyedMessage
 } = require('../../utils/randomMessageGenerator');
 
+const { handleLine3DMessage } = require('../../controllers/LineMessage3DController');
+
+
 // LINE CONFIG
 const config = {
   channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN,
