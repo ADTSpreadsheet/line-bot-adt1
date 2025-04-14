@@ -184,6 +184,8 @@ const handleFollow = async (event) => {
 // ==============================
 // 2️⃣ MESSAGE EVENT
 // ==============================
+const { handleLine3DMessage } = require('../../controllers/LineMessage3DController');
+
 const handleMessage = async (event) => {
   const userId = event.source.userId;
   const msg = event.message;
@@ -192,9 +194,8 @@ const handleMessage = async (event) => {
 
   const text = msg.text.trim().toLowerCase();
 
+  // ✅ ถ้าเป็น 'req_refcode' → ให้ทำงานตามเดิม
   if (text === 'req_refcode') {
-    /*log.info(`ให้ผู้ใช้: ${userId} ขอ [REQ_REFCODE]`);*/
-
     const { data, error } = await supabase
       .from('auth_sessions')
       .select('ref_code')
@@ -210,14 +211,15 @@ const handleMessage = async (event) => {
       return;
     }
 
-    /*log.info(`🔐 Ref.Code: ${data.ref_code}`);
-    log.success('ส่ง Ref.Code สำเร็จ');*/
-
     await client.replyMessage(event.replyToken, {
       type: 'text',
       text: `🔐 Ref.Code ของคุณคือ: ${data.ref_code}`
     });
+    return;
   }
+
+  // ✅ ถ้าไม่ใช่ 'req_refcode' → ส่งไปยังระบบ 3D Messaging
+  await handleLine3DMessage(event);
 };
 
 // ==============================
