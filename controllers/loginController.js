@@ -7,40 +7,50 @@ exports.login = async (req, res) => {
 
   logger.info(`🟨 [LOGIN] Checking login for username: ${username}`);
 
-  // 1. ตรวจสอบว่ารับค่ามาครบไหม
   if (!username || !password) {
     logger.warn(`⛔ [LOGIN] Missing username or password`);
     return res.status(400).json({ message: 'กรุณากรอก Username และ Password ให้ครบถ้วน' });
   }
 
   try {
-    // 2. ดึงข้อมูลจาก Supabase
+    // 🔍 ดึงข้อมูลจากตาราง license_holders
     const { data, error } = await supabase
-      .from('adt_users') // ✅ เปลี่ยนเป็นชื่อจริงของตารางที่พี่ใช้
-      .select('id, username, password, first_name, last_name')
+      .from('license_holders')
+      .select('id, username, password, first_name, last_name, login_count')
       .eq('username', username)
       .single();
 
-    // 3. ถ้าไม่เจอ username
     if (error || !data) {
       logger.warn(`❌ [LOGIN] Username not found: ${username}`);
       return res.status(401).json({ message: 'Invalid username or password' });
     }
 
-    // 4. ตรวจสอบ password (ตรงเป๊ะ — ยังไม่ใช้ hash)
+    // 🔐 ตรวจสอบรหัสผ่าน (ยังไม่ hash)
     if (data.password !== password) {
       logger.warn(`❌ [LOGIN] Incorrect password for username: ${username}`);
       return res.status(401).json({ message: 'Invalid username or password' });
     }
 
-    // 5. สำเร็จ 🎉
-    logger.info(`✅ [LOGIN] Success! Username: ${username}`);
+    // ✅ อัปเดต last_login และ login_count
+    const updatedLoginCount = (data.login_count || 0) + 1;
+
+    await supabase
+      .from('license_holders')
+      .update({
+        last_login: new Date().toISOString(),
+        login_count: updatedLoginCount
+      })
+      .eq('username', username);
+
+    logger.info(`✅ [LOGIN] Success! Username: ${username} | Count: ${updatedLoginCount}`);
+
     return res.status(200).json({
       message: 'Login successful',
       user: {
         id: data.id,
         username: data.username,
-        name: `${data.first_name} ${data.last_name}`
+        name: `${data.first_name} ${data.last_name}`,
+        login_count: updatedLoginCount
       }
     });
 
