@@ -5,6 +5,6 @@ const router = express.Router();
 const { replyToUser } = require('../controllers/replyFromAdminController');
 
 // POST /admin/reply-to-user
-router.post('/admin/reply-to-admin', replyToUser);
+router.post('/admin/reply-from-admin', replyToUser);
 
 module.exports = router;
