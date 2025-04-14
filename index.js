@@ -30,6 +30,7 @@ const setupPasswordRoutes = require('./routes/setupPasswordRoute');
 const loginRoute = require('./routes/loginRoute');
 const logoutRoute = require('./routes/logoutRoute');
 const lineMessage3DRoutes = require('./routes/lineMessage3DRoutes');
+const replyFromAdminRoutes = require('./routes/replyFromAdminRoutes');
 
 
 // ==============================================
@@ -99,6 +100,10 @@ app.use('/router/logout', logoutRoute);
 
 // ส่วนที่ 11: การ ส่งข้อความไป Bot2และ Bot 3 
 app.use('/router/line-message-3d', lineMessage3DRoutes);
+
+
+// ส่วนที่ 12: Admin ตอบกลับ Bot1
+app.use(replyFromAdminRoutes);
 
 // ==============================================
 // API ENDPOINTS FOR VBA INTEGRATION (เก็บไว้เป็น fallback)
