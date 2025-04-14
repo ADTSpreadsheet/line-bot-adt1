@@ -3,35 +3,36 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY
 const logger = require('../utils/logger');
 
 exports.login = async (req, res) => {
-  const { username, password } = req.body;
+  const { ref_code, username, password } = req.body;
 
-  logger.info(`🟨 [LOGIN] Checking login for username: ${username}`);
+  logger.info(`🟨 [LOGIN] Checking login for ref_code: ${ref_code} | username: ${username}`);
 
-  if (!username || !password) {
-    logger.warn(`⛔ [LOGIN] Missing username or password`);
-    return res.status(400).json({ message: 'กรุณากรอก Username และ Password ให้ครบถ้วน' });
+  // ตรวจสอบ input
+  if (!ref_code || !username || !password) {
+    logger.warn(`⛔ [LOGIN] Missing input fields`);
+    return res.status(400).json({ message: 'กรุณากรอกข้อมูลให้ครบถ้วน' });
   }
 
   try {
-    // 🔍 ดึงข้อมูลจากตาราง license_holders
+    // 1. ค้นด้วย Ref.Code ก่อน
     const { data, error } = await supabase
       .from('license_holders')
-      .select('id, username, password, first_name, last_name, login_count')
-      .eq('username', username)
+      .select('id, ref_code, username, password, first_name, last_name, login_count')
+      .eq('ref_code', ref_code)
       .single();
 
     if (error || !data) {
-      logger.warn(`❌ [LOGIN] Username not found: ${username}`);
+      logger.warn(`❌ [LOGIN] Ref.Code not found: ${ref_code}`);
+      return res.status(404).json({ message: 'ไม่พบ Ref.Code นี้ในระบบ' });
+    }
+
+    // 2. ตรวจสอบ Username และ Password ภายใน row ที่เจอ
+    if (data.username !== username || data.password !== password) {
+      logger.warn(`❌ [LOGIN] Username/Password mismatch for ref_code: ${ref_code}`);
       return res.status(401).json({ message: 'Invalid username or password' });
     }
 
-    // 🔐 ตรวจสอบรหัสผ่าน (ยังไม่ hash)
-    if (data.password !== password) {
-      logger.warn(`❌ [LOGIN] Incorrect password for username: ${username}`);
-      return res.status(401).json({ message: 'Invalid username or password' });
-    }
-
-    // ✅ อัปเดต last_login และ login_count
+    // 3. อัปเดต Login Log
     const updatedLoginCount = (data.login_count || 0) + 1;
 
     await supabase
@@ -40,10 +41,11 @@ exports.login = async (req, res) => {
         last_login: new Date().toISOString(),
         login_count: updatedLoginCount
       })
-      .eq('username', username);
+      .eq('ref_code', ref_code);
 
-    logger.info(`✅ [LOGIN] Success! Username: ${username} | Count: ${updatedLoginCount}`);
+    logger.info(`✅ [LOGIN] Success! ref_code: ${ref_code} | username: ${username}`);
 
+    // 4. ส่งข้อมูลกลับ
     return res.status(200).json({
       message: 'Login successful',
       user: {
