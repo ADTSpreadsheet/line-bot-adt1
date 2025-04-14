@@ -11,7 +11,7 @@ const {
   getRandomAnnoyedMessage
 } = require('../../utils/randomMessageGenerator');
 
-const { handleLine3DMessage } = require('../../controllers/LineMessage3DController');
+
 
 
 // LINE CONFIG
