@@ -1,5 +1,9 @@
 // controllers/LineMessage3DController.js
-const { relayFromBot1ToBot2, relayFromBot1ToBot3, relayFromBot2ToBot1 } = require('./relayController');
+const {
+  relayFromBot1ToBot2,
+  relayFromBot1ToBot3,
+  relayFromBot2ToBot1
+} = require('../controllers/relayController');
 const { client } = require('../utils/lineClient');
 const log = require('../utils/logger').createModuleLogger('Line3D');
 const { supabase } = require('../utils/supabaseClient');
@@ -17,7 +21,6 @@ const handleLine3DMessage = async (event) => {
     const source = refInfo?.source || "Unknown";
     let destination = refInfo?.destination_bot || "BOT2";
 
-    // ✅ ถ้าข้อความคือ !switch_to_sales → เปลี่ยนเส้นทางเป็น BOT3
     if (msg.text === '!switch_to_sales') {
       await supabase
         .from('auth_sessions')
@@ -31,13 +34,11 @@ const handleLine3DMessage = async (event) => {
       return;
     }
 
-    // ✅ ถ้ามีคำว่า “สนใจ” → ส่ง Flex Message พร้อมปุ่ม
     if (msg.text.includes("สนใจ")) {
       await sendFlexSwitchToSales(event.replyToken, refCode, source);
       return;
     }
 
-    // ✅ ส่งข้อความตาม destination_bot ปัจจุบัน
     const formattedMsg = `Ref.code : ${refCode} (${source})\n${msg.text}`;
 
     if (destination === 'BOT3') {
@@ -48,7 +49,6 @@ const handleLine3DMessage = async (event) => {
     return;
   }
 
-  // 🔁 หากเป็นข้อความจาก Admin หรือประเภทอื่น
   switch (msg.type) {
     case 'text':
       await relayFromBot2ToBot1(userId, msg.text);
