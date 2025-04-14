@@ -1,22 +1,57 @@
 // controllers/LineMessage3DController.js
-const { relayFromBot1ToBot2, relayFromBot2ToBot1 } = require('./relayController');
+const { relayFromBot1ToBot2, relayFromBot1ToBot3, relayFromBot2ToBot1 } = require('./relayController');
 const { client } = require('../utils/lineClient');
 const log = require('../utils/logger').createModuleLogger('Line3D');
+const { supabase } = require('../utils/supabaseClient');
 
 const handleLine3DMessage = async (event) => {
   const userId = event.source.userId;
   const msg = event.message;
-  const isFromAdmin = await checkIfAdmin(userId); // 🔍 ตรวจว่ามาจาก Bot2 (พี่เก่ง) หรือไม่
+  const isFromAdmin = await checkIfAdmin(userId);
 
   log.info(`📥 Message3D | userId: ${userId} | type: ${msg.type}`);
 
+  if (!isFromAdmin && msg.type === 'text') {
+    const refInfo = await getRefRouting(userId);
+    const refCode = refInfo?.ref_code || "???";
+    const source = refInfo?.source || "Unknown";
+    let destination = refInfo?.destination_bot || "BOT2";
+
+    // ✅ ถ้าข้อความคือ !switch_to_sales → เปลี่ยนเส้นทางเป็น BOT3
+    if (msg.text === '!switch_to_sales') {
+      await supabase
+        .from('auth_sessions')
+        .update({ destination_bot: 'BOT3' })
+        .eq('ref_code', refCode);
+
+      await client.replyMessage(event.replyToken, {
+        type: 'text',
+        text: "✅ ระบบจะส่งข้อความของคุณไปยังฝ่ายขายโดยตรงครับ"
+      });
+      return;
+    }
+
+    // ✅ ถ้ามีคำว่า “สนใจ” → ส่ง Flex Message พร้อมปุ่ม
+    if (msg.text.includes("สนใจ")) {
+      await sendFlexSwitchToSales(event.replyToken, refCode, source);
+      return;
+    }
+
+    // ✅ ส่งข้อความตาม destination_bot ปัจจุบัน
+    const formattedMsg = `Ref.code : ${refCode} (${source})\n${msg.text}`;
+
+    if (destination === 'BOT3') {
+      await relayFromBot1ToBot3(refCode, userId, formattedMsg);
+    } else {
+      await relayFromBot1ToBot2(refCode, userId, formattedMsg);
+    }
+    return;
+  }
+
+  // 🔁 หากเป็นข้อความจาก Admin หรือประเภทอื่น
   switch (msg.type) {
     case 'text':
-      if (isFromAdmin) {
-        await relayFromBot2ToBot1(userId, msg.text);
-      } else {
-        await relayFromBot1ToBot2(userId, msg.text);
-      }
+      await relayFromBot2ToBot1(userId, msg.text);
       break;
 
     case 'sticker':
@@ -53,9 +88,66 @@ const handleLine3DMessage = async (event) => {
   }
 };
 
+const getRefRouting = async (userId) => {
+  const { data, error } = await supabase
+    .from('auth_sessions')
+    .select('ref_code, source, destination_bot')
+    .eq('line_user_id', userId)
+    .maybeSingle();
+
+  return data || null;
+};
+
+const sendFlexSwitchToSales = async (replyToken, refCode, source) => {
+  const bubble = {
+    type: "bubble",
+    body: {
+      type: "box",
+      layout: "vertical",
+      contents: [
+        {
+          type: "text",
+          text: `Ref.code : ${refCode} (${source})`,
+          weight: "bold",
+          color: "#1DB446",
+          size: "sm"
+        },
+        {
+          type: "text",
+          text: "คุณสนใจสั่งซื้อใช่ไหมครับ?\nกดปุ่มด้านล่างเพื่อพูดคุยกับฝ่ายขายได้เลยครับ",
+          wrap: true,
+          margin: "md",
+          size: "md"
+        }
+      ]
+    },
+    footer: {
+      type: "box",
+      layout: "vertical",
+      spacing: "sm",
+      contents: [
+        {
+          type: "button",
+          style: "primary",
+          color: "#0D99FF",
+          action: {
+            type: "message",
+            label: "ส่งให้ฝ่ายขาย",
+            text: "!switch_to_sales"
+          }
+        }
+      ]
+    }
+  };
+
+  await client.replyMessage(replyToken, {
+    type: "flex",
+    altText: "เปลี่ยนเส้นทางไปยังฝ่ายขาย",
+    contents: bubble
+  });
+};
+
 const checkIfAdmin = async (userId) => {
-  // 🔐 ตรงนี้พี่เก่งสามารถปรับ logic ตรวจว่า userId นี้คือแอดมินได้
-  // ตัวอย่าง: เช็คจาก Supabase หรือเทียบกับ ADMIN_USER_ID ใน .env ก็ได้
   return process.env.ADMIN_USER_ID === userId;
 };
 
