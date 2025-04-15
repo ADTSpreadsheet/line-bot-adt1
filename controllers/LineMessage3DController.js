@@ -1,5 +1,5 @@
-// controllers/LineMessage3DController.js
 const { relayFromBot1ToBot2, relayFromBot1ToBot3, relayFromBot2ToBot1 } = require('./relayController');
+const { handleImageUpload } = require('./UploadImageController'); // 👈 เพิ่มตรงนี้
 const { client } = require('../utils/lineClient');
 const log = require('../utils/logger').createModuleLogger('Line3D');
 const { supabase } = require('../utils/supabaseClient');
@@ -11,19 +11,18 @@ const handleLine3DMessage = async (event) => {
 
   log.info(`📥 Message3D | userId: ${userId} | type: ${msg.type}`);
 
+  // 📌 กรณีลูกค้าส่งข้อความ text
   if (!isFromAdmin && msg.type === 'text') {
     const refInfo = await getRefRouting(userId);
     const refCode = refInfo?.ref_code || "???";
     const source = refInfo?.source || "Unknown";
     let destination = refInfo?.destination_bot || "BOT2";
 
-    // ถ้ามีคำว่า “สนใจ” → ส่ง Flex Message พร้อมปุ่ม
     if (msg.text.includes("สนใจ")) {
       await sendFlexSwitchToSales(event.replyToken, refCode, source);
       return;
     }
 
-    // ถ้ากดเปลี่ยนเส้นทาง
     if (msg.text === '!switch_to_sales') {
       await supabase
         .from('auth_sessions')
@@ -37,7 +36,6 @@ const handleLine3DMessage = async (event) => {
       return;
     }
 
-    // ตรวจสอบว่ามี license_no หรือไม่
     const { data: licenseData } = await supabase
       .from('license_holders')
       .select('license_no, first_name, last_name')
@@ -59,7 +57,7 @@ const handleLine3DMessage = async (event) => {
     return;
   }
 
-  // 🔁 หากเป็นข้อความจาก Admin หรือประเภทอื่น
+  // 🧠 หากเป็นประเภทอื่น
   switch (msg.type) {
     case 'text':
       await relayFromBot2ToBot1(userId, msg.text);
@@ -79,6 +77,23 @@ const handleLine3DMessage = async (event) => {
       break;
 
     case 'image':
+      if (!isFromAdmin) {
+        const refInfo = await getRefRouting(userId);
+        const refCode = refInfo?.ref_code || "unknown";
+        const imageURL = await handleImageUpload(msg.id, refCode, 'chat'); // 👈 ใช้ UploadImageController
+
+        const imageMsg = {
+          type: "image",
+          originalContentUrl: imageURL,
+          previewImageUrl: imageURL
+        };
+
+        await relayFromBot1ToBot2(userId, imageMsg);
+      } else {
+        await relayFromBot2ToBot1(userId, `📎 [IMAGE] จากแอดมิน → messageId: ${msg.id}`);
+      }
+      break;
+
     case 'video':
     case 'audio':
     case 'file':
