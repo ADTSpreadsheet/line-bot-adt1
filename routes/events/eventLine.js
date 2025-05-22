@@ -198,7 +198,7 @@ const handleMessage = async (event) => {
   const text = msg.text.trim().toLowerCase();
 
   // ✅ ถ้าเป็น 'req_refcode' → ให้ทำงานตามเดิม
-  if (text === 'req_refcode') {
+  if (text === 'REQ_REFCODE') {
     const { data, error } = await supabase
       .from('auth_sessions')
       .select('ref_code')
