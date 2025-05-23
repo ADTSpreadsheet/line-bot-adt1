@@ -1,5 +1,8 @@
-const { supabase } = require('../utils/supabaseClient');
-const { sendLineMessage } = require('../routes/events/eventLine');
+const line = require('@line/bot-sdk');
+const client = new line.Client({
+  channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN,
+  channelSecret: process.env.LINE_CHANNEL_SECRET
+});
 
 const handlePublicWorkshopRegister = async (req, res) => {
   const { first_name, last_name, phone_number, ref_code, serial_key } = req.body;
