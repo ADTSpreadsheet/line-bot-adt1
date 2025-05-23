@@ -1,4 +1,5 @@
 const line = require('@line/bot-sdk');
+const { supabase } = require('../utils/supabaseClient');
 const client = new line.Client({
   channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN,
   channelSecret: process.env.LINE_CHANNEL_SECRET
