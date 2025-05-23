@@ -1,22 +1,22 @@
-const { supabase } = require('../utils/supabaseClient');
-const { client } = require('@line/bot-sdk');
+const line = require('@line/bot-sdk');
+const client = new line.Client({
+  channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN,
+  channelSecret: process.env.LINE_CHANNEL_SECRET
+});
 
 const handleSubmitLiveWorkshop = async (req, res) => {
   const { license_no, ref_code, serial_key } = req.body;
 
-  // 🔹 Step 0: ตรวจความครบของข้อมูลจากฝั่ง VBA
   if (!license_no || !ref_code || !serial_key) {
     return res.status(400).json({ error: 'Missing required fields.' });
   }
 
-  // 🔹 Step 1: ดึง first_name, last_name จาก license_holders
   const { data: licenseData, error: licenseError } = await supabase
     .from('license_holders')
     .select('first_name, last_name')
     .eq('license_no', license_no)
     .maybeSingle();
 
-  // 🔹 Step 2: ดึง line_user_id, phone_number จาก auth_sessions
   const { data: sessionData, error: sessionError } = await supabase
     .from('auth_sessions')
     .select('line_user_id, phone_number')
@@ -32,17 +32,14 @@ const handleSubmitLiveWorkshop = async (req, res) => {
   const first_name = licenseData?.first_name || '';
   const last_name = licenseData?.last_name || '';
 
-  // 🔹 Step 3: อัปเดต source ใหม่ใน auth_sessions
   const newSource = 'adt_workshop_attendee';
   await supabase
     .from('auth_sessions')
     .update({ source: newSource })
     .eq('ref_code', ref_code);
 
-  // 🔹 Step 4: สร้าง student_status
   const student_status = licenseData ? license_no : newSource;
 
-  // 🔹 Step 5: Insert ลงตาราง workshop
   const { error: insertError } = await supabase
     .from('adt_workshop_attendees')
     .insert({
@@ -58,7 +55,6 @@ const handleSubmitLiveWorkshop = async (req, res) => {
     return res.status(500).json({ error: 'Failed to save workshop registration.' });
   }
 
-  // 🔹 Step 6: ส่ง Flex เชิญเข้ากลุ่ม
   const flexMsg = {
     type: 'flex',
     altText: '✅ เข้าร่วมกลุ่มเรียน ADT Workshop',
@@ -111,8 +107,6 @@ const handleSubmitLiveWorkshop = async (req, res) => {
 
   try {
     await client.pushMessage(line_user_id, flexMsg);
-
-    // 🔹 Step 7: ส่งข้อความแจ้งเวลาเปิดคลาส
     await client.pushMessage(line_user_id, {
       type: 'text',
       text: '📌 ตอนนี้พี่ได้เข้าห้องเรียนเป็นที่เรียบร้อยแล้ว\nเดี๋ยว อ.เก่ง จะทำการเปิดห้องเรียนในเวลา 24 พ.ค. 2568 เวลา 19:00 น. นะครับ 🕖'
@@ -123,7 +117,6 @@ const handleSubmitLiveWorkshop = async (req, res) => {
     return res.status(200).json({ message: 'Registered, but failed to send LINE message.' });
   }
 
-  // 🔹 Step 8: จบงาน ส่งกลับ VBA
   return res.status(200).json({ message: 'Registration completed and Flex sent.' });
 };
 
