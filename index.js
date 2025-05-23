@@ -32,7 +32,7 @@ const logoutRoute = require('./routes/logoutRoute');
 const lineMessage3DRoutes = require('./routes/lineMessage3DRoutes');
 const replyFromAdminRoutes = require('./routes/replyFromAdminRoutes');
 const adtLiveWorkshopRoute = require('./routes/adtLiveWorkshopRoute');
-
+const adtLivePublicRoute = require('./routes/adtLivePublicRoute');
 
 // ==============================================
 const app = express();
@@ -109,6 +109,7 @@ app.use(replyFromAdminRoutes);
 
 // ส่วนที่ 13: การตรวจสอบและอนุมัติให้สมาชิกเข้าห้องเรียนออนไลน์
 app.use('/adtliveworkshop', adtLiveWorkshopRoute);
+app.use(adtLivePublicRoute);
 
 // ==============================================
 // API ENDPOINTS FOR VBA INTEGRATION (เก็บไว้เป็น fallback)
