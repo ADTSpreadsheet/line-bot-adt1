@@ -125,7 +125,7 @@ const handleSubmitLiveWorkshop = async (req, res) => {
 
     await sendFlexToUser(line_user_id, {
       title: "🎓 ยินดีต้อนรับเข้าสู่ ADTLive Workshop",
-      imageUrl: "https://wpxpukbvynxawfxcdroj.supabase.co/storage/v1/object/public/adtliveworkshop/adt-poster.jpg",
+      imageUrl: "https://wpxpukbvynxawfxcdroj.supabase.co/storage/v1/object/public/adtliveworkshop/Live02.jpg",
       zoomLink: "https://us06web.zoom.us/j/87599526391?pwd=U0wdvFqGbHaaLrlkEWbO7fRbaHqNw9.1",
       password: "ADT0531"
     });
