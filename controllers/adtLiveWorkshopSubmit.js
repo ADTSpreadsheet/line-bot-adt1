@@ -93,7 +93,6 @@ const handleSubmitLiveWorkshop = async (req, res) => {
             last_name: trimmedLastName,
             phone_number: trimmedPhone,
             ref_code: trimmedRefCode,
-            serial_key: trimmedSerialKey,
             has_adt: has_adt || null,
             student_status: student_status || 'attendees',
             adt_class_no: 'ADTLive[02]',
