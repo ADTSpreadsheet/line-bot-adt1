@@ -70,6 +70,7 @@ async function sendFlexToUser(userId, { title, imageUrl, zoomLink, password }) {
 // =====================================
 const handleSubmitLiveWorkshop = async (req, res) => {
   try {
+    // 🔸 รับข้อมูลจาก Web
     const {
       ref_code,
       serial_key,
@@ -79,12 +80,14 @@ const handleSubmitLiveWorkshop = async (req, res) => {
       student_status
     } = req.body;
 
+    // 🔸 ตรวจสอบข้อมูลครบไหม
     if (!ref_code || !serial_key || !first_name || !last_name || !phone_number) {
       return res.status(400).json({
         error: "❌ กรอกข้อมูลไม่ครบ กรุณาลองใหม่อีกครั้ง"
       });
     }
 
+    // 🔍 ตรวจสอบ Ref.Code + Serial Key
     const { data: sessionData, error: sessionError } = await supabase
       .from('auth_sessions')
       .select('line_user_id')
@@ -100,6 +103,7 @@ const handleSubmitLiveWorkshop = async (req, res) => {
 
     const line_user_id = sessionData.line_user_id;
 
+    // 📦 เตรียมข้อมูล insert
     const insertData = {
       ref_code,
       first_name,
@@ -112,6 +116,7 @@ const handleSubmitLiveWorkshop = async (req, res) => {
       registered_at: new Date().toISOString()
     };
 
+    // ✅ Step 1: Insert ลง adt_workshop_attendees
     const { error: insertError } = await supabase
       .from('adt_workshop_attendees')
       .insert([insertData]);
@@ -123,6 +128,18 @@ const handleSubmitLiveWorkshop = async (req, res) => {
       });
     }
 
+    // ✅ Step 2: อัปเดต auth_sessions ด้วยข้อมูลผู้ใช้
+    await supabase
+      .from('auth_sessions')
+      .update({
+        first_name,
+        last_name,
+        phone_number
+      })
+      .eq('ref_code', ref_code)
+      .eq('serial_key', serial_key);
+
+    // ✅ Step 3: ส่ง Flex Message ไป LINE
     await sendFlexToUser(line_user_id, {
       title: "🎓 ยินดีต้อนรับเข้าสู่ ADTLive Workshop",
       imageUrl: "https://wpxpukbvynxawfxcdroj.supabase.co/storage/v1/object/public/adtliveworkshop/Live02.jpg",
@@ -130,11 +147,13 @@ const handleSubmitLiveWorkshop = async (req, res) => {
       password: "ADT0531"
     });
 
+    // ✅ Step 4: ตอบกลับ 200
     return res.status(200).json({
       message: "✅ ลงทะเบียนเรียบร้อย และส่งลิงก์ Zoom แล้ว"
     });
 
   } catch (err) {
+    // ❌ จัดการ Error ที่ไม่ได้คาดไว้
     return res.status(500).json({
       error: "❌ เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์",
       detail: err.message
