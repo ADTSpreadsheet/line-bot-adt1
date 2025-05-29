@@ -41,13 +41,34 @@ const handleSubmitLiveWorkshop = async (req, res) => {
       });
     }
 
+    // Log input ก่อนทำงานจริง
+    console.log("📥 ข้อมูลที่รับมา:", {
+      trimmedFirstName,
+      trimmedLastName,
+      trimmedPhone,
+      trimmedRefCode,
+      trimmedSerialKey,
+      has_adt,
+      student_status,
+      line_user_id
+    });
+
     const { data: existing, error: fetchError } = await supabase
       .from('adt_workshop_attendees')
       .select('id')
       .eq('ref_code', trimmedRefCode)
       .single();
 
+    if (fetchError && fetchError.code !== 'PGRST116') {  // ignore "no rows" error
+      console.error("🔥 Fetch error:", fetchError);
+      return res.status(500).json({
+        message: "เกิดข้อผิดพลาดในการดึงข้อมูล",
+        error: fetchError.message || JSON.stringify(fetchError)
+      });
+    }
+
     let resultMessage = '';
+
     if (existing) {
       const { error: updateError } = await supabase
         .from('adt_workshop_attendees')
@@ -55,8 +76,13 @@ const handleSubmitLiveWorkshop = async (req, res) => {
         .eq('ref_code', trimmedRefCode);
 
       if (updateError) {
-        return res.status(500).json({ message: "❌ ไม่สามารถอัปเดตคลาสได้", error: updateError });
+        console.error("🔥 Update error:", updateError);
+        return res.status(500).json({
+          message: "❌ ไม่สามารถอัปเดตคลาสได้",
+          error: updateError.message || JSON.stringify(updateError)
+        });
       }
+
       resultMessage = "🎉 อัปเดตคลาสเรียนเป็น ADTLive[02] แล้ว!";
     } else {
       const { error: insertError } = await supabase
@@ -76,66 +102,78 @@ const handleSubmitLiveWorkshop = async (req, res) => {
         ]);
 
       if (insertError) {
-        return res.status(500).json({ message: "❌ ไม่สามารถลงทะเบียนใหม่ได้", error: insertError });
+        console.error("🔥 Insert error:", insertError);
+        return res.status(500).json({
+          message: "❌ ไม่สามารถลงทะเบียนใหม่ได้",
+          error: insertError.message || JSON.stringify(insertError)
+        });
       }
+
       resultMessage = "✅ ลงทะเบียนสำเร็จ ADTLive[02]!";
     }
 
     // ✅ ส่ง Flex Message ไปยัง LINE
     if (line_user_id) {
-      await client.pushMessage(line_user_id, {
-        type: "flex",
-        altText: "ลงทะเบียน ADTLive[02] สำเร็จแล้ว!",
-        contents: {
-          type: "bubble",
-          hero: {
-            type: "image",
-            url: "https://example.com/workshop-poster.jpg",
-            size: "full",
-            aspectRatio: "16:9",
-            aspectMode: "cover"
-          },
-          body: {
-            type: "box",
-            layout: "vertical",
-            contents: [
-              {
-                type: "text",
-                text: "🎉 ยินดีต้อนรับเข้าสู่ ADTLive Workshop",
-                weight: "bold",
-                size: "md",
-                wrap: true
-              },
-              {
-                type: "text",
-                text: `ห้องเรียน Zoom`,
-                margin: "md",
-                size: "sm"
-              },
-              {
-                type: "text",
-                text: `🔗 ${zoomInviteLink}`,
-                size: "xs",
-                color: "#0066CC",
-                wrap: true
-              },
-              {
-                type: "text",
-                text: `รหัสผ่าน: ${zoomPassword}`,
-                size: "xs",
-                margin: "sm"
-              }
-            ]
+      try {
+        await client.pushMessage(line_user_id, {
+          type: "flex",
+          altText: "ลงทะเบียน ADTLive[02] สำเร็จแล้ว!",
+          contents: {
+            type: "bubble",
+            hero: {
+              type: "image",
+              url: "https://example.com/workshop-poster.jpg", // เปลี่ยนเป็นลิงก์จริง
+              size: "full",
+              aspectRatio: "16:9",
+              aspectMode: "cover"
+            },
+            body: {
+              type: "box",
+              layout: "vertical",
+              contents: [
+                {
+                  type: "text",
+                  text: "🎉 ยินดีต้อนรับเข้าสู่ ADTLive Workshop",
+                  weight: "bold",
+                  size: "md",
+                  wrap: true
+                },
+                {
+                  type: "text",
+                  text: `ห้องเรียน Zoom`,
+                  margin: "md",
+                  size: "sm"
+                },
+                {
+                  type: "text",
+                  text: `🔗 ${zoomInviteLink}`,
+                  size: "xs",
+                  color: "#0066CC",
+                  wrap: true
+                },
+                {
+                  type: "text",
+                  text: `รหัสผ่าน: ${zoomPassword}`,
+                  size: "xs",
+                  margin: "sm"
+                }
+              ]
+            }
           }
-        }
-      });
+        });
+      } catch (lineErr) {
+        console.error("⚠️ LINE Push Error:", lineErr);
+      }
     }
 
     return res.status(200).json({ message: resultMessage });
 
   } catch (err) {
-    console.error('Unexpected error:', err);
-    return res.status(500).json({ message: "เกิดข้อผิดพลาดไม่ทราบสาเหตุ", error: err });
+    console.error('🔥 Unexpected error:', err);
+    return res.status(500).json({
+      message: "❌ เกิดข้อผิดพลาดไม่ทราบสาเหตุ",
+      error: err.message || JSON.stringify(err)
+    });
   }
 };
 
