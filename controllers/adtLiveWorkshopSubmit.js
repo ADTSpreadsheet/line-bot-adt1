@@ -16,7 +16,7 @@ const client = new line.Client({
 async function sendFlexToUser(userId, { title, imageUrl, zoomLink, password }) {
   const flexMessage = {
     type: 'flex',
-    altText: '📢 เข้าร่วม ADTLive Workshop',
+    altText: '📢 ยืนยันเข้าร่วม ADTLive Workshop',
     contents: {
       type: 'bubble',
       hero: {
@@ -29,6 +29,7 @@ async function sendFlexToUser(userId, { title, imageUrl, zoomLink, password }) {
       body: {
         type: 'box',
         layout: 'vertical',
+        spacing: 'md',
         contents: [
           {
             type: 'text',
@@ -39,22 +40,41 @@ async function sendFlexToUser(userId, { title, imageUrl, zoomLink, password }) {
           },
           {
             type: 'text',
-            text: '🔗 Zoom: ' + zoomLink,
+            text: '🔐 รหัสผ่าน Zoom: ' + password,
             size: 'sm',
-            wrap: true,
-            margin: 'md'
-          },
+            color: '#555555',
+            wrap: true
+          }
+        ]
+      },
+      footer: {
+        type: 'box',
+        layout: 'vertical',
+        spacing: 'sm',
+        contents: [
           {
-            type: 'text',
-            text: '🔒 รหัสผ่าน: ' + password,
-            size: 'sm',
-            wrap: true,
-            margin: 'sm'
+            type: 'button',
+            style: 'primary',
+            action: {
+              type: 'uri',
+              label: '🔗 เข้าร่วม Zoom',
+              uri: zoomLink
+            },
+            color: '#2563eb'
           }
         ]
       }
     }
   };
+
+  try {
+    await client.pushMessage(userId, flexMessage);
+    console.log("✅ ส่ง Flex แบบมีปุ่มสำเร็จ →", userId);
+  } catch (err) {
+    console.error("❌ Flex Error:", err.originalError?.response?.data || err.message);
+  }
+}
+
 
   try {
     await client.pushMessage(userId, flexMessage);
