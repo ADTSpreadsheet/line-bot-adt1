@@ -34,6 +34,12 @@ const replyFromAdminRoutes = require('./routes/replyFromAdminRoutes');
 const adtLiveWorkshopRoute = require('./routes/adtLiveWorkshopRoute');
 const adtLivePublicRoute = require('./routes/adtLivePublicRoute');
 
+const cors = require('cors');
+app.use(cors({
+  origin: 'https://adtlive-workshop-02.onrender.com' // ✅ เว็บพี่ที่ต้องการเชื่อม
+}));
+
+
 // ==============================================
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -110,6 +116,11 @@ app.use(replyFromAdminRoutes);
 // ส่วนที่ 13: การตรวจสอบและอนุมัติให้สมาชิกเข้าห้องเรียนออนไลน์
 app.use('/adtliveworkshop', adtLiveWorkshopRoute);
 app.use(adtLivePublicRoute);
+
+
+// ส่วนที่ 14: หน้าเว็บลงทะเบียน
+app.use(cors()); // เปิดกว้างหมดเลย (แต่ไม่ปลอดภัยนัก)
+
 
 // ==============================================
 // API ENDPOINTS FOR VBA INTEGRATION (เก็บไว้เป็น fallback)
