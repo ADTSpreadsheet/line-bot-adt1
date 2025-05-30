@@ -123,6 +123,4 @@ const handleFullPurchase = async (req, res) => {
   }
 };
 
-module.exports = {
-  handleFullPurchase,
-};
+module.exports = handleFullPurchase;
