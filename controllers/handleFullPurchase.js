@@ -6,6 +6,7 @@ const axios = require('axios');
 
 const handleFullPurchase = async (req, res) => {
   try {
+    console.log('🟡 เริ่ม Logic1: ตรวจสอบข้อมูล');
     // ================= Logic 1 =================
     // 1.1 ตรวจสอบข้อมูล
     const {
@@ -17,6 +18,7 @@ const handleFullPurchase = async (req, res) => {
     if (!ref_code || !first_name || !last_name || !national_id ||
         !address || !postal_code || !phone_number || !email ||
         !file_name || !file_content) {
+      console.error('❌ ข้อมูลไม่ครบ', req.body);
       return res.status(400).json({ message: 'ข้อมูลไม่ครบถ้วน' });
     }
 
@@ -28,9 +30,11 @@ const handleFullPurchase = async (req, res) => {
       .single();
 
     if (sessionError || !session) {
+      console.error('❌ ไม่พบข้อมูลใน auth_sessions:', sessionError);
       return res.status(404).json({ message: 'ไม่พบข้อมูล Ref Code ในระบบ' });
     }
 
+    console.log('✅ พบข้อมูล session:', session);
     const line_user_id = session.line_user_id;
 
     // 1.3 อัปเดตข้อมูลลง auth_sessions
@@ -97,6 +101,7 @@ const handleFullPurchase = async (req, res) => {
       return res.status(500).json({ message: 'บันทึกข้อมูลสลิปไม่สำเร็จ' });
     }
 
+    console.log('🟢 เตรียมส่งข้อมูลไป API2 (Bot2)');
     // ส่ง POST ไป API2
     const flexRes = await axios.post(
       'https://line-bot-adt2.onrender.com/flex/send-order',
@@ -105,14 +110,17 @@ const handleFullPurchase = async (req, res) => {
       }
     );
 
+    console.log('📬 ผลการส่งไป API2:', flexRes.status);
+
     if (flexRes.status === 200) {
       return res.status(200).json({ message: 'ส่งข้อมูลสำเร็จ รอการตรวจสอบจากฝ่ายขาย' });
     } else {
+      console.error('❌ การส่งไป API2 ล้มเหลว:', flexRes.data);
       return res.status(500).json({ message: 'ส่งข้อมูลไปยัง BOT2 ไม่สำเร็จ' });
     }
 
   } catch (error) {
-    console.error('Error in handleFullPurchase:', error);
+    console.error('🔥 ERROR ใน handleFullPurchase:', error);
     return res.status(500).json({ message: 'เกิดข้อผิดพลาดในระบบ' });
   }
 };
