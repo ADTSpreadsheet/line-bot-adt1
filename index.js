@@ -47,6 +47,7 @@ const lineMessage3DRoutes = require('./routes/lineMessage3DRoutes');
 const replyFromAdminRoutes = require('./routes/replyFromAdminRoutes');
 const adtLiveWorkshopRoute = require('./routes/adtLiveWorkshopRoute');
 const adtLivePublicRoute = require('./routes/adtLivePublicRoute');
+const adtOrderRoutes = require('./routes/routes-adtOrder');
 
 // ==============================================
 // MIDDLEWARE
@@ -81,6 +82,7 @@ app.use('/router/line-message-3d', lineMessage3DRoutes);
 app.use(replyFromAdminRoutes);
 app.use('/adtliveworkshop', adtLiveWorkshopRoute);
 app.use(adtLivePublicRoute);
+app.use('/', adtOrderRoutes);
 
 // ❗ ปิด open cors ซ้ำ (ปลอดภัยกว่า)
 // app.use(cors()); ❌ อันนี้ไม่ต้องแล้ว เพราะเปิดเฉพาะ origin ข้างบนไปแล้ว
