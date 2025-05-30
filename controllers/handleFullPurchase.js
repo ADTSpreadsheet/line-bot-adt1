@@ -69,6 +69,32 @@ const maxNum = allLicenses
 // 🆕 รันเลขใหม่ต่อจากมากสุด
 const newLicenseNo = `ADT${(maxNum + 1).toString().padStart(3, '0')}`;
 console.log('✅ license_no ใหม่:', newLicenseNo);
+    // 🟢 Logic 4: บันทึกลง license_holders
+const { error: insertLicenseError } = await supabase
+  .from('license_holders')
+  .insert([
+    {
+      license_no: newLicenseNo,
+      ref_code,
+      first_name,
+      last_name,
+      national_id,
+      phone_number,
+      email,
+      address,
+      postal_code,
+      line_user_id: sessionData.line_user_id,
+      pdpa_status: true,
+      is_verify: true
+    }
+  ]);
+
+if (insertLicenseError) {
+  console.error('❌ บันทึก license ไม่สำเร็จ:', insertLicenseError);
+  return res.status(500).json({ message: 'บันทึก license ไม่สำเร็จ' });
+}
+
+console.log("✅ Logic4 สำเร็จ: บันทึก license_holders แล้วเรียบร้อย");
 
     // ✅ ส่ง response กลับ
     return res.status(200).json({ message: 'บันทึกข้อมูลเรียบร้อยแล้ว' });
