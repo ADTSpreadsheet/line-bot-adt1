@@ -50,50 +50,25 @@ const handleFullPurchase = async (req, res) => {
 
     console.log("✅ อัปเดต auth_sessions สำเร็จแล้ว");
 
-    // 🔢 Logic 3: ออกหมายเลข license ใหม่
-    const { data: lastLicenseRow, error: licenseFetchError } = await supabase
-      .from('license_holders')
-      .select('license_no')
-      .order('created_at', { ascending: false })
-      .limit(1);
+    // 🟢 Logic 3: สร้าง license_no ใหม่ โดยดูเลขมากสุดจริง ๆ ในคอลัมน์ license_no
+const { data: allLicenses, error: licenseFetchError } = await supabase
+  .from('license_holders')
+  .select('license_no');
 
-    if (licenseFetchError) {
-      console.error('❌ ดึง license_no ล่าสุดไม่สำเร็จ:', licenseFetchError);
-      return res.status(500).json({ message: 'เกิดข้อผิดพลาดในการดึง license_no ล่าสุด' });
-    }
+if (licenseFetchError) {
+  console.error('❌ ดึง license_no ไม่ได้:', licenseFetchError);
+  return res.status(500).json({ message: 'ดึง license_no ล่าสุดไม่สำเร็จ' });
+}
 
-    const lastNo = lastLicenseRow?.[0]?.license_no || 'ADT000';
-    const nextNum = parseInt(lastNo.replace('ADT', ''), 10) + 1;
-    const newLicenseNo = `ADT${nextNum.toString().padStart(3, '0')}`;
+// 🔢 หาค่าตัวเลขที่มากที่สุด
+const maxNum = allLicenses
+  .map(row => parseInt(row.license_no.replace('ADT', ''), 10))
+  .filter(num => !isNaN(num))
+  .reduce((max, num) => Math.max(max, num), 0);
 
-    console.log('✅ Logic3: license_no ใหม่ =', newLicenseNo);
-
-    // ✅ บันทึก license ใหม่
-    const { error: insertLicenseError } = await supabase
-      .from('license_holders')
-      .insert([
-        {
-          license_no: newLicenseNo,
-          ref_code,
-          first_name,
-          last_name,
-          national_id,
-          phone_number,
-          email,
-          address,
-          postal_code,
-          line_user_id: sessionData.line_user_id,
-          pdpa_status: true,
-          is_verify: true
-        }
-      ]);
-
-    if (insertLicenseError) {
-      console.error('❌ บันทึก license ไม่สำเร็จ:', insertLicenseError);
-      return res.status(500).json({ message: 'เกิดข้อผิดพลาดในการบันทึก license ใหม่' });
-    }
-
-    console.log('✅ Logic3 เสร็จสิ้น: สร้าง license_no สำเร็จ');
+// 🆕 รันเลขใหม่ต่อจากมากสุด
+const newLicenseNo = `ADT${(maxNum + 1).toString().padStart(3, '0')}`;
+console.log('✅ license_no ใหม่:', newLicenseNo);
 
     // ✅ ส่ง response กลับ
     return res.status(200).json({ message: 'บันทึกข้อมูลเรียบร้อยแล้ว' });
