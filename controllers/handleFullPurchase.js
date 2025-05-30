@@ -51,7 +51,7 @@ const handleFullPurchase = async (req, res) => {
 
     console.log("✅ อัปเดต auth_sessions สำเร็จแล้ว");
 
-    // 🟢 Logic 3: สร้าง license_no ใหม่ โดยดูเลขมากสุดจริง ๆ ใน license_holders
+    // 🟢 Logic 3: สร้าง license_no ใหม่
     const { data: allLicenses, error: licenseFetchError } = await supabase
       .from('license_holders')
       .select('license_no');
@@ -98,7 +98,13 @@ const handleFullPurchase = async (req, res) => {
 
     // 🟢 Logic 5: อัปโหลดสลิปและบันทึก slip_submissions
     const slipFileName = `ADT-01-${newLicenseNo}-SLP-${ref_code}.jpg`;
-    const productSource = sessionData.product_source || 'ADT-01-5500'; // default ถ้าไม่ส่งมา
+
+    // ✅ ป้องกันค่าหลุด / undefined / null
+    let productSource = sessionData?.product_source;
+    if (!productSource || typeof productSource !== 'string') {
+      console.warn("⚠️ ไม่มี product_source หรือไม่ใช่ string → ใช้ default");
+      productSource = 'ADT-01-5500';
+    }
 
     const uploadResult = await uploadBase64ImageToSupabase({
       base64String: file_content,
@@ -112,6 +118,16 @@ const handleFullPurchase = async (req, res) => {
     }
 
     const slipImageUrl = uploadResult.publicUrl;
+
+    // ✅ Debug log ก่อน insert จริง
+    console.log("📦 Insert slip payload:", {
+      ref_code,
+      license_no: newLicenseNo,
+      product_source: productSource,
+      slip_image_url: slipImageUrl,
+      slip_path: slipFileName,
+      submissions_status: 'pending'
+    });
 
     const { error: insertSlipError } = await supabase
       .from('slip_submissions')
