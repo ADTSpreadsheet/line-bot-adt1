@@ -41,8 +41,7 @@ const handleFullPurchase = async (req, res) => {
       .update({
         first_name,
         last_name,
-        phone_number,
-        address, 
+        phone_number, 
         postal_code, 
         email,
         national_id      
