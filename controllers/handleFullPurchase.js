@@ -101,13 +101,7 @@ const handleFullPurchase = async (req, res) => {
     const flexRes = await axios.post(
       'https://line-bot-adt2.onrender.com/flex/send-order',
       {
-        ref_code,
-        first_name,
-        last_name,
-        address,
-        phone_number,
-        license_no,
-        slip_url: publicUrl
+        ref_code        
       }
     );
 
