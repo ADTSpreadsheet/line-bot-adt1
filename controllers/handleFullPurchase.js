@@ -128,9 +128,16 @@ const handleFullPurchase = async (req, res) => {
       slip_path: slipFileName,
       submissions_status: 'pending'
     });
-
+      console.log("🔎 RLS DEBUG DATA:");
+      console.log("ref_code:", ref_code);
+      console.log("license_no:", newLicenseNo);
+      console.log("product_source:", productSource);
+      console.log("slip_image_url:", slipImageUrl);
+      console.log("slip_path:", slipFileName);
+      console.log("submissions_status:", 'pending');
     const { error: insertSlipError } = await supabase
       .from('slip_submissions')
+
       .insert([
         {
           ref_code,
