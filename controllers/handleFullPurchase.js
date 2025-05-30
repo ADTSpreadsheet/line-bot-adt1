@@ -1,37 +1,24 @@
 // 👉 นำเข้า Supabase ก่อน
 const { supabase } = require('../utils/supabaseClient');
 
+// 👉 ฟังก์ชันหลัก เรียงลำดับ logic ให้สวยงามเหมือนพี่เก่งจัดโต๊ะ
 const handleFullPurchase = async (req, res) => {
   try {
     // 🟡 STEP 1: รับค่าจากฟอร์ม
-    const {
-      ref_code,
-      first_name,
-      last_name,
-      address,
-      postal_code,
-      phone_number,
-      email,
-      national_id,
-      file_name,
-      file_content
+    const {  
+      ref_code, first_name, last_name, address, postal_code, 
+      phone_number, email, national_id, file_name, file_content 
     } = req.body;
 
     // 🔍 Logic 1: ตรวจสอบว่าข้อมูลครบหรือไม่
-    if (
-      !ref_code?.trim() ||
-      !first_name?.trim() ||
-      !last_name?.trim() ||
-      !address?.trim() ||
-      !postal_code?.trim() ||
-      !phone_number?.trim()
-    ) {
+    if (!ref_code?.trim() || !first_name?.trim() || !last_name?.trim() || 
+        !address?.trim() || !postal_code?.trim() || !phone_number?.trim()) {
       console.log("❌ ข้อมูลไม่ครบ:", req.body);
       return res.status(400).json({ message: 'ข้อมูลไม่ครบ' });
     }
     console.log("✅ Logic1 ผ่าน: ข้อมูลครบแล้ว");
 
-    // 🔍 Logic 2: ตรวจสอบ ref_code ใน auth_sessions
+    // 🔍 Logic 2: ตรวจสอบว่า ref_code มีอยู่ใน auth_sessions หรือไม่
     const { data: sessionData, error: sessionError } = await supabase
       .from('auth_sessions')
       .select('*')
@@ -43,19 +30,16 @@ const handleFullPurchase = async (req, res) => {
       return res.status(404).json({ message: 'ไม่พบข้อมูลผู้ใช้จาก Ref.Code' });
     }
 
-    console.log("✅ Logic2 ผ่าน: พบ session", sessionData);
-
-    // ✅ อัปเดตข้อมูลจากฟอร์มลงใน auth_sessions
+    // 🟢 อัปเดตข้อมูลจากฟอร์มลงใน auth_sessions
     const { error: updateError } = await supabase
       .from('auth_sessions')
       .update({
         first_name,
         last_name,
-        phone_number,
-        postal_code,
+        phone_number, 
+        postal_code, 
         email,
-        national_id,
-        updated_at: new Date().toISOString()
+        national_id      
       })
       .eq('ref_code', ref_code);
 
@@ -66,7 +50,7 @@ const handleFullPurchase = async (req, res) => {
 
     console.log("✅ อัปเดต auth_sessions สำเร็จแล้ว");
 
-    // 🔁 Logic 3: ออก license_no ใหม่
+    // 🔢 Logic 3: ออกหมายเลข license ใหม่
     const { data: lastLicenseRow, error: licenseFetchError } = await supabase
       .from('license_holders')
       .select('license_no')
@@ -84,7 +68,7 @@ const handleFullPurchase = async (req, res) => {
 
     console.log('✅ Logic3: license_no ใหม่ =', newLicenseNo);
 
-    // 🧾 บันทึก license ใหม่
+    // ✅ บันทึก license ใหม่
     const { error: insertLicenseError } = await supabase
       .from('license_holders')
       .insert([
@@ -109,13 +93,10 @@ const handleFullPurchase = async (req, res) => {
       return res.status(500).json({ message: 'เกิดข้อผิดพลาดในการบันทึก license ใหม่' });
     }
 
-    console.log('✅ Logic3 เสร็จสิ้น: บันทึก license_holders สำเร็จ');
+    console.log('✅ Logic3 เสร็จสิ้น: สร้าง license_no สำเร็จ');
 
-    // ✅ ตอบกลับให้เว็บรู้ว่าทำสำเร็จ
-    return res.status(200).json({
-      message: 'บันทึกข้อมูลสำเร็จ (Logic 1 + 2 + 3)',
-      license_no: newLicenseNo
-    });
+    // ✅ ส่ง response กลับ
+    return res.status(200).json({ message: 'บันทึกข้อมูลเรียบร้อยแล้ว' });
 
   } catch (err) {
     console.error("❌ ERROR ภาพรวม:", err);
