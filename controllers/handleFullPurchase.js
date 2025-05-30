@@ -5,7 +5,8 @@ const { supabase } = require('../utils/supabaseClient');
 const handleFullPurchase = async (req, res) => {
   try {
     // 🟡 STEP 1: รับค่าจากฟอร์ม
-    const { ref_code, serial_key, first_name, last_name, phone_number, slip_image_url } = req.body;
+    const {  ref_code, first_name, last_name, address, postal_code, phone_number, email,
+    national_id, file_name, file_content } = req.body;
 
     // 🔍 Logic 1: ตรวจสอบว่าข้อมูลครบหรือไม่
     if (
