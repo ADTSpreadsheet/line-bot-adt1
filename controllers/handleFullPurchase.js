@@ -8,9 +8,16 @@ const handleFullPurchase = async (req, res) => {
     const { ref_code, serial_key, first_name, last_name, phone_number, slip_image_url } = req.body;
 
     // 🔍 Logic 1: ตรวจสอบว่าข้อมูลครบหรือไม่
-    if (!ref_code || !serial_key || !first_name || !last_name || !phone_number || !slip_image_url) {
+    if (
+      !ref_code?.trim() ||
+      !first_name?.trim() ||
+      !last_name?.trim() ||
+      !address?.trim() ||
+      !postal_code?.trim() ||
+      !phone_number?.trim()
+    ) {
       console.log("❌ ข้อมูลไม่ครบ:", req.body);
-      return res.status(400).json({ message: 'ข้อมูลไม่ครบ กรุณากรอกให้ครบทุกช่อง' });
+      return res.status(400).json({ message: 'ข้อมูลไม่ครบ' });
     }
     console.log("✅ Logic1 ผ่าน: ข้อมูลครบแล้ว");
 
