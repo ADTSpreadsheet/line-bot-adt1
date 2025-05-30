@@ -42,9 +42,10 @@ const handleFullPurchase = async (req, res) => {
         first_name,
         last_name,
         phone_number,
-        serial_key,
-        source: 'adt_purchase',
-        updated_at: new Date().toISOString()
+        address, 
+        postal_code, 
+        email,
+        national_id      
       })
       .eq('ref_code', ref_code);
 
