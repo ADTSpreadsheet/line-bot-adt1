@@ -1,128 +1,102 @@
-
 const { supabase } = require('../utils/supabaseClient');
-const { uploadBase64ToSupabase } = require('../services/uploadService');
-const { getNextLicenseNumber } = require('../services/licenseNumberService');
 const axios = require('axios');
+const { getNextLicenseNumber } = require('../services/licenseService');
 
 const handleFullPurchase = async (req, res) => {
+  console.log("🟡 เริ่ม Logic1: ตรวจสอบข้อมูลที่รับจากฟอร์ม");
+
+  const { first_name, last_name, national_id, phone_number, ref_code, product_source } = req.body;
+
+  if (!first_name || !last_name || !national_id || !phone_number || !ref_code || !product_source) {
+    console.log("❌ ข้อมูลไม่ครบ");
+    return res.status(400).json({ message: 'กรอกข้อมูลไม่ครบ กรุณาลองใหม่อีกครั้ง' });
+  }
+
+  // 🔵 Logic 2: อัปเดตข้อมูลใน auth_sessions
+  console.log("🟡 เริ่ม Logic2: ตรวจสอบ ref_code ใน auth_sessions");
+  const { data: sessionData, error: sessionError } = await supabase
+    .from('auth_sessions')
+    .select('*')
+    .eq('ref_code', ref_code)
+    .single();
+
+  if (sessionError || !sessionData) {
+    console.log("❌ ไม่พบข้อมูล Ref.Code:", ref_code);
+    return res.status(404).json({ message: 'ไม่พบ Ref.Code ในระบบ' });
+  }
+
+  const line_user_id = sessionData.line_user_id;
+
+  const { error: updateError } = await supabase
+    .from('auth_sessions')
+    .update({
+      first_name,
+      last_name,
+      national_id,
+      phone_number,
+      source: 'full_customer',
+      pdpa_status: true
+    })
+    .eq('ref_code', ref_code);
+
+  if (updateError) {
+    console.log("❌ อัปเดตข้อมูลใน auth_sessions ไม่สำเร็จ");
+    return res.status(500).json({ message: 'เกิดข้อผิดพลาดในการอัปเดตข้อมูลลูกค้า' });
+  }
+
+  // 🟢 Logic 3: สร้าง license ใหม่ใน license_holders
+  console.log("🟡 เริ่ม Logic3: สร้าง license_no ใหม่");
+
+  const license_no = await getNextLicenseNumber();
+
+  const { error: insertLicenseError } = await supabase
+    .from('license_holders')
+    .insert([{
+      license_no,
+      ref_code,
+      national_id,
+      phone_number,
+      first_name,
+      last_name,
+      line_user_id,
+      product_source,
+      is_verify: true,
+      pdpa_status: true
+    }]);
+
+  if (insertLicenseError) {
+    console.log("❌ เกิดข้อผิดพลาดในการเพิ่ม license:", insertLicenseError);
+    return res.status(500).json({ message: 'เพิ่ม license ไม่สำเร็จ' });
+  }
+
+  // 🟣 Logic 4: เพิ่มข้อมูลใน slip_submissions
+  console.log("🟡 เริ่ม Logic4: บันทึกข้อมูล slip_submissions");
+
+  const { error: insertSlipError } = await supabase
+    .from('slip_submissions')
+    .insert([{
+      license_no,
+      product_source,
+      submissions_status: 'pending'
+    }]);
+
+  if (insertSlipError) {
+    console.log("❌ บันทึก slip ไม่สำเร็จ");
+    return res.status(500).json({ message: 'บันทึก slip ไม่สำเร็จ' });
+  }
+
+  // 🚀 ส่ง POST ไปยัง API2 เพื่อให้ Bot2 ส่ง Flex
+  console.log("🟢 ส่ง POST ไปยัง API2 เพื่อให้ Bot ส่ง Flex");
   try {
-    console.log('🟡 เริ่ม Logic1: ตรวจสอบข้อมูล');
-    // ================= Logic 1 =================
-    // 1.1 ตรวจสอบข้อมูล
-    const {
-      ref_code, first_name, last_name, national_id,
-      address, postal_code, phone_number, email,
-      file_name, file_content
-    } = req.body;
-
-    if (!ref_code || !first_name || !last_name || !national_id ||
-        !address || !postal_code || !phone_number || !email ||
-        !file_name || !file_content) {
-      console.error('❌ ข้อมูลไม่ครบ', req.body);
-      return res.status(400).json({ message: 'ข้อมูลไม่ครบถ้วน' });
-    }
-
-    // 1.2 ตรวจสอบ ref_code จาก auth_sessions
-    const { data: session, error: sessionError } = await supabase
-      .from('auth_sessions')
-      .select('*')
-      .eq('ref_code', ref_code)
-      .single();
-
-    if (sessionError || !session) {
-      console.error('❌ ไม่พบข้อมูลใน auth_sessions:', sessionError);
-      return res.status(404).json({ message: 'ไม่พบข้อมูล Ref Code ในระบบ' });
-    }
-
-    console.log('✅ พบข้อมูล session:', session);
-    const line_user_id = session.line_user_id;
-
-    // 1.3 อัปเดตข้อมูลลง auth_sessions
-    const { error: updateError } = await supabase
-      .from('auth_sessions')
-      .update({
-        first_name, last_name, national_id,
-        address, postal_code, phone_number, email,
-        pdpa_status: 'TRUE'
-      })
-      .eq('ref_code', ref_code);
-
-    if (updateError) {
-      return res.status(500).json({ message: 'เกิดข้อผิดพลาดในการอัปเดตข้อมูลลูกค้า' });
-    }
-
-    // ================ Logic 2 ================
-    // 2.1 สร้าง license_no ใหม่
-    const license_no = await getNextLicenseNumber();
-
-    const { error: insertLicenseError } = await supabase
-      .from('license_holders')
-      .insert([{
-        license_no,
-        ref_code,
-        line_user_id,
-        first_name,
-        last_name,
-        national_id,
-        address,
-        postal_code,
-        phone_number,
-        email,
-        is_verify: true,
-        pdpa_status: 'TRUE'
-      }]);
-
-    if (insertLicenseError) {
-      return res.status(500).json({ message: 'บันทึก license ไม่สำเร็จ' });
-    }
-
-    // ================ Logic 3 ================
-    // 3.1 อัปโหลดรูปภาพ
-    const publicUrl = await uploadBase64ToSupabase(file_content, `${license_no}-${ref_code}`);
-    const product_source = 'ADT01';
-    const slip_ref = `SLIP-${Date.now()}`;
-
-    const { error: insertSlipError } = await supabase
-      .from('slip_submissions')
-      .insert([{
-        slip_ref,
-        first_name,
-        last_name,
-        national_id,
-        phone_number,
-        product_source,
-        slip_image_url: publicUrl,
-        submissions_status: 'pending',
-        license_no,
-        slip_path: file_name
-      }]);
-
-    if (insertSlipError) {
-      return res.status(500).json({ message: 'บันทึกข้อมูลสลิปไม่สำเร็จ' });
-    }
-
-    console.log('🟢 เตรียมส่งข้อมูลไป API2 (Bot2)');
-    // ส่ง POST ไป API2
-    const flexRes = await axios.post(
-      'https://line-bot-adt2.onrender.com/flex/send-order',
-      {
-        ref_code        
-      }
-    );
-
-    console.log('📬 ผลการส่งไป API2:', flexRes.status);
-
-    if (flexRes.status === 200) {
-      return res.status(200).json({ message: 'ส่งข้อมูลสำเร็จ รอการตรวจสอบจากฝ่ายขาย' });
-    } else {
-      console.error('❌ การส่งไป API2 ล้มเหลว:', flexRes.data);
-      return res.status(500).json({ message: 'ส่งข้อมูลไปยัง BOT2 ไม่สำเร็จ' });
-    }
-
-  } catch (error) {
-    console.error('🔥 ERROR ใน handleFullPurchase:', error);
-    return res.status(500).json({ message: 'เกิดข้อผิดพลาดในระบบ' });
+    await axios.post('https://line-bot-adt2.onrender.com/flex/send-order', {
+      ref_code
+    });
+    console.log("✅ ส่งไปยัง API2 สำเร็จ");
+    return res.status(200).json({ message: 'ระบบบันทึกข้อมูลสำเร็จแล้ว และส่งแจ้งเตือนไปยังทีมงานแล้ว' });
+  } catch (api2Error) {
+    console.log("❌ ส่ง POST ไป API2 ไม่สำเร็จ:", api2Error.message);
+    return res.status(500).json({ message: 'บันทึกข้อมูลสำเร็จ แต่ไม่สามารถแจ้งเตือนไปยังทีมงานได้' });
   }
 };
 
-module.exports = handleFullPurchase;
+module.exports = { handleFullPurchase };
