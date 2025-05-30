@@ -1,7 +1,8 @@
-// 👉 นำเข้า Supabase ก่อน
+// 👉 นำเข้า Supabase และฟังก์ชันอัปโหลดภาพ
 const { supabase } = require('../utils/supabaseClient');
+const { uploadBase64ImageToSupabase } = require('../utils/uploadSlipToSupabase');
 
-// 👉 ฟังก์ชันหลัก เรียงลำดับ logic ให้สวยงามเหมือนพี่เก่งจัดโต๊ะ
+// 👉 ฟังก์ชันหลัก
 const handleFullPurchase = async (req, res) => {
   try {
     // 🟡 STEP 1: รับค่าจากฟอร์ม
@@ -50,54 +51,90 @@ const handleFullPurchase = async (req, res) => {
 
     console.log("✅ อัปเดต auth_sessions สำเร็จแล้ว");
 
-    // 🟢 Logic 3: สร้าง license_no ใหม่ โดยดูเลขมากสุดจริง ๆ ในคอลัมน์ license_no
-const { data: allLicenses, error: licenseFetchError } = await supabase
-  .from('license_holders')
-  .select('license_no');
+    // 🟢 Logic 3: สร้าง license_no ใหม่ โดยดูเลขมากสุดจริง ๆ ใน license_holders
+    const { data: allLicenses, error: licenseFetchError } = await supabase
+      .from('license_holders')
+      .select('license_no');
 
-if (licenseFetchError) {
-  console.error('❌ ดึง license_no ไม่ได้:', licenseFetchError);
-  return res.status(500).json({ message: 'ดึง license_no ล่าสุดไม่สำเร็จ' });
-}
-
-// 🔢 หาค่าตัวเลขที่มากที่สุด
-const maxNum = allLicenses
-  .map(row => parseInt(row.license_no.replace('ADT', ''), 10))
-  .filter(num => !isNaN(num))
-  .reduce((max, num) => Math.max(max, num), 0);
-
-// 🆕 รันเลขใหม่ต่อจากมากสุด
-const newLicenseNo = `ADT${(maxNum + 1).toString().padStart(3, '0')}`;
-console.log('✅ license_no ใหม่:', newLicenseNo);
-    // 🟢 Logic 4: บันทึกลง license_holders
-const { error: insertLicenseError } = await supabase
-  .from('license_holders')
-  .insert([
-    {
-      license_no: newLicenseNo,
-      ref_code,
-      first_name,
-      last_name,
-      national_id,
-      phone_number,
-      email,
-      address,
-      postal_code,
-      line_user_id: sessionData.line_user_id,
-      pdpa_status: true,
-      is_verify: true
+    if (licenseFetchError) {
+      console.error('❌ ดึง license_no ไม่ได้:', licenseFetchError);
+      return res.status(500).json({ message: 'ดึง license_no ล่าสุดไม่สำเร็จ' });
     }
-  ]);
 
-if (insertLicenseError) {
-  console.error('❌ บันทึก license ไม่สำเร็จ:', insertLicenseError);
-  return res.status(500).json({ message: 'บันทึก license ไม่สำเร็จ' });
-}
+    const maxNum = allLicenses
+      .map(row => parseInt(row.license_no.replace('ADT', ''), 10))
+      .filter(num => !isNaN(num))
+      .reduce((max, num) => Math.max(max, num), 0);
 
-console.log("✅ Logic4 สำเร็จ: บันทึก license_holders แล้วเรียบร้อย");
+    const newLicenseNo = `ADT${(maxNum + 1).toString().padStart(3, '0')}`;
+    console.log('✅ license_no ใหม่:', newLicenseNo);
 
-    // ✅ ส่ง response กลับ
-    return res.status(200).json({ message: 'บันทึกข้อมูลเรียบร้อยแล้ว' });
+    // 🟢 Logic 4: บันทึกลง license_holders
+    const { error: insertLicenseError } = await supabase
+      .from('license_holders')
+      .insert([
+        {
+          license_no: newLicenseNo,
+          ref_code,
+          first_name,
+          last_name,
+          national_id,
+          phone_number,
+          email,
+          address,
+          postal_code,
+          line_user_id: sessionData.line_user_id,
+          pdpa_status: true,
+          is_verify: true
+        }
+      ]);
+
+    if (insertLicenseError) {
+      console.error('❌ บันทึก license ไม่สำเร็จ:', insertLicenseError);
+      return res.status(500).json({ message: 'บันทึก license ไม่สำเร็จ' });
+    }
+
+    console.log("✅ Logic4 สำเร็จ: บันทึก license_holders แล้วเรียบร้อย");
+
+    // 🟢 Logic 5: อัปโหลดสลิปและบันทึก slip_submissions
+    const slipFileName = `ADT-01-${newLicenseNo}-SLP-${ref_code}.jpg`;
+    const productSource = sessionData.product_source || 'ADT-01-5500'; // default ถ้าไม่ส่งมา
+
+    const uploadResult = await uploadBase64ImageToSupabase({
+      base64String: file_content,
+      fileName: slipFileName,
+      bucket: 'adtpayslip'
+    });
+
+    if (!uploadResult.success) {
+      console.error("❌ Upload slip fail:", uploadResult.error);
+      return res.status(500).json({ message: 'อัปโหลดสลิปไม่สำเร็จ' });
+    }
+
+    const slipImageUrl = uploadResult.publicUrl;
+
+    const { error: insertSlipError } = await supabase
+      .from('slip_submissions')
+      .insert([
+        {
+          ref_code,
+          license_no: newLicenseNo,
+          product_source: productSource,
+          slip_image_url: slipImageUrl,
+          slip_path: slipFileName,
+          submissions_status: 'pending'
+        }
+      ]);
+
+    if (insertSlipError) {
+      console.error('❌ Insert slip data fail:', insertSlipError);
+      return res.status(500).json({ message: 'บันทึกข้อมูลสลิปไม่สำเร็จ' });
+    }
+
+    console.log("✅ Logic5 สำเร็จ: บันทึกสลิปเรียบร้อยแล้ว");
+
+    // 🎉 ส่งผลลัพธ์กลับ
+    return res.status(200).json({ message: 'บันทึกข้อมูลสำเร็จแล้ว', license_no: newLicenseNo });
 
   } catch (err) {
     console.error("❌ ERROR ภาพรวม:", err);
