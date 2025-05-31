@@ -109,20 +109,7 @@ const handleFullPurchase = async (req, res) => {
       productSource = 'ADT-01-5500';
     }
 
-    console.log("📥 กำลัง insert ข้อมูล slip_submissions:", {
-      ref_code,
-      first_name,
-      last_name,
-      national_id,
-      phone_number,
-      license_no: newLicenseNo,
-      product_source: productSource
-    });
-
-    // ✅ insert ข้อมูล slip (ข้อมูลพื้นฐาน) - ย้ายมาหลังอัพโหลดไฟล์
-    // เพื่อป้องกันข้อมูลซ้ำถ้าอัพโหลดไฟล์ไม่สำเร็จ
-
-    // ✅ ตั้งชื่อและอัปโหลด (ย้ายมาก่อน insert slip)
+    // ✅ ตั้งชื่อและอัปโหลดไฟล์ก่อน
     const slipFileName = `ADT-01-${newLicenseNo}-SLP-${ref_code}.jpg`;
     console.log("📸 กำลังอัปโหลดไฟล์สลิป:", slipFileName);
 
@@ -152,7 +139,7 @@ const handleFullPurchase = async (req, res) => {
     const slipImageUrl = uploadResult.publicUrl;
     console.log("✅ ได้ public URL:", slipImageUrl);
 
-    // ✅ ตอนนี้ค่อย insert slip_submissions
+    // ✅ ตอนนี้ค่อย insert slip_submissions (ลบ slip_path ออก)
     const { data: insertedSlip, error: slipInsertError } = await supabase
       .from('slip_submissions')
       .insert([
@@ -165,7 +152,6 @@ const handleFullPurchase = async (req, res) => {
           license_no: newLicenseNo,
           product_source: productSource,
           slip_image_url: slipImageUrl,
-          slip_path: slipFileName,
           submissions_status: 'pending'
         }
       ])
