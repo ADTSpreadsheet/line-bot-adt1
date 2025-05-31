@@ -97,27 +97,13 @@ const handleFullPurchase = async (req, res) => {
     console.log("✅ Logic4 สำเร็จ: บันทึก license_holders แล้วเรียบร้อย");
 
     // ✅ เตรียม productSource
-let productSource = sessionData?.product_source;
-if (!productSource || typeof productSource !== 'string') {
-  console.warn("⚠️ ไม่มี product_source หรือไม่ใช่ string → ใช้ default");
-  productSource = 'ADT-01-5500';
-}
-  
-console.log("📥 กำลัง insert ข้อมูล slip_submissions:", {
-  ref_code,
-  first_name,
-  last_name,
-  national_id,
-  phone_number,
-  license_no: newLicenseNo,
-  product_source: productSource
-});
+    let productSource = sessionData?.product_source;
+    if (!productSource || typeof productSource !== 'string') {
+      console.warn("⚠️ ไม่มี product_source หรือไม่ใช่ string → ใช้ default");
+      productSource = 'ADT-01-5500';
+    }
 
-// ✅ insert ข้อมูล slip (ข้อมูลพื้นฐาน พร้อมเช็ก error)
-const { data: insertedSlip, error: slipInsertError } = await supabase
-  .from('slip_submissions')
-  .insert([
-    {
+    console.log("📥 กำลัง insert ข้อมูล slip_submissions:", {
       ref_code,
       first_name,
       last_name,
@@ -125,48 +111,68 @@ const { data: insertedSlip, error: slipInsertError } = await supabase
       phone_number,
       license_no: newLicenseNo,
       product_source: productSource
+    });
+
+    // ✅ insert ข้อมูล slip (ข้อมูลพื้นฐาน)
+    const { data: insertedSlip, error: slipInsertError } = await supabase
+      .from('slip_submissions')
+      .insert([
+        {
+          ref_code,
+          first_name,
+          last_name,
+          national_id,
+          phone_number,
+          license_no: newLicenseNo,
+          product_source: productSource
+        }
+      ])
+      .select();
+
+    if (slipInsertError) {
+      console.error("❌ Insert slip_submissions failed:", slipInsertError);
+      return res.status(500).json({ message: 'บันทึกข้อมูล slip ไม่สำเร็จ' });
     }
-  ])
-  .select(); // ต้องมี select() เพื่อให้ Supabase ตอบกลับข้อมูลแถวที่ insert
 
-if (slipInsertError) {
-  console.error("❌ Insert slip_submissions failed:", slipInsertError);
-  return res.status(500).json({ message: 'บันทึกข้อมูล slip ไม่สำเร็จ' });
-}
+    console.log("✅ insert slip_submissions สำเร็จ:", insertedSlip[0]);
 
-if (!insertedSlip || insertedSlip.length === 0) {
-  console.warn("⚠️ Insert สำเร็จแต่ Supabase ไม่คืนแถวกลับมา (เช็ก schema ด้วยนะ)");
-} else {
-  console.log("✅ insert slip_submissions สำเร็จ:", insertedSlip[0]);
-}
+    // ✅ ตั้งชื่อและอัปโหลด
+    const slipFileName = `ADT-01-${newLicenseNo}-SLP-${ref_code}.jpg`;
+    console.log("📸 กำลังอัปโหลดไฟล์สลิป:", slipFileName);
 
+    const uploadResult = await uploadBase64ImageToSupabase({
+      base64String: file_content,
+      fileName: slipFileName,
+      bucket: 'adtpayslip'
+    });
 
-// ✅ ตั้งชื่อและอัปโหลด
-const slipFileName = `ADT-01-${newLicenseNo}-SLP-${ref_code}.jpg`;
+    if (!uploadResult.success) {
+      console.error("❌ อัปโหลดสลิปไม่สำเร็จ:", uploadResult.error);
+      return res.status(500).json({ message: 'อัปโหลดสลิปไม่สำเร็จ' });
+    }
 
-const uploadResult = await uploadBase64ImageToSupabase({
-  base64String: file_content,
-  fileName: slipFileName,
-  bucket: 'adtpayslip'
-});
+    const slipImageUrl = uploadResult.publicUrl;
+    console.log("✅ ได้ public URL:", slipImageUrl);
 
-if (!uploadResult.success) {
-  return res.status(500).json({ message: 'อัปโหลดสลิปไม่สำเร็จ' });
-}
+    // ✅ อัปเดต slip_submissions
+    const { error: updateSlipError } = await supabase.from('slip_submissions').update({
+      slip_image_url: slipImageUrl,
+      slip_path: slipFileName,
+      submissions_status: 'pending'
+    }).eq('ref_code', ref_code);
 
-const slipImageUrl = uploadResult.publicUrl;
+    if (updateSlipError) {
+      console.error("❌ อัปเดตข้อมูลสลิปไม่สำเร็จ:", updateSlipError);
+      return res.status(500).json({ message: 'อัปเดตข้อมูลสลิปไม่สำเร็จ' });
+    }
 
-// ✅ อัปเดต slip_submissions
-await supabase.from('slip_submissions').update({
-  slip_image_url: slipImageUrl,
-  slip_path: slipFileName,
-  submissions_status: 'pending'
-}).eq('ref_code', ref_code);
-
-
+    console.log("✅ อัปเดตข้อมูลสลิปในตารางเรียบร้อยแล้ว");
 
     // 🎉 ส่งผลลัพธ์กลับ
-    return res.status(200).json({ message: 'บันทึกข้อมูลสำเร็จแล้ว', license_no: newLicenseNo });
+    return res.status(200).json({ 
+      message: 'บันทึกข้อมูลสำเร็จแล้ว', 
+      license_no: newLicenseNo 
+    });
 
   } catch (err) {
     console.error("❌ ERROR ภาพรวม:", err);
