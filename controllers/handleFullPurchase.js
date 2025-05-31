@@ -11,21 +11,17 @@ const handleFullPurchase = async (req, res) => {
       phone_number, email, national_id, file_name, file_content 
     } = req.body;
 
-    // 🔍 Logic 1: ตรวจสอบว่าข้อมูลครบหรือไม่
+    // 🔍 Logic 1: ตรวจสอบข้อมูลครบ
     if (!ref_code?.trim() || !first_name?.trim() || !last_name?.trim() || 
         !address?.trim() || !postal_code?.trim() || !phone_number?.trim()) {
-      console.log("❌ ข้อมูลไม่ครบ:", req.body);
       return res.status(400).json({ message: 'ข้อมูลไม่ครบ' });
     }
-    console.log("✅ Logic1 ผ่าน: ข้อมูลครบแล้ว");
 
-    // 🔍 เพิ่มการตรวจสอบไฟล์
     if (!file_content || !file_content.trim()) {
-      console.log("❌ ไม่มีไฟล์สลิปอัพโหลด");
       return res.status(400).json({ message: 'กรุณาอัพโหลดสลิปการโอนเงิน' });
     }
 
-    // 🔍 Logic 2: ตรวจสอบว่า ref_code มีอยู่ใน auth_sessions หรือไม่
+    // 🔍 Logic 2: ตรวจสอบ ref_code
     const { data: sessionData, error: sessionError } = await supabase
       .from('auth_sessions')
       .select('*')
@@ -33,11 +29,10 @@ const handleFullPurchase = async (req, res) => {
       .single();
 
     if (sessionError || !sessionData) {
-      console.log("❌ ไม่พบ ref_code ใน auth_sessions:", ref_code, sessionError);
       return res.status(404).json({ message: 'ไม่พบข้อมูลผู้ใช้จาก Ref.Code' });
     }
 
-    // 🟢 อัปเดตข้อมูลจากฟอร์มลงใน auth_sessions
+    // 🟢 อัปเดต auth_sessions
     const { error: updateError } = await supabase
       .from('auth_sessions')
       .update({
@@ -55,8 +50,6 @@ const handleFullPurchase = async (req, res) => {
       return res.status(500).json({ message: 'อัปเดตข้อมูลผู้ใช้ไม่สำเร็จ' });
     }
 
-    console.log("✅ อัปเดต auth_sessions สำเร็จแล้ว");
-
     // 🟢 Logic 3: สร้าง license_no ใหม่
     const { data: allLicenses, error: licenseFetchError } = await supabase
       .from('license_holders')
@@ -73,9 +66,9 @@ const handleFullPurchase = async (req, res) => {
       .reduce((max, num) => Math.max(max, num), 0);
 
     const newLicenseNo = `ADT${(maxNum + 1).toString().padStart(3, '0')}`;
-    console.log('✅ license_no ใหม่:', newLicenseNo);
+    console.log('✅ License No ใหม่:', newLicenseNo);
 
-    // 🟢 Logic 4: บันทึกลง license_holders
+    // 🟢 Logic 4: บันทึก license_holders
     const { error: insertLicenseError } = await supabase
       .from('license_holders')
       .insert([
@@ -100,24 +93,18 @@ const handleFullPurchase = async (req, res) => {
       return res.status(500).json({ message: 'บันทึก license ไม่สำเร็จ' });
     }
 
-    console.log("✅ Logic4 สำเร็จ: บันทึก license_holders แล้วเรียบร้อย");
-
     // ✅ เตรียม productSource
     let productSource = sessionData?.product_source;
     if (!productSource || typeof productSource !== 'string') {
-      console.warn("⚠️ ไม่มี product_source หรือไม่ใช่ string → ใช้ default");
       productSource = 'ADT-01-5500';
     }
 
-    // ✅ ตั้งชื่อและอัปโหลดไฟล์ก่อน
+    // ✅ อัปโหลดไฟล์
     const slipFileName = `ADT-01-${newLicenseNo}-SLP-${ref_code}.jpg`;
-    console.log("📸 กำลังอัปโหลดไฟล์สลิป:", slipFileName);
 
-    // เพิ่มการตรวจสอบ base64 format
     let processedFileContent = file_content;
     if (!file_content.startsWith('data:image/')) {
       processedFileContent = `data:image/jpeg;base64,${file_content}`;
-      console.log("✅ เพิ่ม data URL prefix ให้ base64 string");
     }
 
     const uploadResult = await uploadBase64ImageToSupabase({
@@ -128,7 +115,6 @@ const handleFullPurchase = async (req, res) => {
 
     if (!uploadResult.success) {
       console.error("❌ อัปโหลดสลิปไม่สำเร็จ:", uploadResult.error);
-      // ถ้าอัพโหลดไม่สำเร็จ ให้ลบ license_holder ที่สร้างไปแล้ว
       await supabase.from('license_holders').delete().eq('license_no', newLicenseNo);
       return res.status(500).json({ 
         message: 'อัปโหลดสลิปไม่สำเร็จ', 
@@ -137,9 +123,8 @@ const handleFullPurchase = async (req, res) => {
     }
 
     const slipImageUrl = uploadResult.publicUrl;
-    console.log("✅ ได้ public URL:", slipImageUrl);
 
-    // ✅ ตอนนี้ค่อย insert slip_submissions (ลบ slip_path ออก)
+    // ✅ บันทึก slip_submissions
     const { data: insertedSlip, error: slipInsertError } = await supabase
       .from('slip_submissions')
       .insert([
@@ -159,15 +144,33 @@ const handleFullPurchase = async (req, res) => {
 
     if (slipInsertError) {
       console.error("❌ Insert slip_submissions failed:", slipInsertError);
-      // ถ้า insert ไม่สำเร็จ ให้ลบไฟล์ที่อัพโหลดไปแล้ว
       await supabase.storage.from('adtpayslip').remove([slipFileName]);
       await supabase.from('license_holders').delete().eq('license_no', newLicenseNo);
       return res.status(500).json({ message: 'บันทึกข้อมูล slip ไม่สำเร็จ' });
     }
 
-    console.log("✅ insert slip_submissions สำเร็จ:", insertedSlip[0]);
+    // 🚀 Logic 5: ส่งสัญญาณไป API2
+    try {
+      const api2Payload = { ref_code, license_no: newLicenseNo };
+
+      const api2Response = await fetch(process.env.API2_WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(api2Payload)
+      });
+
+      if (!api2Response.ok) {
+        console.warn("⚠️ การแจ้ง Admin ล้มเหลว แต่ข้อมูลบันทึกสำเร็จแล้ว");
+      } else {
+        console.log("✅ แจ้ง Admin สำเร็จ");
+      }
+
+    } catch (api2Error) {
+      console.warn("⚠️ การแจ้ง Admin ล้มเหลว แต่ข้อมูลบันทึกสำเร็จแล้ว");
+    }
 
     // 🎉 ส่งผลลัพธ์กลับ
+    console.log("🎉 บันทึกข้อมูลสำเร็จ - License:", newLicenseNo);
     return res.status(200).json({ 
       message: 'บันทึกข้อมูลสำเร็จแล้ว', 
       license_no: newLicenseNo,
@@ -175,7 +178,7 @@ const handleFullPurchase = async (req, res) => {
     });
 
   } catch (err) {
-    console.error("❌ ERROR ภาพรวม:", err);
+    console.error("❌ ERROR:", err);
     return res.status(500).json({ 
       message: 'เกิดข้อผิดพลาดในระบบ',
       error: err.message 
