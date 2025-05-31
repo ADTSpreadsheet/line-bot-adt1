@@ -142,6 +142,10 @@ const handleFullPurchase = async (req, res) => {
       .insert([
         {
           ref_code,
+          first_name,
+          last_name,
+          phone_number,
+          national_id,
           license_no: newLicenseNo,
           product_source: productSource,
           slip_image_url: slipImageUrl,
