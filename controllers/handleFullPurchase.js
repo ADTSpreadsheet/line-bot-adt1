@@ -113,19 +113,33 @@ console.log("📥 กำลัง insert ข้อมูล slip_submissions:", 
   product_source: productSource
 });
 
-// ✅ insert ข้อมูล slip (ข้อมูลพื้นฐาน)
-await supabase.from('slip_submissions').insert([
-  {
-    ref_code,
-    first_name,
-    last_name,
-    national_id,
-    phone_number,
-    license_no: newLicenseNo,
-    product_source: productSource
-  }
-]);
-console.log("✅ insert slip_submissions สำเร็จ");
+// ✅ insert ข้อมูล slip (ข้อมูลพื้นฐาน พร้อมเช็ก error)
+const { data: insertedSlip, error: slipInsertError } = await supabase
+  .from('slip_submissions')
+  .insert([
+    {
+      ref_code,
+      first_name,
+      last_name,
+      national_id,
+      phone_number,
+      license_no: newLicenseNo,
+      product_source: productSource
+    }
+  ])
+  .select(); // ต้องมี select() เพื่อให้ Supabase ตอบกลับข้อมูลแถวที่ insert
+
+if (slipInsertError) {
+  console.error("❌ Insert slip_submissions failed:", slipInsertError);
+  return res.status(500).json({ message: 'บันทึกข้อมูล slip ไม่สำเร็จ' });
+}
+
+if (!insertedSlip || insertedSlip.length === 0) {
+  console.warn("⚠️ Insert สำเร็จแต่ Supabase ไม่คืนแถวกลับมา (เช็ก schema ด้วยนะ)");
+} else {
+  console.log("✅ insert slip_submissions สำเร็จ:", insertedSlip[0]);
+}
+
 
 // ✅ ตั้งชื่อและอัปโหลด
 const slipFileName = `ADT-01-${newLicenseNo}-SLP-${ref_code}.jpg`;
