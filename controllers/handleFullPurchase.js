@@ -102,6 +102,16 @@ if (!productSource || typeof productSource !== 'string') {
   console.warn("⚠️ ไม่มี product_source หรือไม่ใช่ string → ใช้ default");
   productSource = 'ADT-01-5500';
 }
+  
+console.log("📥 กำลัง insert ข้อมูล slip_submissions:", {
+  ref_code,
+  first_name,
+  last_name,
+  national_id,
+  phone_number,
+  license_no: newLicenseNo,
+  product_source: productSource
+});
 
 // ✅ insert ข้อมูล slip (ข้อมูลพื้นฐาน)
 await supabase.from('slip_submissions').insert([
@@ -115,6 +125,7 @@ await supabase.from('slip_submissions').insert([
     product_source: productSource
   }
 ]);
+console.log("✅ insert slip_submissions สำเร็จ");
 
 // ✅ ตั้งชื่อและอัปโหลด
 const slipFileName = `ADT-01-${newLicenseNo}-SLP-${ref_code}.jpg`;
