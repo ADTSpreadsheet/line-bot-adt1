@@ -19,6 +19,12 @@ const handleFullPurchase = async (req, res) => {
     }
     console.log("✅ Logic1 ผ่าน: ข้อมูลครบแล้ว");
 
+    // 🔍 เพิ่มการตรวจสอบไฟล์
+    if (!file_content || !file_content.trim()) {
+      console.log("❌ ไม่มีไฟล์สลิปอัพโหลด");
+      return res.status(400).json({ message: 'กรุณาอัพโหลดสลิปการโอนเงิน' });
+    }
+
     // 🔍 Logic 2: ตรวจสอบว่า ref_code มีอยู่ใน auth_sessions หรือไม่
     const { data: sessionData, error: sessionError } = await supabase
       .from('auth_sessions')
@@ -27,7 +33,7 @@ const handleFullPurchase = async (req, res) => {
       .single();
 
     if (sessionError || !sessionData) {
-      console.log("❌ ไม่พบ ref_code ใน auth_sessions:", ref_code);
+      console.log("❌ ไม่พบ ref_code ใน auth_sessions:", ref_code, sessionError);
       return res.status(404).json({ message: 'ไม่พบข้อมูลผู้ใช้จาก Ref.Code' });
     }
 
@@ -113,7 +119,40 @@ const handleFullPurchase = async (req, res) => {
       product_source: productSource
     });
 
-    // ✅ insert ข้อมูล slip (ข้อมูลพื้นฐาน)
+    // ✅ insert ข้อมูล slip (ข้อมูลพื้นฐาน) - ย้ายมาหลังอัพโหลดไฟล์
+    // เพื่อป้องกันข้อมูลซ้ำถ้าอัพโหลดไฟล์ไม่สำเร็จ
+
+    // ✅ ตั้งชื่อและอัปโหลด (ย้ายมาก่อน insert slip)
+    const slipFileName = `ADT-01-${newLicenseNo}-SLP-${ref_code}.jpg`;
+    console.log("📸 กำลังอัปโหลดไฟล์สลิป:", slipFileName);
+
+    // เพิ่มการตรวจสอบ base64 format
+    let processedFileContent = file_content;
+    if (!file_content.startsWith('data:image/')) {
+      processedFileContent = `data:image/jpeg;base64,${file_content}`;
+      console.log("✅ เพิ่ม data URL prefix ให้ base64 string");
+    }
+
+    const uploadResult = await uploadBase64ImageToSupabase({
+      base64String: processedFileContent,
+      fileName: slipFileName,
+      bucket: 'adtpayslip'
+    });
+
+    if (!uploadResult.success) {
+      console.error("❌ อัปโหลดสลิปไม่สำเร็จ:", uploadResult.error);
+      // ถ้าอัพโหลดไม่สำเร็จ ให้ลบ license_holder ที่สร้างไปแล้ว
+      await supabase.from('license_holders').delete().eq('license_no', newLicenseNo);
+      return res.status(500).json({ 
+        message: 'อัปโหลดสลิปไม่สำเร็จ', 
+        error: uploadResult.error 
+      });
+    }
+
+    const slipImageUrl = uploadResult.publicUrl;
+    console.log("✅ ได้ public URL:", slipImageUrl);
+
+    // ✅ ตอนนี้ค่อย insert slip_submissions
     const { data: insertedSlip, error: slipInsertError } = await supabase
       .from('slip_submissions')
       .insert([
@@ -124,59 +163,37 @@ const handleFullPurchase = async (req, res) => {
           national_id,
           phone_number,
           license_no: newLicenseNo,
-          product_source: productSource
+          product_source: productSource,
+          slip_image_url: slipImageUrl,
+          slip_path: slipFileName,
+          submissions_status: 'pending'
         }
       ])
       .select();
 
     if (slipInsertError) {
       console.error("❌ Insert slip_submissions failed:", slipInsertError);
+      // ถ้า insert ไม่สำเร็จ ให้ลบไฟล์ที่อัพโหลดไปแล้ว
+      await supabase.storage.from('adtpayslip').remove([slipFileName]);
+      await supabase.from('license_holders').delete().eq('license_no', newLicenseNo);
       return res.status(500).json({ message: 'บันทึกข้อมูล slip ไม่สำเร็จ' });
     }
 
     console.log("✅ insert slip_submissions สำเร็จ:", insertedSlip[0]);
 
-    // ✅ ตั้งชื่อและอัปโหลด
-    const slipFileName = `ADT-01-${newLicenseNo}-SLP-${ref_code}.jpg`;
-    console.log("📸 กำลังอัปโหลดไฟล์สลิป:", slipFileName);
-
-    const uploadResult = await uploadBase64ImageToSupabase({
-      base64String: file_content,
-      fileName: slipFileName,
-      bucket: 'adtpayslip'
-    });
-
-    if (!uploadResult.success) {
-      console.error("❌ อัปโหลดสลิปไม่สำเร็จ:", uploadResult.error);
-      return res.status(500).json({ message: 'อัปโหลดสลิปไม่สำเร็จ' });
-    }
-
-    const slipImageUrl = uploadResult.publicUrl;
-    console.log("✅ ได้ public URL:", slipImageUrl);
-
-    // ✅ อัปเดต slip_submissions
-    const { error: updateSlipError } = await supabase.from('slip_submissions').update({
-      slip_image_url: slipImageUrl,
-      slip_path: slipFileName,
-      submissions_status: 'pending'
-    }).eq('ref_code', ref_code);
-
-    if (updateSlipError) {
-      console.error("❌ อัปเดตข้อมูลสลิปไม่สำเร็จ:", updateSlipError);
-      return res.status(500).json({ message: 'อัปเดตข้อมูลสลิปไม่สำเร็จ' });
-    }
-
-    console.log("✅ อัปเดตข้อมูลสลิปในตารางเรียบร้อยแล้ว");
-
     // 🎉 ส่งผลลัพธ์กลับ
     return res.status(200).json({ 
       message: 'บันทึกข้อมูลสำเร็จแล้ว', 
-      license_no: newLicenseNo 
+      license_no: newLicenseNo,
+      slip_url: slipImageUrl
     });
 
   } catch (err) {
     console.error("❌ ERROR ภาพรวม:", err);
-    return res.status(500).json({ message: 'เกิดข้อผิดพลาดในระบบ' });
+    return res.status(500).json({ 
+      message: 'เกิดข้อผิดพลาดในระบบ',
+      error: err.message 
+    });
   }
 };
 
