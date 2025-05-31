@@ -1,49 +1,47 @@
-// utils/supabaseClient.js
+// ตรวจสอบว่าโหลด dotenv หรือยัง
+require('dotenv').config();
+
 const { createClient } = require('@supabase/supabase-js');
-const dotenv = require('dotenv');
-// Load environment variables
-dotenv.config();
-// Supabase credentials from environment variables
+
 const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-console.log("🧪 SUPABASE KEY (prefix):", supabaseKey.slice(0, 20));
-// ตรวจสอบว่า .env มีค่าครบหรือไม่
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY; // ใช้ SERVICE_ROLE_KEY
+
+// Debug: แสดงค่า environment variables (ซ่อน key บางส่วน)
+console.log('🔧 Supabase URL:', supabaseUrl);
+console.log('🔑 Service Key (first 20 chars):', supabaseKey ? supabaseKey.substring(0, 20) + '...' : 'NOT FOUND');
+
 if (!supabaseUrl || !supabaseKey) {
- console.error('❌ Supabase credentials not found in environment variables!');
- console.error('   Please make sure SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are defined in your .env file');
- process.exit(1);
+  console.error('❌ Missing Supabase environment variables');
+  console.error('SUPABASE_URL:', !!supabaseUrl);
+  console.error('SUPABASE_SERVICE_ROLE_KEY:', !!supabaseKey);
+  throw new Error('Missing Supabase environment variables');
 }
-// สร้าง Client สำหรับเชื่อมต่อ Supabase
+
 const supabase = createClient(supabaseUrl, supabaseKey, {
- auth: {
-   autoRefreshToken: false,
-   persistSession: false
- }
+  auth: {
+    autoRefreshToken: false,
+    persistSession: false
+  }
 });
-// ทดสอบการเชื่อมต่อ Supabase
+
+// Test connection
 const testConnection = async () => {
- try {
-   // ใช้ auth.getSession() แทนการใช้ aggregate function
-   const { data, error } = await supabase.auth.getSession();
-   
-   if (error) {
-     console.error('❌ Failed to connect to Supabase:', error.message);
-     return false;
-   }
-   
-   console.log('✅ Successfully connected to Supabase at:', supabaseUrl);
-   return true;
- } catch (err) {
-   console.error('❌ Failed to connect to Supabase:', err.message);
-   return false;
- }
+  try {
+    const { data, error } = await supabase.storage.listBuckets();
+    if (error) {
+      console.error('❌ Supabase connection test failed:', error);
+    } else {
+      console.log('✅ Supabase connected successfully');
+      console.log('📁 Available buckets:', data.map(b => b.name));
+    }
+  } catch (err) {
+    console.error('❌ Connection test error:', err);
+  }
 };
-// Call the test connection function when the module is imported
-// (but don't block the export)
-testConnection().catch(err => {
- console.error('❌ Unexpected error testing Supabase connection:', err);
-});
-module.exports = {
- supabase,
- testConnection
-};
+
+// เรียกใช้ test เมื่อโหลดไฟล์ (เฉพาะใน development)
+if (process.env.NODE_ENV !== 'production') {
+  testConnection();
+}
+
+module.exports = { supabase };
