@@ -6,6 +6,7 @@ dotenv.config();
 // Supabase credentials from environment variables
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+console.log("🧪 SUPABASE KEY (prefix):", supabaseKey.slice(0, 20));
 // ตรวจสอบว่า .env มีค่าครบหรือไม่
 if (!supabaseUrl || !supabaseKey) {
  console.error('❌ Supabase credentials not found in environment variables!');
