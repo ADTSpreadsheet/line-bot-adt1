@@ -48,6 +48,7 @@ const replyFromAdminRoutes = require('./routes/replyFromAdminRoutes');
 const adtLiveWorkshopRoute = require('./routes/adtLiveWorkshopRoute');
 const adtLivePublicRoute = require('./routes/adtLivePublicRoute');
 const adtOrderRoutes = require('./routes/routes-adtOrder');
+const orderApprovedRoutes = require('./routes/orderApprovedRoutes');
 
 
 
@@ -86,6 +87,7 @@ app.use(replyFromAdminRoutes);
 app.use('/adtliveworkshop', adtLiveWorkshopRoute);
 app.use(adtLivePublicRoute);
 app.use('/', adtOrderRoutes);
+app.use('/', orderApprovedRoutes);
 
 
 // ❗ ปิด open cors ซ้ำ (ปลอดภัยกว่า)
