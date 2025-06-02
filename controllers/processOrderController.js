@@ -35,6 +35,12 @@ const processOrder = async (req, res) => {
 
   } catch (error) {
     console.error('❌ ประมวลผลล้มเหลว:', error);
+    
+    // ถ้าเป็น Duplicate Error ส่ง 400 แทน 500
+    if (error.message.includes('ไปแล้ว')) {
+      return res.status(400).json({ error: error.message });
+    }
+    
     return res.status(500).json({ error: error.message });
   }
 };
