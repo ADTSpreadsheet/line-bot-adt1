@@ -85,7 +85,7 @@ app.use(replyFromAdminRoutes);
 app.use('/adtliveworkshop', adtLiveWorkshopRoute);
 app.use(adtLivePublicRoute);
 app.use('/', adtOrderRoutes);
-app.use('/api', processRoutes);
+app.use('/', processRoutes);
 
 
 
