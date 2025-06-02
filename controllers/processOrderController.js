@@ -44,6 +44,22 @@ const handleApprovalProcess = async (ref_code, license_no) => {
   try {
     console.log(`🔄 เริ่มประมวลผลอนุมัติ: ${ref_code}, ${license_no}`);
 
+    // เช็คสถานะก่อนทำงาน
+    const { data: existingSlip, error: checkError } = await supabase
+      .from('slip_submissions')
+      .select('submissions_status')
+      .eq('ref_code', ref_code)
+      .eq('license_no', license_no)
+      .single();
+
+    if (checkError) throw checkError;
+
+    // ถ้าอนุมัติไปแล้ว
+    if (existingSlip?.submissions_status === 'Approved') {
+      console.log('⚠️ ออเดอร์นี้อนุมัติไปแล้ว');
+      throw new Error(`คุณได้ทำการอนุมัติ Ref.Code ${ref_code} ไปแล้ว`);
+    }
+
     // Logic 1: อัปเดตสถานะใน slip_submissions เป็น 'Approved'
     const { error: updateSlipError } = await supabase
       .from('slip_submissions')
@@ -161,6 +177,28 @@ const handleApprovalProcess = async (ref_code, license_no) => {
 const handleRejectionProcess = async (ref_code, license_no) => {
   try {
     console.log(`🔄 เริ่มประมวลผลปฏิเสธ: ${ref_code}, ${license_no}`);
+
+    // เช็คสถานะก่อนทำงาน
+    const { data: existingSlip, error: checkError } = await supabase
+      .from('slip_submissions')
+      .select('submissions_status')
+      .eq('ref_code', ref_code)
+      .eq('license_no', license_no)
+      .single();
+
+    if (checkError) throw checkError;
+
+    // ถ้าปฏิเสธไปแล้ว
+    if (existingSlip?.submissions_status === 'Rejected') {
+      console.log('⚠️ ออเดอร์นี้ปฏิเสธไปแล้ว');
+      throw new Error(`คุณได้ทำการปฏิเสธ Ref.Code ${ref_code} ไปแล้ว`);
+    }
+
+    // ถ้าอนุมัติไปแล้ว
+    if (existingSlip?.submissions_status === 'Approved') {
+      console.log('⚠️ ออเดอร์นี้อนุมัติไปแล้ว - ไม่สามารถปฏิเสธได้');
+      throw new Error(`Ref.Code ${ref_code} ได้รับการอนุมัติไปแล้ว ไม่สามารถปฏิเสธได้`);
+    }
 
     // Logic 1: อัปเดตสถานะใน slip_submissions เป็น 'Rejected'
     const { error: updateSlipError } = await supabase
