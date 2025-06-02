@@ -48,9 +48,7 @@ const replyFromAdminRoutes = require('./routes/replyFromAdminRoutes');
 const adtLiveWorkshopRoute = require('./routes/adtLiveWorkshopRoute');
 const adtLivePublicRoute = require('./routes/adtLivePublicRoute');
 const adtOrderRoutes = require('./routes/routes-adtOrder');
-
-
-
+const processRoutes = require('./routes/processRoutes');
 
 
 // ==============================================
@@ -87,6 +85,7 @@ app.use(replyFromAdminRoutes);
 app.use('/adtliveworkshop', adtLiveWorkshopRoute);
 app.use(adtLivePublicRoute);
 app.use('/', adtOrderRoutes);
+app.use('/api', processRoutes);
 
 
 
