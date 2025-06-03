@@ -76,11 +76,8 @@ async function submitStarterSlip(req, res) {
 
     // ✅ Logic 3: แจ้ง Bot2 ผ่าน API2
     const response = await axios.post('https://line-bot-adt2.onrender.com/flex/send-starter-slip', {
-      ref_code,
-      full_name: `${first_name} ${last_name}`,
-      duration,
-      phone_number,
-      image_url: publicUrl
+      ref_code,     
+      duration
     });
 
     // ✅ Logic 4: รอ Bot2 ส่ง Flex เสร็จ แล้วตอบกลับหน้าเว็บ
