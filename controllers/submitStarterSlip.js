@@ -177,7 +177,7 @@ async function submitStarterSlip(req, res) {
         await client.pushMessage(line_user_id, flexMessage);
       } else {
         // ใช้ axios เรียก API Bot อื่น
-        await axios.post(`${process.env.API2_URL}/flex/notify-user-starter`, {
+        await axios.post(`${process.env.API2_URL}/starter/notify-user-starter`, {
           ref_code,          
           duration         
         });
