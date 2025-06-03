@@ -7,7 +7,7 @@ const line = require('@line/bot-sdk');
 let client = null;
 if (process.env.LINE_BOT_ACCESS_TOKEN) {
   client = new line.Client({
-    channelAccessToken: process.env.LINE_BOT_ACCESS_TOKEN
+    channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN
   });
 } else {
   console.warn('⚠️ ไม่พบ LINE_BOT_ACCESS_TOKEN - จะไม่สามารถส่ง Flex ได้');
