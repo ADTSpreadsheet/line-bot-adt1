@@ -314,7 +314,7 @@ async function submitStarterSlip(req, res) {
         try {
           console.log('📤 กำลังส่งการแจ้งเตือนไปยังแอดมิน...');
           
-          const response = await httpClient.post(`${LINE_BOT_API_URL}/flex/send-starter-slip`, {
+          const response = await httpClient.post(`${LINE_BOT_API_URL}/notify-admin-slip`, {
             ref_code,
             duration
           });
