@@ -115,15 +115,18 @@ async function submitStarterSlip(req, res) {
     if (response.status === 200 && response.data) {
       console.log('✅ API2 ตอบกลับสำเร็จ:', response.data);
       
-      // 🔍 รับข้อมูลจาก API2 response
-      const { ref_code: returnedRefCode, duration: returnedDuration } = response.data;
+      // 🔍 รับข้อมูลจาก API2 response (อยู่ใน data.data)
+      const apiData = response.data.data || response.data;
+      const { ref_code: returnedRefCode, duration: returnedDuration } = apiData;
       
       console.log('📝 ข้อมูลที่ได้จาก API2:');
+      console.log('- Response structure:', response.data);
       console.log('- Returned ref_code:', returnedRefCode);
       console.log('- Returned duration:', returnedDuration);
       
       if (!returnedRefCode) {
         console.error('❌ API2 ไม่ได้ส่ง ref_code กลับมา');
+        console.error('Full response:', JSON.stringify(response.data, null, 2));
         return res.status(500).json({ message: 'API2 ไม่ได้ส่ง ref_code กลับมา' });
       }
 
