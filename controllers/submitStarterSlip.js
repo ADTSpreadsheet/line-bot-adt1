@@ -4,7 +4,7 @@ const axios = require('axios');
 const joi = require('joi');
 
 // ตัวแปรสำหรับการตั้งค่าระบบ
-const LINE_BOT_API_URL = process.env.LINE_BOT_API_URL || 'https://line-bot-adt2.onrender.com';
+const API2_URL = process.env.API2_URL || 'https://line-bot-adt2.onrender.com';
 const REQUEST_TIMEOUT = parseInt(process.env.REQUEST_TIMEOUT) || 30000; // 30 วินาที
 const MAX_RETRIES = parseInt(process.env.MAX_RETRIES) || 3;
 
@@ -314,7 +314,7 @@ async function submitStarterSlip(req, res) {
         try {
           console.log('📤 กำลังส่งการแจ้งเตือนไปยังแอดมิน...');
           
-          const response = await httpClient.post(`${LINE_BOT_API_URL}/notify-admin-slip`, {
+          const response = await httpClient.post(`${API2_URL}/notify-admin-slip`, {
             ref_code,
             duration
           });
@@ -397,7 +397,7 @@ async function handleAdminApproval(ref_code, approved = true) {
         .eq('ref_code', ref_code);
 
       // ส่งการแจ้งเตือนความสำเร็จไปยังผู้ใช้
-      await httpClient.post(`${LINE_BOT_API_URL}/flex/notify-user-starter`, {
+      await httpClient.post(`${API2_URL}/flex/notify-user-starter`, {
         ref_code,
         username: userData.username,
         password: userData.password,
@@ -418,7 +418,7 @@ async function handleAdminApproval(ref_code, approved = true) {
         .eq('ref_code', ref_code);
 
       // ส่งการแจ้งเตือนการปฏิเสธไปยังผู้ใช้
-      await httpClient.post(`${LINE_BOT_API_URL}/flex/notify-user-starter`, {
+      await httpClient.post(`${API2_URL}/flex/notify-user-starter`, {
         ref_code,
         line_user_id: userData.line_user_id,
         status: 'rejected'
