@@ -10,7 +10,7 @@ if (process.env.LINE_BOT_ACCESS_TOKEN) {
     channelAccessToken: process.env.LINE_BOT_ACCESS_TOKEN
   });
 } else {
-  console.warn('⚠️ ไม่พบ LINE_BOT_ACCESS_TOKEN - จะใช้ axios แทน');
+  console.warn('⚠️ ไม่พบ LINE_BOT_ACCESS_TOKEN - จะไม่สามารถส่ง Flex ได้');
 }
 
 async function submitStarterSlip(req, res) {
@@ -167,10 +167,10 @@ async function submitStarterSlip(req, res) {
         return res.status(500).json({ message: 'อัปเดตข้อมูลใน starter_plan_users ไม่สำเร็จ' });
       }
 
-      // ✅ ส่ง Flex ไปแจ้งลูกค้า
+      // ✅ ส่ง Flex ไปแจ้งลูกค้า (ส่งเอง ไม่เรียก API อื่น)
       try {
         if (client) {
-          console.log('📱 ใช้ LINE SDK ส่ง Flex Message');
+          console.log('📱 ใช้ LINE SDK ส่ง Flex Message เอง');
           
           const flexMessage = {
             type: "flex",
@@ -241,17 +241,15 @@ async function submitStarterSlip(req, res) {
           console.log('✅ ส่ง LINE Flex Message สำเร็จ:', lineResponse);
           
         } else {
-          console.log('🌐 ใช้ axios เรียก API Bot อื่น');
-          
-          const notifyResponse = await axios.post(`${process.env.API2_URL}/starter/notify-user-starter`, {
-            ref_code: returnedRefCode,          
-            duration: returnedDuration,
-            line_user_id: finalLineUserId
-          }, {
-            timeout: 10000
+          console.log('❌ ไม่มี LINE Bot Client - ไม่สามารถส่ง Flex ได้');
+          return res.status(500).json({
+            message: 'ไม่พบการตั้งค่า LINE Bot Client',
+            data: {
+              ref_code: returnedRefCode,
+              username,
+              duration: returnedDuration
+            }
           });
-          
-          console.log('✅ เรียก notify-user-starter สำเร็จ:', notifyResponse.status);
         }
 
         return res.status(200).json({
@@ -259,7 +257,8 @@ async function submitStarterSlip(req, res) {
           data: {
             ref_code: returnedRefCode,
             username,
-            duration: returnedDuration
+            duration: returnedDuration,
+            line_user_id: finalLineUserId
           }
         });
         
