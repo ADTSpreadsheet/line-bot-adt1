@@ -3,10 +3,15 @@ const uploadBase64Image = require('../utils/uploadBase64Image');
 const axios = require('axios');
 const line = require('@line/bot-sdk');
 
-// LINE Bot Client
-const client = new line.Client({
-  channelAccessToken: process.env.LINE_BOT_ACCESS_TOKEN
-});
+// LINE Bot Client (สร้างเฉพาะเมื่อมี token)
+let client = null;
+if (process.env.LINE_BOT_ACCESS_TOKEN) {
+  client = new line.Client({
+    channelAccessToken: process.env.LINE_BOT_ACCESS_TOKEN
+  });
+} else {
+  console.warn('⚠️ ไม่พบ LINE_BOT_ACCESS_TOKEN - จะใช้ axios แทน');
+}
 
 async function submitStarterSlip(req, res) {
   try {
@@ -101,73 +106,85 @@ async function submitStarterSlip(req, res) {
         return res.status(500).json({ message: 'อัปเดตข้อมูลใน starter_plan_users ไม่สำเร็จ' });
       }
 
-      // ✅ ส่ง Flex ไปแจ้งลูกค้า (Bot1)
-      const flexMessage = {
-        type: "flex",
-        altText: "แจ้งเตือนสถานะการสั่งซื้อ",
-        contents: {
-          type: "bubble",
-          header: {
-            type: "box",
-            layout: "vertical",
-            contents: [
-              {
-                type: "text",
-                text: "📌 แจ้งเตือนสถานะการสั่งซื้อ",
-                weight: "bold",
-                color: "#007BFF",
-                size: "lg"
-              }
-            ],
-            backgroundColor: "#F8F9FA",
-            paddingAll: "lg"
-          },
-          body: {
-            type: "box",
-            layout: "vertical",
-            spacing: "md",
-            contents: [
-              {
-                type: "text",
-                text: "รายละเอียด Starter Plan ของท่านคือ:",
-                weight: "bold",
-                size: "md"
-              },
-              {
-                type: "text",
-                text: `- Ref.Code: ${ref_code}`,
-                size: "sm"
-              },
-              {
-                type: "text",
-                text: `- Username: ${username}`,
-                size: "sm"
-              },
-              {
-                type: "text",
-                text: `- Password: ${password}`,
-                size: "sm"
-              },
-              {
-                type: "text",
-                text: `- ระยะเวลาการใช้งาน: ${duration} วัน`,
-                size: "sm"
-              },
-              {
-                type: "text",
-                text: "ท่านสามารถนำข้อมูลไปทำการ Login ที่หน้าโปรแกรม ADTSpreadsheet ได้เลยครับ ✅",
-                wrap: true,
-                size: "sm",
-                color: "#28A745"
-              }
-            ],
-            paddingAll: "lg"
+      // ✅ ส่ง Flex ไปแจ้งลูกค้า
+      if (client) {
+        // ใช้ LINE SDK
+        const flexMessage = {
+          type: "flex",
+          altText: "แจ้งเตือนสถานะการสั่งซื้อ",
+          contents: {
+            type: "bubble",
+            header: {
+              type: "box",
+              layout: "vertical",
+              contents: [
+                {
+                  type: "text",
+                  text: "📌 แจ้งเตือนสถานะการสั่งซื้อ",
+                  weight: "bold",
+                  color: "#007BFF",
+                  size: "lg"
+                }
+              ],
+              backgroundColor: "#F8F9FA",
+              paddingAll: "lg"
+            },
+            body: {
+              type: "box",
+              layout: "vertical",
+              spacing: "md",
+              contents: [
+                {
+                  type: "text",
+                  text: "รายละเอียด Starter Plan ของท่านคือ:",
+                  weight: "bold",
+                  size: "md"
+                },
+                {
+                  type: "text",
+                  text: `- Ref.Code: ${ref_code}`,
+                  size: "sm"
+                },
+                {
+                  type: "text",
+                  text: `- Username: ${username}`,
+                  size: "sm"
+                },
+                {
+                  type: "text",
+                  text: `- Password: ${password}`,
+                  size: "sm"
+                },
+                {
+                  type: "text",
+                  text: `- ระยะเวลาการใช้งาน: ${duration} วัน`,
+                  size: "sm"
+                },
+                {
+                  type: "text",
+                  text: "ท่านสามารถนำข้อมูลไปทำการ Login ที่หน้าโปรแกรม ADTSpreadsheet ได้เลยครับ ✅",
+                  wrap: true,
+                  size: "sm",
+                  color: "#28A745"
+                }
+              ],
+              paddingAll: "lg"
+            }
           }
-        }
-      };
+        };
 
-      // ส่ง Flex Message ไปยัง line_user_id
-      await client.pushMessage(line_user_id, flexMessage);
+        // ส่ง Flex Message ไปยัง line_user_id
+        await client.pushMessage(line_user_id, flexMessage);
+      } else {
+        // ใช้ axios เรียก API Bot อื่น
+        await axios.post(`${process.env.API2_URL}/flex/notify-user-starter`, {
+          ref_code,
+          username,
+          password,
+          duration,
+          line_user_id
+        });
+      }
 
       return res.status(200).json({
         message: '✅ ส่ง Flex สำเร็จ และอัปเดตข้อมูลเรียบร้อย'
