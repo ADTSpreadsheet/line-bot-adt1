@@ -3,12 +3,12 @@ const uploadBase64Image = require('../utils/uploadBase64Image');
 const axios = require('axios');
 const joi = require('joi');
 
-// Environment variables
+// ตัวแปรสำหรับการตั้งค่าระบบ
 const LINE_BOT_API_URL = process.env.LINE_BOT_API_URL || 'https://line-bot-adt2.onrender.com';
-const REQUEST_TIMEOUT = parseInt(process.env.REQUEST_TIMEOUT) || 30000; // 30 seconds
+const REQUEST_TIMEOUT = parseInt(process.env.REQUEST_TIMEOUT) || 30000; // 30 วินาที
 const MAX_RETRIES = parseInt(process.env.MAX_RETRIES) || 3;
 
-// Validation schema
+// กำหนดกฎการตรวจสอบข้อมูลที่ส่งเข้ามา
 const submitSlipSchema = joi.object({
   ref_code: joi.string().required().messages({
     'string.empty': 'กรุณากรอก ref_code',
@@ -44,7 +44,7 @@ const submitSlipSchema = joi.object({
   })
 });
 
-// HTTP client with retry mechanism
+// สร้างตัวจัดการ HTTP ที่สามารถลองใหม่ได้เมื่อเกิดข้อผิดพลาด
 const createHttpClient = () => {
   const client = axios.create({
     timeout: REQUEST_TIMEOUT,
@@ -54,7 +54,7 @@ const createHttpClient = () => {
     }
   });
 
-  // Add retry interceptor
+  // เพิ่มระบบลองใหม่อัตโนมัติ
   client.interceptors.response.use(
     (response) => response,
     async (error) => {
@@ -69,9 +69,9 @@ const createHttpClient = () => {
            error.response?.status >= 500)) {
         
         config.retry += 1;
-        const delay = Math.pow(2, config.retry) * 1000; // Exponential backoff
+        const delay = Math.pow(2, config.retry) * 1000; // เพิ่มเวลารอแบบเลขยกกำลัง
         
-        console.log(`🔄 Retrying request (${config.retry}/${MAX_RETRIES}) after ${delay}ms`);
+        console.log(`🔄 กำลังลองส่งใหม่ครั้งที่ (${config.retry}/${MAX_RETRIES}) หลังจาก ${delay}ms`);
         await new Promise(resolve => setTimeout(resolve, delay));
         
         return client(config);
@@ -86,13 +86,12 @@ const createHttpClient = () => {
 
 const httpClient = createHttpClient();
 
-// Database transaction helper
+// ฟังก์ชันสำหรับจัดการธุรกรรมฐานข้อมูล (มีระบบ rollback เมื่อเกิดข้อผิดพลาด)
 async function executeTransaction(operations) {
   const client = supabase;
   
   try {
-    // Start transaction (Note: Supabase doesn't have explicit transactions, 
-    // so we'll implement compensation pattern)
+    // เริ่มดำเนินการทีละขั้นตอน
     const results = [];
     const compensations = [];
 
@@ -102,15 +101,15 @@ async function executeTransaction(operations) {
         results.push(result);
         
         if (operation.compensate) {
-          compensations.unshift(operation.compensate); // LIFO for rollback
+          compensations.unshift(operation.compensate); // เก็บไว้สำหรับยกเลิกการทำงาน
         }
       } catch (error) {
-        // Execute compensations in reverse order
+        // หากเกิดข้อผิดพลาด ให้ยกเลิกการทำงานทั้งหมดที่ทำไปแล้ว
         for (const compensate of compensations) {
           try {
             await compensate();
           } catch (compError) {
-            console.error('❌ Compensation failed:', compError);
+            console.error('❌ การยกเลิกการทำงานล้มเหลว:', compError);
           }
         }
         throw error;
@@ -123,7 +122,7 @@ async function executeTransaction(operations) {
   }
 }
 
-// Background job queue (simple in-memory implementation for now)
+// ระบบคิวงานเบื้องหลัง (สำหรับงานที่ไม่ต้องให้ผู้ใช้รอ)
 const jobQueue = [];
 const processJobQueue = async () => {
   while (jobQueue.length > 0) {
@@ -131,21 +130,21 @@ const processJobQueue = async () => {
     try {
       await job.execute();
     } catch (error) {
-      console.error('❌ Background job failed:', error);
-      // Could implement retry logic here
+      console.error('❌ งานเบื้องหลังล้มเหลว:', error);
+      // สามารถเพิ่มระบบลองใหม่ได้ที่นี่
     }
   }
 };
 
-// Start background job processor
-setInterval(processJobQueue, 5000); // Process every 5 seconds
+// เริ่มประมวลผลงานเบื้องหลังทุก 5 วินาที
+setInterval(processJobQueue, 5000);
 
 async function submitStarterSlip(req, res) {
   let uploadedImageUrl = null;
   let insertedRecordId = null;
 
   try {
-    // ✅ Step 1: Input validation
+    // ✅ ขั้นตอนที่ 1: ตรวจสอบความถูกต้องของข้อมูลที่ส่งเข้ามา
     const { error: validationError, value: validatedData } = submitSlipSchema.validate(req.body);
     
     if (validationError) {
@@ -166,7 +165,7 @@ async function submitStarterSlip(req, res) {
       file_content
     } = validatedData;
 
-    // ✅ Step 2: Check ref_code in auth_sessions
+    // ✅ ขั้นตอนที่ 2: ตรวจสอบ ref_code ในตาราง auth_sessions
     const { data: sessionData, error: sessionError } = await supabase
       .from('auth_sessions')
       .select('serial_key, line_user_id')
@@ -183,15 +182,15 @@ async function submitStarterSlip(req, res) {
 
     const { serial_key, line_user_id } = sessionData;
 
-    // ✅ Step 3: Check for duplicate submission
+    // ✅ ขั้นตอนที่ 3: ตรวจสอบว่าข้อมูลนี้เคยส่งมาแล้วหรือไม่
     const { data: existingSubmission, error: checkError } = await supabase
       .from('starter_plan_users')
       .select('id, submissions_status')
       .eq('ref_code', ref_code)
       .single();
 
-    if (checkError && checkError.code !== 'PGRST116') { // PGRST116 = no rows found
-      throw new Error(`Database check failed: ${checkError.message}`);
+    if (checkError && checkError.code !== 'PGRST116') { // PGRST116 = ไม่พบข้อมูล
+      throw new Error(`การตรวจสอบฐานข้อมูลล้มเหลว: ${checkError.message}`);
     }
 
     if (existingSubmission) {
@@ -205,12 +204,12 @@ async function submitStarterSlip(req, res) {
       });
     }
 
-    const duration_minutes = duration * 1440; // Convert days to minutes
+    const duration_minutes = duration * 1440; // แปลงวันเป็นนาที
     const slipFileName = `SP-${ref_code}-${Date.now()}.jpg`;
 
-    // ✅ Step 4: Execute main transaction
+    // ✅ ขั้นตอนที่ 4: ดำเนินการหลักพร้อมระบบยกเลิกเมื่อเกิดข้อผิดพลาด
     const transactionOperations = [
-      // Operation 1: Upload image
+      // การทำงานที่ 1: อัปโหลดรูปภาพ
       {
         execute: async () => {
           const { publicUrl, error: uploadError } = await uploadBase64Image({
@@ -221,7 +220,7 @@ async function submitStarterSlip(req, res) {
           });
 
           if (uploadError) {
-            throw new Error(`Image upload failed: ${uploadError}`);
+            throw new Error(`การอัปโหลดรูปภาพล้มเหลว: ${uploadError}`);
           }
 
           uploadedImageUrl = publicUrl;
@@ -230,19 +229,19 @@ async function submitStarterSlip(req, res) {
         compensate: async () => {
           if (uploadedImageUrl) {
             try {
-              // Delete uploaded image
+              // ลบรูปภาพที่อัปโหลดไปแล้ว
               await supabase.storage
                 .from('statercustumer')
                 .remove([`${ref_code}/${slipFileName}`]);
-              console.log('🗑️ Cleaned up uploaded image');
+              console.log('🗑️ ลบรูปภาพที่อัปโหลดแล้วเรียบร้อย');
             } catch (error) {
-              console.error('Failed to cleanup image:', error);
+              console.error('ไม่สามารถลบรูปภาพได้:', error);
             }
           }
         }
       },
 
-      // Operation 2: Insert user data
+      // การทำงานที่ 2: บันทึกข้อมูลผู้ใช้
       {
         execute: async () => {
           const username = `ADT-${ref_code}`;
@@ -262,6 +261,182 @@ async function submitStarterSlip(req, res) {
                 used_minutes: 0,
                 slip_image_url: uploadedImageUrl,
                 submissions_status: 'pending',
+                line_user_id,
+                username,
+                password,
+                created_at: new Date().toISOString()
+              }
+            ])
+            .select('id')
+            .single();
+
+          if (insertError) {
+            throw new Error(`การบันทึกข้อมูลล้มเหลว: ${insertError.message}`);
+          }
+
+          insertedRecordId = data.id;
+          return data;
+        },
+        compensate: async () => {
+          if (insertedRecordId) {
+            try {
+              await supabase
+                .from('starter_plan_users')
+                .delete()
+                .eq('id', insertedRecordId);
+              console.log('🗑️ ลบข้อมูลในฐานข้อมูลแล้วเรียบร้อย');
+            } catch (error) {
+              console.error('ไม่สามารถลบข้อมูลในฐานข้อมูลได้:', error);
+            }
+          }
+        }
+      }
+    ];
+
+    // ดำเนินการทั้งหมด
+    await executeTransaction(transactionOperations);
+
+    // ✅ ขั้นตอนที่ 5: ส่งผลลัพธ์กลับให้ผู้ใช้ทันที
+    res.status(200).json({
+      success: true,
+      message: 'ข้อมูลถูกส่งเรียบร้อยแล้ว กรุณารอการอนุมัติจากแอดมิน',
+      data: {
+        ref_code,
+        status: 'pending',
+        submitted_at: new Date().toISOString()
+      }
+    });
+
+    // ✅ ขั้นตอนที่ 6: เพิ่มงานเบื้องหลังสำหรับส่งการแจ้งเตือน
+    // งานที่ 1: ส่งการแจ้งเตือนไปยังแอดมิน
+    jobQueue.push({
+      execute: async () => {
+        try {
+          console.log('📤 กำลังส่งการแจ้งเตือนไปยังแอดมิน...');
+          
+          const response = await httpClient.post(`${LINE_BOT_API_URL}/flex/send-starter-slip`, {
+            ref_code,
+            duration
+          });
+
+          if (response.status === 200) {
+            console.log('✅ ส่งการแจ้งเตือนไปยังแอดมินสำเร็จ');
+            
+            // อัปเดตสถานะเป็น 'notified_admin'
+            await supabase
+              .from('starter_plan_users')
+              .update({ 
+                submissions_status: 'notified_admin',
+                admin_notified_at: new Date().toISOString()
+              })
+              .eq('ref_code', ref_code);
+
+          } else {
+            throw new Error(`การส่งการแจ้งเตือนไปยังแอดมินล้มเหลว สถานะ: ${response.status}`);
+          }
+
+        } catch (error) {
+          console.error('❌ ไม่สามารถส่งการแจ้งเตือนไปยังแอดมินได้:', error.message);
+          
+          // อัปเดตสถานะเป็น 'notification_failed'
+          await supabase
+            .from('starter_plan_users')
+            .update({ 
+              submissions_status: 'notification_failed',
+              error_message: error.message,
+              last_error_at: new Date().toISOString()
+            })
+            .eq('ref_code', ref_code);
+
+          throw error;
+        }
+      }
+    });
+
+    console.log('✅ การทำงานเสร็จสิ้น งานเบื้องหลังถูกเพิ่มในคิวแล้ว');
+
+  } catch (error) {
+    console.error('❌ ข้อผิดพลาด @ submitStarterSlip:', error);
+
+    // หากยังไม่ได้ส่งการตอบกลับ
+    if (!res.headersSent) {
+      const isValidationError = error.name === 'ValidationError';
+      const statusCode = isValidationError ? 400 : 500;
+      
+      return res.status(statusCode).json({
+        success: false,
+        message: isValidationError ? 'ข้อมูลไม่ถูกต้อง' : 'เกิดข้อผิดพลาดในระบบ',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+        code: 'INTERNAL_SERVER_ERROR'
+      });
+    }
+  }
+}
+
+// ✅ ฟังก์ชันแยกต่างหากสำหรับจัดการการอนุมัติจากแอดมิน (เรียกผ่าน webhook)
+async function handleAdminApproval(ref_code, approved = true) {
+  try {
+    const { data: userData, error: fetchError } = await supabase
+      .from('starter_plan_users')
+      .select('*')
+      .eq('ref_code', ref_code)
+      .single();
+
+    if (fetchError || !userData) {
+      throw new Error('ไม่พบข้อมูลผู้ใช้');
+    }
+
+    if (approved) {
+      // อัปเดตสถานะเป็นอนุมัติ
+      await supabase
+        .from('starter_plan_users')
+        .update({ 
+          submissions_status: 'approved',
+          approved_at: new Date().toISOString()
+        })
+        .eq('ref_code', ref_code);
+
+      // ส่งการแจ้งเตือนความสำเร็จไปยังผู้ใช้
+      await httpClient.post(`${LINE_BOT_API_URL}/flex/notify-user-starter`, {
+        ref_code,
+        username: userData.username,
+        password: userData.password,
+        duration: Math.floor(userData.duration_minutes / 1440),
+        line_user_id: userData.line_user_id,
+        status: 'approved'
+      });
+
+      console.log(`✅ ผู้ใช้ ${ref_code} ได้รับการอนุมัติและแจ้งเตือนแล้ว`);
+    } else {
+      // อัปเดตสถานะเป็นปฏิเสธ
+      await supabase
+        .from('starter_plan_users')
+        .update({ 
+          submissions_status: 'rejected',
+          rejected_at: new Date().toISOString()
+        })
+        .eq('ref_code', ref_code);
+
+      // ส่งการแจ้งเตือนการปฏิเสธไปยังผู้ใช้
+      await httpClient.post(`${LINE_BOT_API_URL}/flex/notify-user-starter`, {
+        ref_code,
+        line_user_id: userData.line_user_id,
+        status: 'rejected'
+      });
+
+      console.log(`❌ ผู้ใช้ ${ref_code} ถูกปฏิเสธและแจ้งเตือนแล้ว`);
+    }
+
+  } catch (error) {
+    console.error('❌ ข้อผิดพลาดในการจัดการการอนุมัติจากแอดมิน:', error);
+    throw error;
+  }
+}
+
+module.exports = {
+  submitStarterSlip,
+  handleAdminApproval
+};pending',
                 line_user_id,
                 username,
                 password,
@@ -317,11 +492,7 @@ async function submitStarterSlip(req, res) {
           
           const response = await httpClient.post(`${LINE_BOT_API_URL}/flex/send-starter-slip`, {
             ref_code,
-            duration,
-            first_name,
-            last_name,
-            phone_number,
-            slip_image_url: uploadedImageUrl
+            duration
           });
 
           if (response.status === 200) {
