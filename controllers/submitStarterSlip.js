@@ -10,7 +10,8 @@ async function submitStarterSlip(req, res) {
       last_name,
       national_id,
       phone_number,
-      duration
+      duration,
+      file_content
       
     } = req.body;
 
