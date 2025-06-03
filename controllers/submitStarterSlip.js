@@ -4,7 +4,7 @@ const axios = require('axios');
 const joi = require('joi');
 
 // Environment variables
-const API_BASE_URL = process.env.LINE_BOT_API_URL || 'https://line-bot-adt2.onrender.com';
+const LINE_BOT_API_URL = process.env.LINE_BOT_API_URL || 'https://line-bot-adt2.onrender.com';
 const REQUEST_TIMEOUT = parseInt(process.env.REQUEST_TIMEOUT) || 30000; // 30 seconds
 const MAX_RETRIES = parseInt(process.env.MAX_RETRIES) || 3;
 
@@ -32,11 +32,11 @@ const submitSlipSchema = joi.object({
     'string.pattern.base': 'เบอร์โทรศัพท์ไม่ถูกต้อง (ต้องขึ้นต้นด้วย 0 และมี 9-10 หลัก)',
     'any.required': 'กรุณากรอกเบอร์โทรศัพท์'
   }),
-  duration: joi.number().integer().min(1).max(365).required().messages({
+  duration: joi.number().integer().min(1).max(15).required().messages({
     'number.base': 'ระยะเวลาต้องเป็นตัวเลข',
-    'number.min': 'ระยะเวลาต้องมากกว่า 0 วัน',
-    'number.max': 'ระยะเวลาต้องไม่เกิน 365 วัน',
-    'any.required': 'กรุณากรอกระยะเวลา'
+    'number.min': 'ระยะเวลาต้องอย่างน้อย 1 วัน',
+    'number.max': 'ระยะเวลาต้องไม่เกิน 15 วัน',
+    'any.required': 'กรุณาเลือกระยะเวลา'
   }),
   file_content: joi.string().required().messages({
     'string.empty': 'กรุณาแนบสลิปการโอนเงิน',
@@ -315,7 +315,7 @@ async function submitStarterSlip(req, res) {
         try {
           console.log('📤 Sending admin notification...');
           
-          const response = await httpClient.post(`${API_BASE_URL}/flex/send-starter-slip`, {
+          const response = await httpClient.post(`${LINE_BOT_API_URL}/flex/send-starter-slip`, {
             ref_code,
             duration,
             first_name,
@@ -402,7 +402,7 @@ async function handleAdminApproval(ref_code, approved = true) {
         .eq('ref_code', ref_code);
 
       // Send success notification to user
-      await httpClient.post(`${API_BASE_URL}/flex/notify-user-starter`, {
+      await httpClient.post(`${LINE_BOT_API_URL}/flex/notify-user-starter`, {
         ref_code,
         username: userData.username,
         password: userData.password,
@@ -423,7 +423,7 @@ async function handleAdminApproval(ref_code, approved = true) {
         .eq('ref_code', ref_code);
 
       // Send rejection notification to user
-      await httpClient.post(`${API_BASE_URL}/flex/notify-user-starter`, {
+      await httpClient.post(`${LINE_BOT_API_URL}/flex/notify-user-starter`, {
         ref_code,
         line_user_id: userData.line_user_id,
         status: 'rejected'
