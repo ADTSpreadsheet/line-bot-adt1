@@ -44,13 +44,11 @@ async function submitStarterSlip(req, res) {
 
     const { serial_key, line_user_id } = sessionData;
     
-    // 🔍 Debug: ตรวจสอบค่า line_user_id
-    console.log('🔍 line_user_id:', line_user_id);
-    
-    if (!line_user_id) {
-      console.error('❌ ไม่พบ line_user_id ในฐานข้อมูล');
-      return res.status(400).json({ message: 'ไม่พบ LINE USER ID ในระบบ' });
-    }
+    // 🔍 Debug: ตรวจสอบข้อมูลเบื้องต้น
+    console.log('🔍 ข้อมูลเบื้องต้นจาก auth_sessions:');
+    console.log('- ref_code:', ref_code);
+    console.log('- serial_key:', serial_key);
+    console.log('- line_user_id:', line_user_id);
 
     const duration_minutes = duration * 1440;
 
@@ -113,16 +111,53 @@ async function submitStarterSlip(req, res) {
       });
     }
 
-    // ✅ Logic 4: ถ้า Flex ไปหาฝั่ง Admin สำเร็จ → ทำงานต่อ
-    if (response.status === 200) {
-      const username = `ADT-${ref_code}`;
-      const password = serial_key;
+    // ✅ Logic 4: ถ้า API2 ตอบกลับสเตตัส 200 พร้อม ref_code และ duration
+    if (response.status === 200 && response.data) {
+      console.log('✅ API2 ตอบกลับสำเร็จ:', response.data);
+      
+      // 🔍 รับข้อมูลจาก API2 response
+      const { ref_code: returnedRefCode, duration: returnedDuration } = response.data;
+      
+      console.log('📝 ข้อมูลที่ได้จาก API2:');
+      console.log('- Returned ref_code:', returnedRefCode);
+      console.log('- Returned duration:', returnedDuration);
+      
+      if (!returnedRefCode) {
+        console.error('❌ API2 ไม่ได้ส่ง ref_code กลับมา');
+        return res.status(500).json({ message: 'API2 ไม่ได้ส่ง ref_code กลับมา' });
+      }
+
+      // ✅ ใช้ ref_code ที่ได้จาก API2 ไปค้นหา line_user_id ใหม่
+      const { data: sessionData2, error: sessionError2 } = await supabase
+        .from('auth_sessions')
+        .select('serial_key, line_user_id')
+        .eq('ref_code', returnedRefCode)
+        .single();
+
+      if (sessionError2 || !sessionData2) {
+        console.error('❌ ไม่พบข้อมูล auth_sessions สำหรับ ref_code:', returnedRefCode);
+        return res.status(404).json({ message: `ไม่พบข้อมูล ref_code: ${returnedRefCode} ในระบบ` });
+      }
+
+      const { serial_key: finalSerialKey, line_user_id: finalLineUserId } = sessionData2;
+      
+      console.log('🔍 ข้อมูลที่ค้นพบจาก auth_sessions:');
+      console.log('- serial_key:', finalSerialKey);
+      console.log('- line_user_id:', finalLineUserId);
+
+      if (!finalLineUserId) {
+        console.error('❌ ไม่พบ line_user_id สำหรับ ref_code:', returnedRefCode);
+        return res.status(400).json({ message: `ไม่พบ LINE User ID สำหรับ ref_code: ${returnedRefCode}` });
+      }
+
+      const username = `ADT-${returnedRefCode}`;
+      const password = finalSerialKey;
 
       // ✅ อัปเดต username/password
       const { error: updateError } = await supabase
         .from('starter_plan_users')
         .update({ username, password })
-        .eq('ref_code', ref_code);
+        .eq('ref_code', returnedRefCode);
 
       if (updateError) {
         console.error('❌ อัปเดต username/password ล้มเหลว:', updateError);
@@ -134,7 +169,6 @@ async function submitStarterSlip(req, res) {
         if (client) {
           console.log('📱 ใช้ LINE SDK ส่ง Flex Message');
           
-          // ใช้ LINE SDK
           const flexMessage = {
             type: "flex",
             altText: "แจ้งเตือนสถานะการสั่งซื้อ",
@@ -168,7 +202,7 @@ async function submitStarterSlip(req, res) {
                   },
                   {
                     type: "text",
-                    text: `- Ref.Code: ${ref_code}`,
+                    text: `- Ref.Code: ${returnedRefCode}`,
                     size: "sm"
                   },
                   {
@@ -183,7 +217,7 @@ async function submitStarterSlip(req, res) {
                   },
                   {
                     type: "text",
-                    text: `- ระยะเวลาการใช้งาน: ${duration} วัน`,
+                    text: `- ระยะเวลาการใช้งาน: ${returnedDuration} วัน`,
                     size: "sm"
                   },
                   {
@@ -199,18 +233,17 @@ async function submitStarterSlip(req, res) {
             }
           };
 
-          // ส่ง Flex Message ไปยัง line_user_id
-          console.log('📤 กำลังส่ง Flex Message ไปยัง LINE User:', line_user_id);
-          const lineResponse = await client.pushMessage(line_user_id, flexMessage);
+          console.log('📤 กำลังส่ง Flex Message ไปยัง LINE User:', finalLineUserId);
+          const lineResponse = await client.pushMessage(finalLineUserId, flexMessage);
           console.log('✅ ส่ง LINE Flex Message สำเร็จ:', lineResponse);
           
         } else {
           console.log('🌐 ใช้ axios เรียก API Bot อื่น');
           
-          // ใช้ axios เรียก API Bot อื่น
           const notifyResponse = await axios.post(`${process.env.API2_URL}/starter/notify-user-starter`, {
-            ref_code,          
-            duration         
+            ref_code: returnedRefCode,          
+            duration: returnedDuration,
+            line_user_id: finalLineUserId
           }, {
             timeout: 10000
           });
@@ -221,33 +254,33 @@ async function submitStarterSlip(req, res) {
         return res.status(200).json({
           message: '✅ ส่ง Flex สำเร็จ และอัปเดตข้อมูลเรียบร้อย',
           data: {
-            ref_code,
+            ref_code: returnedRefCode,
             username,
-            duration
+            duration: returnedDuration
           }
         });
         
       } catch (flexError) {
         console.error('❌ ส่ง Flex Message ล้มเหลว:', flexError);
         
-        // แม้ส่ง Flex ไม่สำเร็จ แต่ข้อมูลยังถูกบันทึกแล้ว
         return res.status(200).json({
           message: '⚠️ บันทึกข้อมูลสำเร็จ แต่ส่งแจ้งเตือนไม่สำเร็จ',
           warning: 'กรุณาตรวจสอบการตั้งค่า LINE Bot',
           data: {
-            ref_code,
+            ref_code: returnedRefCode,
             username,
-            duration
+            duration: returnedDuration
           },
           error: flexError.message
         });
       }
       
     } else {
-      console.error('❌ API notify-admin-slip ตอบกลับสถานะไม่ถูกต้อง:', response.status);
+      console.error('❌ API2 ตอบกลับสถานะไม่ถูกต้องหรือไม่มีข้อมูล:', response.status, response.data);
       return res.status(500).json({ 
-        message: '❌ Bot2 ไม่สามารถส่ง Flex ไปยังแอดมินได้',
-        status: response.status 
+        message: '❌ API2 ไม่ได้ส่งข้อมูลที่จำเป็นกลับมา',
+        status: response.status,
+        data: response.data
       });
     }
 
