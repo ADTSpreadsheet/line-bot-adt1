@@ -85,7 +85,7 @@ async function submitStarterSlip(req, res) {
     }
 
     // ✅ Logic 3: แจ้ง Bot2 ผ่าน API2
-    const response = await axios.post(`${process.env.API2_URL}/notify-admin-slip`, {
+    const response = await axios.post(`${process.env.API2_URL}/starter/notify-admin-slip`, {
       ref_code,
       duration
     });
