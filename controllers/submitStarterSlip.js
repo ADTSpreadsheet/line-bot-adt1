@@ -16,7 +16,7 @@ async function submitStarterSlip(req, res) {
     } = req.body;
 
     // ✅ Logic 1: ตรวจข้อมูล
-    if (!ref_code || !first_name || !last_name || !national_id || !phone_number || !duration ) {
+    if (!ref_code || !first_name || !last_name || !national_id || !phone_number || !duration || !file_content ) {
       return res.status(400).json({ message: 'กรุณากรอกข้อมูลให้ครบถ้วน' });
     }
 
@@ -37,7 +37,7 @@ async function submitStarterSlip(req, res) {
     // ✅ ตั้งชื่อไฟล์สลิปแบบสั้น
     const slipFileName = `SP-${ref_code}.jpg`;
 
-    // ✅ Logic 2.2: อัปโหลดภาพเข้า Supabase
+    // ✅ Logic 2.1: อัปโหลดภาพเข้า Supabase
     const { publicUrl, error: uploadError } = await uploadBase64Image({
       base64String: file_content,
       fileName: slipFileName,
@@ -50,7 +50,7 @@ async function submitStarterSlip(req, res) {
       return res.status(500).json({ message: 'อัปโหลดภาพไม่สำเร็จ', error: uploadError });
     }
 
-    // ✅ Logic 2.1: บันทึกลง starter_plan_users
+    // ✅ Logic 2.2: บันทึกลง starter_plan_users
     const { error: insertError } = await supabase
       .from('starter_plan_users')
       .insert([
