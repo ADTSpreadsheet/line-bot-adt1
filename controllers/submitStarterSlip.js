@@ -38,10 +38,20 @@ async function submitStarterSlip(req, res) {
       .single();
 
     if (sessionError || !sessionData) {
+      console.error('❌ ไม่พบ sessionData:', sessionError);
       return res.status(404).json({ message: 'ไม่พบข้อมูล ref_code ในระบบ' });
     }
 
     const { serial_key, line_user_id } = sessionData;
+    
+    // 🔍 Debug: ตรวจสอบค่า line_user_id
+    console.log('🔍 line_user_id:', line_user_id);
+    
+    if (!line_user_id) {
+      console.error('❌ ไม่พบ line_user_id ในฐานข้อมูล');
+      return res.status(400).json({ message: 'ไม่พบ LINE USER ID ในระบบ' });
+    }
+
     const duration_minutes = duration * 1440;
 
     // ✅ ตั้งชื่อไฟล์สลิปแบบสั้น
@@ -85,11 +95,23 @@ async function submitStarterSlip(req, res) {
     }
 
     // ✅ Logic 3: แจ้ง Bot2 ผ่าน API2
-    console.log('🛰 กำลังยิงไปยัง:', `${process.env.API2_URL}/starter/notify-user-starter`);
-    const response = await axios.post(`${process.env.API2_URL}/starter/notify-admin-slip`, {
-      ref_code,
-      duration
-    });
+    console.log('🛰 กำลังยิงไปยัง:', `${process.env.API2_URL}/starter/notify-admin-slip`);
+    
+    let response;
+    try {
+      response = await axios.post(`${process.env.API2_URL}/starter/notify-admin-slip`, {
+        ref_code,
+        duration
+      }, {
+        timeout: 10000 // เพิ่ม timeout 10 วินาที
+      });
+    } catch (apiError) {
+      console.error('❌ เรียก API notify-admin-slip ล้มเหลว:', apiError.message);
+      return res.status(500).json({ 
+        message: 'ไม่สามารถแจ้งเตือนแอดมินได้', 
+        error: apiError.message 
+      });
+    }
 
     // ✅ Logic 4: ถ้า Flex ไปหาฝั่ง Admin สำเร็จ → ทำงานต่อ
     if (response.status === 200) {
@@ -108,92 +130,134 @@ async function submitStarterSlip(req, res) {
       }
 
       // ✅ ส่ง Flex ไปแจ้งลูกค้า
-      if (client) {
-        // ใช้ LINE SDK
-        const flexMessage = {
-          type: "flex",
-          altText: "แจ้งเตือนสถานะการสั่งซื้อ",
-          contents: {
-            type: "bubble",
-            header: {
-              type: "box",
-              layout: "vertical",
-              contents: [
-                {
-                  type: "text",
-                  text: "📌 แจ้งเตือนสถานะการสั่งซื้อ",
-                  weight: "bold",
-                  color: "#007BFF",
-                  size: "lg"
-                }
-              ],
-              backgroundColor: "#F8F9FA",
-              paddingAll: "lg"
-            },
-            body: {
-              type: "box",
-              layout: "vertical",
-              spacing: "md",
-              contents: [
-                {
-                  type: "text",
-                  text: "รายละเอียด Starter Plan ของท่านคือ:",
-                  weight: "bold",
-                  size: "md"
-                },
-                {
-                  type: "text",
-                  text: `- Ref.Code: ${ref_code}`,
-                  size: "sm"
-                },
-                {
-                  type: "text",
-                  text: `- Username: ${username}`,
-                  size: "sm"
-                },
-                {
-                  type: "text",
-                  text: `- Password: ${password}`,
-                  size: "sm"
-                },
-                {
-                  type: "text",
-                  text: `- ระยะเวลาการใช้งาน: ${duration} วัน`,
-                  size: "sm"
-                },
-                {
-                  type: "text",
-                  text: "ท่านสามารถนำข้อมูลไปทำการ Login ที่หน้าโปรแกรม ADTSpreadsheet ได้เลยครับ ✅",
-                  wrap: true,
-                  size: "sm",
-                  color: "#28A745"
-                }
-              ],
-              paddingAll: "lg"
+      try {
+        if (client) {
+          console.log('📱 ใช้ LINE SDK ส่ง Flex Message');
+          
+          // ใช้ LINE SDK
+          const flexMessage = {
+            type: "flex",
+            altText: "แจ้งเตือนสถานะการสั่งซื้อ",
+            contents: {
+              type: "bubble",
+              header: {
+                type: "box",
+                layout: "vertical",
+                contents: [
+                  {
+                    type: "text",
+                    text: "📌 แจ้งเตือนสถานะการสั่งซื้อ",
+                    weight: "bold",
+                    color: "#007BFF",
+                    size: "lg"
+                  }
+                ],
+                backgroundColor: "#F8F9FA",
+                paddingAll: "lg"
+              },
+              body: {
+                type: "box",
+                layout: "vertical",
+                spacing: "md",
+                contents: [
+                  {
+                    type: "text",
+                    text: "รายละเอียด Starter Plan ของท่านคือ:",
+                    weight: "bold",
+                    size: "md"
+                  },
+                  {
+                    type: "text",
+                    text: `- Ref.Code: ${ref_code}`,
+                    size: "sm"
+                  },
+                  {
+                    type: "text",
+                    text: `- Username: ${username}`,
+                    size: "sm"
+                  },
+                  {
+                    type: "text",
+                    text: `- Password: ${password}`,
+                    size: "sm"
+                  },
+                  {
+                    type: "text",
+                    text: `- ระยะเวลาการใช้งาน: ${duration} วัน`,
+                    size: "sm"
+                  },
+                  {
+                    type: "text",
+                    text: "ท่านสามารถนำข้อมูลไปทำการ Login ที่หน้าโปรแกรม ADTSpreadsheet ได้เลยครับ ✅",
+                    wrap: true,
+                    size: "sm",
+                    color: "#28A745"
+                  }
+                ],
+                paddingAll: "lg"
+              }
             }
-          }
-        };
+          };
 
-        // ส่ง Flex Message ไปยัง line_user_id
-        await client.pushMessage(line_user_id, flexMessage);
-      } else {
-        // ใช้ axios เรียก API Bot อื่น
-        await axios.post(`${process.env.API2_URL}/starter/notify-user-starter`, {
-          ref_code,          
-          duration         
+          // ส่ง Flex Message ไปยัง line_user_id
+          console.log('📤 กำลังส่ง Flex Message ไปยัง LINE User:', line_user_id);
+          const lineResponse = await client.pushMessage(line_user_id, flexMessage);
+          console.log('✅ ส่ง LINE Flex Message สำเร็จ:', lineResponse);
+          
+        } else {
+          console.log('🌐 ใช้ axios เรียก API Bot อื่น');
+          
+          // ใช้ axios เรียก API Bot อื่น
+          const notifyResponse = await axios.post(`${process.env.API2_URL}/starter/notify-user-starter`, {
+            ref_code,          
+            duration         
+          }, {
+            timeout: 10000
+          });
+          
+          console.log('✅ เรียก notify-user-starter สำเร็จ:', notifyResponse.status);
+        }
+
+        return res.status(200).json({
+          message: '✅ ส่ง Flex สำเร็จ และอัปเดตข้อมูลเรียบร้อย',
+          data: {
+            ref_code,
+            username,
+            duration
+          }
+        });
+        
+      } catch (flexError) {
+        console.error('❌ ส่ง Flex Message ล้มเหลว:', flexError);
+        
+        // แม้ส่ง Flex ไม่สำเร็จ แต่ข้อมูลยังถูกบันทึกแล้ว
+        return res.status(200).json({
+          message: '⚠️ บันทึกข้อมูลสำเร็จ แต่ส่งแจ้งเตือนไม่สำเร็จ',
+          warning: 'กรุณาตรวจสอบการตั้งค่า LINE Bot',
+          data: {
+            ref_code,
+            username,
+            duration
+          },
+          error: flexError.message
         });
       }
-
-      return res.status(200).json({
-        message: '✅ ส่ง Flex สำเร็จ และอัปเดตข้อมูลเรียบร้อย'
-      });
+      
     } else {
-      return res.status(500).json({ message: '❌ Bot2 ไม่สามารถส่ง Flex ไปยังแอดมินได้' });
+      console.error('❌ API notify-admin-slip ตอบกลับสถานะไม่ถูกต้อง:', response.status);
+      return res.status(500).json({ 
+        message: '❌ Bot2 ไม่สามารถส่ง Flex ไปยังแอดมินได้',
+        status: response.status 
+      });
     }
 
   } catch (err) {
     console.error('❌ ERROR @ submitStarterSlip:', err);
-    return res.status(500).json({ message: 'เกิดข้อผิดพลาดในระบบ', error: err.message });
+    return res.status(500).json({ 
+      message: 'เกิดข้อผิดพลาดในระบบ', 
+      error: err.message,
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    });
   }
 }
 
