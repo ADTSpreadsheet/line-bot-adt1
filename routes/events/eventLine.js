@@ -189,13 +189,17 @@ const handleMessage = async (event) => {
   const userId = event.source.userId;
   const msg = event.message;
 
-  if (msg.type !== 'text') return;
+  if (msg.type !== 'text') {
+    // ถ้าไม่ใช่ text ให้ส่งไปยัง 3D System
+    await handleLine3DMessage(event);
+    return;
+  }
 
   const text = msg.text.trim().toLowerCase();
 
   log.info(`[MESSAGE] USER: ${userId} ส่งข้อความ: "${text}"`);
 
-  // ✅ ถ้าเป็น 'req_refcode' → ให้ทำงานตามเดิม
+  // ✅ ถ้าเป็น 'req_refcode' → ให้ทำงานตามเดิม (เช็คก่อนส่งไป 3D)
   if (text === 'req_refcode') {
     log.info(`[REQ_REFCODE] เริ่มค้นหา Ref.Code สำหรับ: ${userId}`);
     
