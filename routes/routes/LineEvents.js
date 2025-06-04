@@ -10,63 +10,106 @@ const { handleUnfollowEvent } = require('../controllers/events/UnfollowADTLineBo
 const { handleStarterplanRemaining } = require('../controllers/events/StarterplanRemaining');
 
 // ==============================
-// 🎯 MAIN WEBHOOK ROUTE
+// 👋 FOLLOW EVENT ENDPOINT
 // ==============================
 
-router.post('/webhook', async (req, res) => {
-  console.log('=== LINE WEBHOOK RECEIVED ===');
+router.post('/FollowADTLineBot', async (req, res) => {
+  console.log('=== FOLLOW EVENT RECEIVED ===');
   
   try {
-    const events = req.body.events;
+    const event = req.body;
+    
+    console.log('Event Data:', event);
+    
+    // เรียก Follow handler
+    await handleFollowEvent(event);
 
-    if (!events || events.length === 0) {
-      console.log('No events found');
-      return res.status(200).end();
-    }
-
-    console.log('Number of events:', events.length);
-
-    for (const event of events) {
-      console.log(`Event Type: ${event.type}, User: ${event.source.userId}`);
-      
-      // แยกการจัดการตาม event type
-      switch (event.type) {
-        case 'follow':
-          console.log('🔄 Processing Follow Event');
-          await handleFollowEvent(event);
-          break;
-          
-        case 'message':
-          console.log('💬 Processing Message Event');
-          await handleMessageEvent(event);
-          break;
-          
-        case 'unfollow':
-          console.log('👋 Processing Unfollow Event');
-          await handleUnfollowEvent(event);
-          break;
-          
-        default:
-          console.log('Unknown event type:', event.type);
-      }
-    }
-
-    res.status(200).end();
+    console.log('✅ Follow event processed successfully');
+    res.status(200).json({ 
+      success: true,
+      message: 'Follow event processed' 
+    });
     
   } catch (error) {
-    console.log('Webhook Critical Error:', error.message);
-    log.error(`[WEBHOOK] Critical Error: ${error.message}`);
-    res.status(500).end();
+    console.log('Follow Event Error:', error.message);
+    log.error(`[FOLLOW] Error: ${error.message}`);
+    res.status(500).json({ 
+      error: 'Internal server error' 
+    });
   }
   
-  console.log('=== WEBHOOK END ===');
+  console.log('=== FOLLOW EVENT END ===');
+});
+
+// ==============================
+// 💬 MESSAGE EVENT ENDPOINT
+// ==============================
+
+router.post('/MessageADTLineBot', async (req, res) => {
+  console.log('=== MESSAGE EVENT RECEIVED ===');
+  
+  try {
+    const event = req.body;
+    
+    console.log('Event Data:', event);
+    
+    // เรียก Message handler
+    await handleMessageEvent(event);
+
+    console.log('✅ Message event processed successfully');
+    res.status(200).json({ 
+      success: true,
+      message: 'Message event processed' 
+    });
+    
+  } catch (error) {
+    console.log('Message Event Error:', error.message);
+    log.error(`[MESSAGE] Error: ${error.message}`);
+    res.status(500).json({ 
+      error: 'Internal server error' 
+    });
+  }
+  
+  console.log('=== MESSAGE EVENT END ===');
+});
+
+// ==============================
+// 👋 UNFOLLOW EVENT ENDPOINT
+// ==============================
+
+router.post('/UnfollowADTLineBot', async (req, res) => {
+  console.log('=== UNFOLLOW EVENT RECEIVED ===');
+  
+  try {
+    const event = req.body;
+    
+    console.log('Event Data:', event);
+    
+    // เรียก Unfollow handler
+    await handleUnfollowEvent(event);
+
+    console.log('✅ Unfollow event processed successfully');
+    res.status(200).json({ 
+      success: true,
+      message: 'Unfollow event processed' 
+    });
+    
+  } catch (error) {
+    console.log('Unfollow Event Error:', error.message);
+    log.error(`[UNFOLLOW] Error: ${error.message}`);
+    res.status(500).json({ 
+      error: 'Internal server error' 
+    });
+  }
+  
+  console.log('=== UNFOLLOW EVENT END ===');
 });
 
 // ==============================
 // 🕐 STARTERPLAN REMAINING ENDPOINT
 // ==============================
 
-router.post('/starterplan-remaining', async (req, res) => {
+router.post('/StarterplanRemaining', async (req, res) => {
   console.log('=== STARTERPLAN REMAINING RECEIVED ===');
   
   try {
