@@ -189,17 +189,16 @@ const handleMessage = async (event) => {
   const userId = event.source.userId;
   const msg = event.message;
 
+  // ถ้าไม่ใช่ text message ให้ส่งไปยัง 3D System
   if (msg.type !== 'text') {
-    // ถ้าไม่ใช่ text ให้ส่งไปยัง 3D System
     await handleLine3DMessage(event);
     return;
   }
 
   const text = msg.text.trim().toLowerCase();
-
   log.info(`[MESSAGE] USER: ${userId} ส่งข้อความ: "${text}"`);
 
-  // ✅ ถ้าเป็น 'req_refcode' → ให้ทำงานตามเดิม (เช็คก่อนส่งไป 3D)
+  // 🔥 เช็ค req_refcode ก่อนทุกอย่าง
   if (text === 'req_refcode') {
     log.info(`[REQ_REFCODE] เริ่มค้นหา Ref.Code สำหรับ: ${userId}`);
     
@@ -255,7 +254,7 @@ const handleMessage = async (event) => {
         text: `🔐 Ref.Code ของคุณคือ: ${data.ref_code}`
       });
       
-      return;
+      return; // จบการทำงาน ไม่ไปต่อ
 
     } catch (error) {
       log.error(`[REQ_REFCODE] Unexpected Error: ${error.message}`);
@@ -267,7 +266,7 @@ const handleMessage = async (event) => {
     }
   }
 
-  // ✅ ถ้าไม่ใช่ 'req_refcode' → ส่งไปยังระบบ 3D Messaging
+  // ถ้าไม่ใช่ req_refcode ค่อยส่งไปยัง 3D Messaging System
   log.info(`[MESSAGE] ส่งไปยัง 3D Messaging System: ${text}`);
   await handleLine3DMessage(event);
 };
