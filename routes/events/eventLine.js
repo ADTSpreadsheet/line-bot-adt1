@@ -251,7 +251,7 @@ const handleMessage = async (event) => {
       
       await client.replyMessage(event.replyToken, {
         type: 'text',
-        text: `🔐 Ref.Code ของคุณคือ: ${data.ref_code}`
+        text: `รหัส Ref.Code ของคุณคือ  "${data.ref_code}"`
       });
       
       return; // จบการทำงาน
