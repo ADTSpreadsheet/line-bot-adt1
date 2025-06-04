@@ -74,8 +74,9 @@ const handleMessageEvent = async (event) => {
     }
   }
 };
-};
 
 module.exports = {
   handleMessageEvent
 };
+};
+
