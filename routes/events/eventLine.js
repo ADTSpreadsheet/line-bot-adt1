@@ -181,7 +181,7 @@ const handleFollow = async (event) => {
 };
 
 // ==============================
-// 2️⃣ MESSAGE EVENT - แก้ไขแล้ว
+// 2️⃣ MESSAGE EVENT - แก้ไขให้จัดการ req_refcode ที่ routes
 // ==============================
 const { handleLine3DMessage } = require('../../controllers/LineMessage3DController');
 
@@ -198,9 +198,9 @@ const handleMessage = async (event) => {
   const text = msg.text.trim().toLowerCase();
   log.info(`[MESSAGE] USER: ${userId} ส่งข้อความ: "${text}"`);
 
-  // 🔥 เช็ค req_refcode ก่อนทุกอย่าง
+  // 🔥 จัดการ req_refcode ที่ routes level ก่อนส่งไป Controller
   if (text === 'req_refcode') {
-    log.info(`[REQ_REFCODE] เริ่มค้นหา Ref.Code สำหรับ: ${userId}`);
+    log.info(`[ROUTES-REQ_REFCODE] 🔐 จัดการ req_refcode โดยตรงที่ routes สำหรับ: ${userId}`);
     
     try {
       const { data, error } = await supabase
@@ -210,7 +210,7 @@ const handleMessage = async (event) => {
         .single();
 
       if (error) {
-        log.error(`[REQ_REFCODE] Database Error: ${error.message}`);
+        log.error(`[ROUTES-REQ_REFCODE] Database Error: ${error.message}`);
         await client.replyMessage(event.replyToken, {
           type: 'text',
           text: '❌ เกิดข้อผิดพลาดในระบบ กรุณาลองใหม่อีกครั้งครับ'
@@ -219,7 +219,7 @@ const handleMessage = async (event) => {
       }
 
       if (!data || !data.ref_code) {
-        log.warn(`[REQ_REFCODE] ไม่พบ Ref.Code สำหรับ: ${userId}`);
+        log.warn(`[ROUTES-REQ_REFCODE] ไม่พบ Ref.Code สำหรับ: ${userId}`);
         await client.replyMessage(event.replyToken, {
           type: 'text',
           text: '❌ ไม่พบ Ref.Code ของคุณ กรุณาสแกน QR ใหม่ก่อนใช้งานครับ'
@@ -229,7 +229,7 @@ const handleMessage = async (event) => {
 
       // เช็คสถานะการยืนยัน
       if (data.verify_status === 'BLOCK') {
-        log.warn(`[REQ_REFCODE] ผู้ใช้ ${userId} ถูก BLOCK`);
+        log.warn(`[ROUTES-REQ_REFCODE] ผู้ใช้ ${userId} ถูก BLOCK`);
         await client.replyMessage(event.replyToken, {
           type: 'text',
           text: '🚫 บัญชีของคุณถูกระงับการใช้งาน กรุณาติดต่อเจ้าหน้าที่ครับ'
@@ -239,7 +239,7 @@ const handleMessage = async (event) => {
 
       // เช็ควันหมดอายุ
       if (data.expires_at && data.expires_at <= new Date().toISOString()) {
-        log.warn(`[REQ_REFCODE] Ref.Code ของ ${userId} หมดอายุแล้ว`);
+        log.warn(`[ROUTES-REQ_REFCODE] Ref.Code ของ ${userId} หมดอายุแล้ว`);
         await client.replyMessage(event.replyToken, {
           type: 'text',
           text: '🔒 Ref.Code ของคุณหมดอายุแล้วครับ\nกรุณาติดต่อเจ้าหน้าที่หรือทำรายการสั่งซื้อเพื่อเปิดใช้งานอีกครั้ง 🙏'
@@ -247,17 +247,17 @@ const handleMessage = async (event) => {
         return;
       }
 
-      log.info(`[REQ_REFCODE] ✅ ส่ง Ref.Code ให้ผู้ใช้: ${userId} = ${data.ref_code}`);
+      log.info(`[ROUTES-REQ_REFCODE] ✅ ส่ง Ref.Code ให้ผู้ใช้: ${userId} = ${data.ref_code}`);
       
       await client.replyMessage(event.replyToken, {
         type: 'text',
         text: `🔐 Ref.Code ของคุณคือ: ${data.ref_code}`
       });
       
-      return; // จบการทำงาน ไม่ไปต่อ
+      return; // จบการทำงาน ไม่ส่งต่อไป Controller
 
     } catch (error) {
-      log.error(`[REQ_REFCODE] Unexpected Error: ${error.message}`);
+      log.error(`[ROUTES-REQ_REFCODE] Unexpected Error: ${error.message}`);
       await client.replyMessage(event.replyToken, {
         type: 'text',
         text: '❌ เกิดข้อผิดพลาดในระบบ กรุณาลองใหม่อีกครั้งครับ'
@@ -266,7 +266,7 @@ const handleMessage = async (event) => {
     }
   }
 
-  // ถ้าไม่ใช่ req_refcode ค่อยส่งไปยัง 3D Messaging System
+  // ถ้าไม่ใช่ req_refcode ค่อยส่งไปยัง 3D Messaging Controller
   log.info(`[MESSAGE] ส่งไปยัง 3D Messaging System: ${text}`);
   await handleLine3DMessage(event);
 };
