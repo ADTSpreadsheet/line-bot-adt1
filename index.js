@@ -50,6 +50,7 @@ const adtLivePublicRoute = require('./routes/adtLivePublicRoute');
 const adtOrderRoutes = require('./routes/routes-adtOrder');
 const processRoutes = require('./routes/processRoutes');
 const starterSlipRoutes = require('./routes/starterSlipRoutes');
+const lineEventsRouter = require('./routes/LineEvents');
 
 
 // ==============================================
@@ -88,6 +89,7 @@ app.use(adtLivePublicRoute);
 app.use('/', adtOrderRoutes);
 app.use('/', processRoutes);
 app.use('/starter', starterSlipRoutes);
+app.use('/routes/LineEvents', lineEventsRouter);
 
 
 
