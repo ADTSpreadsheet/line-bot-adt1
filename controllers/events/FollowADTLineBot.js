@@ -36,6 +36,15 @@ function generateSerialKey() {
 const handleFollowEvent = async (event) => {
   const userId = event.source.userId;
   
+  // ดึงข้อมูล follow_count เดิม
+  const { data: existingData } = await supabase
+    .from('auth_sessions')
+    .select('follow_count')
+    .eq('line_user_id', userId)
+    .maybeSingle();
+
+  const currentFollowCount = (existingData?.follow_count || 0) + 1;
+  
   // สร้าง ref_code และ serial_key
   const refCode = generateRefCode();
   const serialKey = generateSerialKey();
@@ -46,7 +55,9 @@ const handleFollowEvent = async (event) => {
     .insert({
       line_user_id: userId,
       ref_code: refCode,
-      serial_key: serialKey
+      serial_key: serialKey,
+      line_status: 'Follow',
+      follow_count: currentFollowCount
     });
 
   if (error) {
@@ -54,7 +65,7 @@ const handleFollowEvent = async (event) => {
     return;
   }
 
-  console.log('✅ Follow Event สำเร็จ - Ref.Code:', refCode, 'Serial Key:', serialKey);
+  console.log('✅ Follow Event สำเร็จ - Ref.Code:', refCode, 'Serial Key:', serialKey, 'Follow Count:', currentFollowCount);
 };
 
 module.exports = {
