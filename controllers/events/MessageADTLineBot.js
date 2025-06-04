@@ -22,7 +22,7 @@ const handleMessageEvent = async (event) => {
     
     const text = msg.text.trim().toLowerCase();
     
-    // เช็คคำสั่ง req_refcode (ใช้หลายวิธีเพื่อความแน่ใจ)
+    // เช็คคำสั่ง req_refcode
     if (text === 'req_refcode' || text.includes('req_refcode') || text === 'req refcode') {
       
       // ดึง ref_code จาก database
@@ -41,19 +41,20 @@ const handleMessageEvent = async (event) => {
       }
       
       if (data && data.ref_code) {
-        // ส่งข้อความ
+        // ส่งข้อความ ref_code
         await client.replyMessage(event.replyToken, {
           type: 'text',
           text: `🔐 รหัส Ref.Code ของคุณคือ "${data.ref_code}"`
         });
       } else {
+        // ไม่เจอ ref_code
         await client.replyMessage(event.replyToken, {
           type: 'text',
           text: 'ไม่พบรหัส Ref.Code ของคุณ\nกรุณาเพิ่มเป็นเพื่อนใหม่หรือติดต่อเจ้าหน้าที่'
         });
       }
     } else {
-      // ส่งข้อความแนะนำการใช้งาน
+      // ข้อความอื่นๆ
       await client.replyMessage(event.replyToken, {
         type: 'text',
         text: `สวัสดีครับ! 👋\n\nหากต้องการดูรหัส Ref.Code ของคุณ\nกรุณาพิมพ์: req_refcode`
@@ -63,7 +64,6 @@ const handleMessageEvent = async (event) => {
   } catch (error) {
     console.error('Message Handler Error:', error.message);
     
-    // ส่งข้อความ error แบบ generic
     try {
       await client.replyMessage(event.replyToken, {
         type: 'text',
@@ -78,5 +78,3 @@ const handleMessageEvent = async (event) => {
 module.exports = {
   handleMessageEvent
 };
-};
-
