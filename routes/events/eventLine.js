@@ -265,10 +265,6 @@ const handleMessage = async (event) => {
       return;
     }
   }
-
-  // ถ้าไม่ใช่ req_refcode ค่อยส่งไปยัง 3D Messaging Controller
-  log.info(`[MESSAGE] ส่งไปยัง 3D Messaging System: ${text}`);
-  await handleLine3DMessage(event);
 };
 
 // ==============================
