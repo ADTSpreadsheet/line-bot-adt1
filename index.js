@@ -43,7 +43,7 @@ const setupUsernameRoute = require('./routes/setupUsernameRoute');
 const setupPasswordRoutes = require('./routes/setupPasswordRoute');
 const loginRoute = require('./routes/loginRoute');
 const logoutRoute = require('./routes/logoutRoute');
-const lineMessage3DRoutes = require('./routes/lineMessage3DRoutes');
+
 const replyFromAdminRoutes = require('./routes/replyFromAdminRoutes');
 const adtLiveWorkshopRoute = require('./routes/adtLiveWorkshopRoute');
 const adtLivePublicRoute = require('./routes/adtLivePublicRoute');
@@ -81,7 +81,7 @@ app.use('/router/user', require('./routes/userRoute'));
 app.use('/router/setup-password', setupPasswordRoutes);
 app.use('/router', loginRoute);
 app.use('/router/logout', logoutRoute);
-app.use('/router/line-message-3d', lineMessage3DRoutes);
+
 app.use(replyFromAdminRoutes);
 app.use('/adtliveworkshop', adtLiveWorkshopRoute);
 app.use(adtLivePublicRoute);
