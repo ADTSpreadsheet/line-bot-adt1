@@ -185,15 +185,9 @@ const handleMessage = async (event) => {
   const userId = event.source.userId;
   const msg = event.message;
 
-  // 🔥 เพิ่ม log debug
-  console.log('=== DEBUG MESSAGE EVENT ===');
-  console.log('userId:', userId);
-  console.log('message type:', msg.type);
-  console.log('message text:', msg.text);
-
   // ตรวจสอบว่าเป็น text message หรือไม่
   if (msg.type !== 'text') {
-    console.log('❌ ไม่ใช่ text message');
+    // ถ้าไม่ใช่ text message ให้ส่งข้อความแจ้งเตือน
     await client.replyMessage(event.replyToken, {
       type: 'text',
       text: 'ขออภัยครับ ตอนนี้รองรับเฉพาะข้อความตัวอักษรเท่านั้น 📝'
@@ -202,28 +196,20 @@ const handleMessage = async (event) => {
   }
 
   const text = msg.text.trim().toLowerCase();
-  console.log('📝 ข้อความที่แปลงแล้ว:', text);
-  
   log.info(`[MESSAGE] USER: ${userId} ส่งข้อความ: "${text}"`);
 
-  // 🔥 เช็ค req_refcode 
+  // 🔥 จัดการ req_refcode ที่ routes level
   if (text === 'req_refcode') {
-    console.log('✅ ตรวจพบคำสั่ง req_refcode');
     log.info(`[ROUTES-REQ_REFCODE] 🔐 จัดการ req_refcode โดยตรงที่ routes สำหรับ: ${userId}`);
     
     try {
-      console.log('🔍 กำลังค้นหาข้อมูลใน database...');
-      
       const { data, error } = await supabase
         .from('auth_sessions')
         .select('ref_code, expires_at, verify_status')
         .eq('line_user_id', userId)
         .single();
 
-      console.log('📊 ผลลัพธ์จาก database:', { data, error });
-
       if (error) {
-        console.log('❌ Database Error:', error.message);
         log.error(`[ROUTES-REQ_REFCODE] Database Error: ${error.message}`);
         await client.replyMessage(event.replyToken, {
           type: 'text',
@@ -233,7 +219,6 @@ const handleMessage = async (event) => {
       }
 
       if (!data || !data.ref_code) {
-        console.log('❌ ไม่พบ ref_code');
         log.warn(`[ROUTES-REQ_REFCODE] ไม่พบ Ref.Code สำหรับ: ${userId}`);
         await client.replyMessage(event.replyToken, {
           type: 'text',
@@ -244,7 +229,6 @@ const handleMessage = async (event) => {
 
       // เช็คสถานะการยืนยัน
       if (data.verify_status === 'BLOCK') {
-        console.log('🚫 ผู้ใช้ถูก BLOCK');
         log.warn(`[ROUTES-REQ_REFCODE] ผู้ใช้ ${userId} ถูก BLOCK`);
         await client.replyMessage(event.replyToken, {
           type: 'text',
@@ -255,7 +239,6 @@ const handleMessage = async (event) => {
 
       // เช็ควันหมดอายุ
       if (data.expires_at && data.expires_at <= new Date().toISOString()) {
-        console.log('⌛ ref_code หมดอายุแล้ว');
         log.warn(`[ROUTES-REQ_REFCODE] Ref.Code ของ ${userId} หมดอายุแล้ว`);
         await client.replyMessage(event.replyToken, {
           type: 'text',
@@ -264,7 +247,6 @@ const handleMessage = async (event) => {
         return;
       }
 
-      console.log('🎯 เตรียมส่ง ref_code:', data.ref_code);
       log.info(`[ROUTES-REQ_REFCODE] ✅ ส่ง Ref.Code ให้ผู้ใช้: ${userId} = ${data.ref_code}`);
       
       await client.replyMessage(event.replyToken, {
@@ -272,11 +254,9 @@ const handleMessage = async (event) => {
         text: `รหัส Ref.Code ของคุณคือ  "${data.ref_code}"`
       });
       
-      console.log('✅ ส่งข้อความสำเร็จแล้ว');
-      return;
+      return; // จบการทำงาน
 
     } catch (error) {
-      console.log('💥 Unexpected Error:', error);
       log.error(`[ROUTES-REQ_REFCODE] Unexpected Error: ${error.message}`);
       await client.replyMessage(event.replyToken, {
         type: 'text',
@@ -284,12 +264,7 @@ const handleMessage = async (event) => {
       });
       return;
     }
-  } else {
-    console.log('📝 ไม่ใช่คำสั่ง req_refcode');
   }
-
-  console.log('=== END DEBUG ===');
-};
 
   // สำหรับข้อความอื่นๆ ที่ไม่ใช่ req_refcode ไม่ต้องตอบกลับ
 };
