@@ -61,7 +61,7 @@ const handleFollow = async (event) => {
   // Step 1: ดึงข้อมูลจาก Supabase
   const { data, error } = await supabase
     .from('auth_sessions')
-    .select('ref_code, expires_at, follow_count, status')  // ไม่ต้องดึง 'source' แล้ว
+    .select('ref_code, expires_at, follow_count, status')
     .eq('line_user_id', userId)
     .maybeSingle();
 
@@ -149,7 +149,6 @@ const handleFollow = async (event) => {
       created_at: timestamp,
       line_status: 'Follow',
       follow_count: followCount
-      // ไม่ต้องใส่ source อีกต่อไป
     });
 
   if (insertError) {
@@ -161,8 +160,6 @@ const handleFollow = async (event) => {
     .from('registered_machines')
     .update({ line_status: 'Follow' })
     .eq('line_user_id', userId);
-
-  /*log.info(`[FOLLOW] ✅ สร้าง Ref.Code และ Serial Key สำเร็จ`);*/
 
   // Step 6: อัปเดตสถานะให้เป็น ACTIVE และบันทึกเวลา completed_at
   await supabase
@@ -181,24 +178,27 @@ const handleFollow = async (event) => {
 };
 
 // ==============================
-// 2️⃣ MESSAGE EVENT - แก้ไขให้จัดการ req_refcode ที่ routes
+// 2️⃣ MESSAGE EVENT - ลบส่วน 3D Message แล้ว
 // ==============================
-const { handleLine3DMessage } = require('../../controllers/LineMessage3DController');
 
 const handleMessage = async (event) => {
   const userId = event.source.userId;
   const msg = event.message;
 
-  // ถ้าไม่ใช่ text message ให้ส่งไปยัง 3D System
+  // ตรวจสอบว่าเป็น text message หรือไม่
   if (msg.type !== 'text') {
-    await handleLine3DMessage(event);
+    // ถ้าไม่ใช่ text message ให้ส่งข้อความแจ้งเตือน
+    await client.replyMessage(event.replyToken, {
+      type: 'text',
+      text: 'ขออภัยครับ ตอนนี้รองรับเฉพาะข้อความตัวอักษรเท่านั้น 📝'
+    });
     return;
   }
 
   const text = msg.text.trim().toLowerCase();
   log.info(`[MESSAGE] USER: ${userId} ส่งข้อความ: "${text}"`);
 
-  // 🔥 จัดการ req_refcode ที่ routes level ก่อนส่งไป Controller
+  // 🔥 จัดการ req_refcode ที่ routes level
   if (text === 'req_refcode') {
     log.info(`[ROUTES-REQ_REFCODE] 🔐 จัดการ req_refcode โดยตรงที่ routes สำหรับ: ${userId}`);
     
@@ -254,7 +254,7 @@ const handleMessage = async (event) => {
         text: `🔐 Ref.Code ของคุณคือ: ${data.ref_code}`
       });
       
-      return; // จบการทำงาน ไม่ส่งต่อไป Controller
+      return; // จบการทำงาน
 
     } catch (error) {
       log.error(`[ROUTES-REQ_REFCODE] Unexpected Error: ${error.message}`);
@@ -265,6 +265,12 @@ const handleMessage = async (event) => {
       return;
     }
   }
+
+  // จัดการข้อความอื่นๆ ที่ไม่ใช่ req_refcode
+  await client.replyMessage(event.replyToken, {
+    type: 'text',
+    text: `สวัสดีครับ! 👋\n\nหากต้องการดู Ref.Code กรุณาพิมพ์: req_refcode\n\nขอบคุณที่ใช้บริการ ADTSpreadsheet ครับ 😊`
+  });
 };
 
 // ==============================
@@ -316,7 +322,6 @@ async function sendLineMessage(lineUserId, serialKey, refCode) {
       type: 'text',
       text: message
     });
-    /*log.info(`✅ ส่ง Serial Key ไปยัง LINE User ID: ${lineUserId}`);*/
   } catch (error) {
     log.error(`❌ ส่งข้อความไป LINE ไม่สำเร็จ: ${error.message}`);
     throw error;
@@ -324,7 +329,7 @@ async function sendLineMessage(lineUserId, serialKey, refCode) {
 }
 
 // ==============================
-// WEBHOOK ROUTE - แก้ไขแล้ว
+// WEBHOOK ROUTE
 // ==============================
 router.post('/', async (req, res) => {
   try {
