@@ -1,59 +1,65 @@
 const express = require('express');
 const router = express.Router();
-const { createClient } = require('@supabase/supabase-js');
-const { sendLineMessage } = require('./events/eventLine');
-const logger = require('../utils/logger'); // เผื่อใช้ log ภายหลัง
+const { createModuleLogger } = require('../utils/logger');
+const log = createModuleLogger('VerifyRefcode-Route');
 
-// โหลด ENV ตัวแปร
-require('dotenv').config();
+// Import Controller
+const { handleVerifyRefcode } = require('../controllers/events/VerifyRefcodeADTLineBot');
 
-// สร้าง Supabase client จาก ENV
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_KEY
-);
+// ==============================
+// 🔐 VERIFY REFCODE ENDPOINT
+// ==============================
 
 router.post('/', async (req, res) => {
+  console.log('=== VERIFY REFCODE REQUEST ===');
+  
   try {
     const { ref_code } = req.body;
+    
+    console.log('Request body:', req.body);
+    console.log('Ref Code:', ref_code);
 
+    // เช็ค input
     if (!ref_code) {
-      logger.warn('Missing ref_code in request body');
-      return res.status(400).json({ error: 'Missing ref_code in request body' });
-    }
-
-    const { data, error } = await supabase
-      .from('auth_sessions')
-      .select('serial_key, line_user_id')
-      .eq('ref_code', ref_code)
-      .single();
-
-    if (error || !data) {
-      logger.warn('Ref.Code not found in Supabase', { ref_code });
-      return res.status(404).json({ error: 'Ref.Code not found' });
-    }
-
-    const { serial_key, line_user_id } = data;
-
-    try {
-      const message = `${serial_key}`;
-      await sendLineMessage(line_user_id, serial_key, ref_code);
-      logger.info('Serial Key sent via LINE', { ref_code, line_user_id });
-    } catch (lineError) {
-      logger.error('LINE message failed to send', {
-        ref_code,
-        line_user_id,
-        serial_key,
-        error: lineError.message,
+      console.log('❌ Missing ref_code');
+      return res.status(400).json({ 
+        success: false,
+        message: 'กรุณาระบุ Ref.Code' 
       });
-      return res.status(500).json({ error: 'Failed to send message via LINE' });
     }
 
-    return res.status(200).json({ message: 'Serial key sent to LINE successfully' });
-  } catch (err) {
-    logger.error('Unexpected error in verify-refcode', { error: err.message });
-    return res.status(500).json({ error: 'Internal server error' });
+    // เรียก Controller เพื่อประมวลผล
+    console.log('🔄 Processing verify refcode...');
+    const result = await handleVerifyRefcode(ref_code);
+
+    console.log('Result:', result);
+
+    // ส่ง response ตามผลลัพธ์
+    if (result.success) {
+      console.log('✅ Verify refcode successful');
+      res.status(200).json({
+        success: true,
+        message: result.message
+      });
+    } else {
+      console.log('❌ Verify refcode failed');
+      res.status(404).json({
+        success: false,
+        message: result.message
+      });
+    }
+    
+  } catch (error) {
+    console.log('💥 Verify Refcode Route Error:', error.message);
+    log.error(`[VERIFY-REFCODE] Error: ${error.message}`);
+    
+    res.status(500).json({ 
+      success: false,
+      message: 'เกิดข้อผิดพลาดในระบบ กรุณาลองใหม่อีกครั้ง'
+    });
   }
+  
+  console.log('=== VERIFY REFCODE END ===');
 });
 
 module.exports = router;
