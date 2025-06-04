@@ -11,9 +11,6 @@ const {
   getRandomAnnoyedMessage
 } = require('../../utils/randomMessageGenerator');
 
-
-
-
 // LINE CONFIG
 const config = {
   channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN,
@@ -183,9 +180,8 @@ const handleFollow = async (event) => {
   });
 };
 
-
 // ==============================
-// 2️⃣ MESSAGE EVENT
+// 2️⃣ MESSAGE EVENT - แก้ไขแล้ว
 // ==============================
 const { handleLine3DMessage } = require('../../controllers/LineMessage3DController');
 
@@ -197,31 +193,78 @@ const handleMessage = async (event) => {
 
   const text = msg.text.trim().toLowerCase();
 
+  log.info(`[MESSAGE] USER: ${userId} ส่งข้อความ: "${text}"`);
+
   // ✅ ถ้าเป็น 'req_refcode' → ให้ทำงานตามเดิม
   if (text === 'req_refcode') {
-    const { data, error } = await supabase
-      .from('auth_sessions')
-      .select('ref_code')
-      .eq('line_user_id', userId)
-      .single();
+    log.info(`[REQ_REFCODE] เริ่มค้นหา Ref.Code สำหรับ: ${userId}`);
+    
+    try {
+      const { data, error } = await supabase
+        .from('auth_sessions')
+        .select('ref_code, expires_at, verify_status')
+        .eq('line_user_id', userId)
+        .single();
 
-    if (error || !data || !data.ref_code) {
-      log.warn(`[REQ_REFCODE] ไม่พบ Ref.Code สำหรับ: ${userId}`);
+      if (error) {
+        log.error(`[REQ_REFCODE] Database Error: ${error.message}`);
+        await client.replyMessage(event.replyToken, {
+          type: 'text',
+          text: '❌ เกิดข้อผิดพลาดในระบบ กรุณาลองใหม่อีกครั้งครับ'
+        });
+        return;
+      }
+
+      if (!data || !data.ref_code) {
+        log.warn(`[REQ_REFCODE] ไม่พบ Ref.Code สำหรับ: ${userId}`);
+        await client.replyMessage(event.replyToken, {
+          type: 'text',
+          text: '❌ ไม่พบ Ref.Code ของคุณ กรุณาสแกน QR ใหม่ก่อนใช้งานครับ'
+        });
+        return;
+      }
+
+      // เช็คสถานะการยืนยัน
+      if (data.verify_status === 'BLOCK') {
+        log.warn(`[REQ_REFCODE] ผู้ใช้ ${userId} ถูก BLOCK`);
+        await client.replyMessage(event.replyToken, {
+          type: 'text',
+          text: '🚫 บัญชีของคุณถูกระงับการใช้งาน กรุณาติดต่อเจ้าหน้าที่ครับ'
+        });
+        return;
+      }
+
+      // เช็ควันหมดอายุ
+      if (data.expires_at && data.expires_at <= new Date().toISOString()) {
+        log.warn(`[REQ_REFCODE] Ref.Code ของ ${userId} หมดอายุแล้ว`);
+        await client.replyMessage(event.replyToken, {
+          type: 'text',
+          text: '🔒 Ref.Code ของคุณหมดอายุแล้วครับ\nกรุณาติดต่อเจ้าหน้าที่หรือทำรายการสั่งซื้อเพื่อเปิดใช้งานอีกครั้ง 🙏'
+        });
+        return;
+      }
+
+      log.info(`[REQ_REFCODE] ✅ ส่ง Ref.Code ให้ผู้ใช้: ${userId} = ${data.ref_code}`);
+      
       await client.replyMessage(event.replyToken, {
         type: 'text',
-        text: '❌ ไม่พบ Ref.Code ของคุณ กรุณาสแกน QR ใหม่ก่อนใช้งานครับ'
+        text: `🔐 Ref.Code ของคุณคือ: ${data.ref_code}`
+      });
+      
+      return;
+
+    } catch (error) {
+      log.error(`[REQ_REFCODE] Unexpected Error: ${error.message}`);
+      await client.replyMessage(event.replyToken, {
+        type: 'text',
+        text: '❌ เกิดข้อผิดพลาดในระบบ กรุณาลองใหม่อีกครั้งครับ'
       });
       return;
     }
-
-    await client.replyMessage(event.replyToken, {
-      type: 'text',
-      text: `🔐 Ref.Code ของคุณคือ: ${data.ref_code}`
-    });
-    return;
   }
 
   // ✅ ถ้าไม่ใช่ 'req_refcode' → ส่งไปยังระบบ 3D Messaging
+  log.info(`[MESSAGE] ส่งไปยัง 3D Messaging System: ${text}`);
   await handleLine3DMessage(event);
 };
 
@@ -230,42 +273,41 @@ const handleMessage = async (event) => {
 // ==============================
 const handleUnfollow = async (event) => {
   const userId = event.source.userId;
-  const updates = { line_status: 'unfollow' };
-
+  
   log.warn(`🔥 ผู้ใช้ ${userId} เลิกติดตาม ADTLine-Bot แล้ว`);
 
-  // อัปเดต line_status ใน auth_sessions
-  const { error: authError } = await supabase
-    .from('registered_machines')
-    .update({
-      line_status: 'Unfollow',
-    })
-    .eq('line_user_id', userId);
+  try {
+    // อัปเดต line_status ใน auth_sessions
+    const { error: authError } = await supabase
+      .from('auth_sessions')
+      .update({
+        line_status: 'Unfollow',
+      })
+      .eq('line_user_id', userId);
 
-  if (authError) {
-    log.error(`❌ อัปเดต line_status (auth_sessions) ล้มเหลว: ${authError.message}`);
-  } else {
-    /*log.info(`✅ อัปเดต auth_sessions -> line_status = 'unfollow' สำเร็จ`);*/
-  }
+    if (authError) {
+      log.error(`❌ อัปเดต line_status (auth_sessions) ล้มเหลว: ${authError.message}`);
+    }
 
-  // อัปเดต line_status ใน registered_machines
-  const { error: regError } = await supabase
-    .from('registered_machines')
-    .update(updates)
-    .eq('line_user_id', userId);
+    // อัปเดต line_status ใน registered_machines
+    const { error: regError } = await supabase
+      .from('registered_machines')
+      .update({
+        line_status: 'Unfollow',
+      })
+      .eq('line_user_id', userId);
 
-  if (regError) {
-    log.error(`❌ อัปเดต line_status (registered_machines) ล้มเหลว: ${regError.message}`);
-  } else {
-    /*log.info(`✅ อัปเดต registered_machines -> line_status = 'unfollow' สำเร็จ`);*/
+    if (regError) {
+      log.error(`❌ อัปเดต line_status (registered_machines) ล้มเหลว: ${regError.message}`);
+    }
+
+  } catch (error) {
+    log.error(`❌ Unfollow Event Error: ${error.message}`);
   }
 };
 
-
-
-
 // ==============================
-// 3️⃣ SEND SERIAL KEY AFTER REF.CODE VERIFIED
+// 4️⃣ SEND SERIAL KEY AFTER REF.CODE VERIFIED
 // ==============================
 
 async function sendLineMessage(lineUserId, serialKey, refCode) {
@@ -283,26 +325,35 @@ async function sendLineMessage(lineUserId, serialKey, refCode) {
 }
 
 // ==============================
-// WEBHOOK ROUTE
+// WEBHOOK ROUTE - แก้ไขแล้ว
 // ==============================
 router.post('/', async (req, res) => {
-  const events = req.body.events;
+  try {
+    const events = req.body.events;
 
-  if (!events || events.length === 0) {
-    return res.status(200).end();
-  }
-
-  for (const event of events) {
-    if (event.type === 'follow') {
-      await handleFollow(event);
-    } else if (event.type === 'message') {
-      await handleMessage(event);
+    if (!events || events.length === 0) {
+      return res.status(200).end();
     }
+
+    for (const event of events) {
+      log.info(`[WEBHOOK] Event Type: ${event.type}, User: ${event.source.userId}`);
+      
+      if (event.type === 'follow') {
+        await handleFollow(event);
+      } else if (event.type === 'message') {
+        await handleMessage(event);
+      } else if (event.type === 'unfollow') {
+        await handleUnfollow(event);
+      }
+    }
+
+    res.status(200).end();
+    
+  } catch (error) {
+    log.error(`[WEBHOOK] Critical Error: ${error.message}`);
+    res.status(500).end();
   }
-
-  res.status(200).end();
 });
-
 
 module.exports = {
   router,
