@@ -42,7 +42,6 @@ const setupUsernameRoute = require('./routes/setupUsernameRoute');
 const setupPasswordRoutes = require('./routes/setupPasswordRoute');
 const loginRoute = require('./routes/loginRoute');
 const logoutRoute = require('./routes/logoutRoute');
-
 const replyFromAdminRoutes = require('./routes/replyFromAdminRoutes');
 const adtLiveWorkshopRoute = require('./routes/adtLiveWorkshopRoute');
 const adtLivePublicRoute = require('./routes/adtLivePublicRoute');
