@@ -1,5 +1,5 @@
 const { relayFromBot1ToBot2, relayFromBot1ToBot3, relayFromBot2ToBot1 } = require('./relayController');
-const { handleImageUpload } = require('./UploadImageController'); // 👈 เพิ่มตรงนี้
+const { handleImageUpload } = require('./UploadImageController');
 const { client } = require('../utils/lineClient');
 const log = require('../utils/logger').createModuleLogger('Line3D');
 const { supabase } = require('../utils/supabaseClient');
@@ -14,10 +14,72 @@ const handleLine3DMessage = async (event) => {
   // 📌 กรณีลูกค้าส่งข้อความ text
   if (!isFromAdmin && msg.type === 'text') {
     
-    // ✅ เพิ่มการเช็ค req_refcode เพื่อข้ามไป
+    // 🔥 ดักและประมวลผล req_refcode ให้เสร็จสิ้น
     if (msg.text.trim().toLowerCase() === 'req_refcode') {
-      log.info(`[3D-CONTROLLER] ข้าม req_refcode ให้ eventLine จัดการ`);
-      return; // ข้ามไป ไม่ต้องประมวลผลใน 3D System
+      log.info(`[3D-CONTROLLER] 🔐 ประมวลผล req_refcode สำหรับ: ${userId}`);
+      
+      try {
+        const { data, error } = await supabase
+          .from('auth_sessions')
+          .select('ref_code, expires_at, verify_status')
+          .eq('line_user_id', userId)
+          .single();
+
+        if (error) {
+          log.error(`[3D-REQ_REFCODE] Database Error: ${error.message}`);
+          await client.replyMessage(event.replyToken, {
+            type: 'text',
+            text: '❌ เกิดข้อผิดพลาดในระบบ กรุณาลองใหม่อีกครั้งครับ'
+          });
+          return;
+        }
+
+        if (!data || !data.ref_code) {
+          log.warn(`[3D-REQ_REFCODE] ไม่พบ Ref.Code สำหรับ: ${userId}`);
+          await client.replyMessage(event.replyToken, {
+            type: 'text',
+            text: '❌ ไม่พบ Ref.Code ของคุณ กรุณาสแกน QR ใหม่ก่อนใช้งานครับ'
+          });
+          return;
+        }
+
+        // เช็คสถานะการยืนยัน
+        if (data.verify_status === 'BLOCK') {
+          log.warn(`[3D-REQ_REFCODE] ผู้ใช้ ${userId} ถูก BLOCK`);
+          await client.replyMessage(event.replyToken, {
+            type: 'text',
+            text: '🚫 บัญชีของคุณถูกระงับการใช้งาน กรุณาติดต่อเจ้าหน้าที่ครับ'
+          });
+          return;
+        }
+
+        // เช็ควันหมดอายุ
+        if (data.expires_at && data.expires_at <= new Date().toISOString()) {
+          log.warn(`[3D-REQ_REFCODE] Ref.Code ของ ${userId} หมดอายุแล้ว`);
+          await client.replyMessage(event.replyToken, {
+            type: 'text',
+            text: '🔒 Ref.Code ของคุณหมดอายุแล้วครับ\nกรุณาติดต่อเจ้าหน้าที่หรือทำรายการสั่งซื้อเพื่อเปิดใช้งานอีกครั้ง 🙏'
+          });
+          return;
+        }
+
+        log.info(`[3D-REQ_REFCODE] ✅ ส่ง Ref.Code ให้ผู้ใช้: ${userId} = ${data.ref_code}`);
+        
+        await client.replyMessage(event.replyToken, {
+          type: 'text',
+          text: `🔐 Ref.Code ของคุณคือ: ${data.ref_code}`
+        });
+        
+        return; // จบการทำงาน ไม่ส่งต่อไปหาแอดมิน
+
+      } catch (error) {
+        log.error(`[3D-REQ_REFCODE] Unexpected Error: ${error.message}`);
+        await client.replyMessage(event.replyToken, {
+          type: 'text',
+          text: '❌ เกิดข้อผิดพลาดในระบบ กรุณาลองใหม่อีกครั้งครับ'
+        });
+        return;
+      }
     }
     
     const refInfo = await getRefRouting(userId);
@@ -87,7 +149,7 @@ const handleLine3DMessage = async (event) => {
       if (!isFromAdmin) {
         const refInfo = await getRefRouting(userId);
         const refCode = refInfo?.ref_code || "unknown";
-        const imageURL = await handleImageUpload(msg.id, refCode, 'chat'); // 👈 ใช้ UploadImageController
+        const imageURL = await handleImageUpload(msg.id, refCode, 'chat');
 
         const imageMsg = {
           type: "image",
