@@ -33,6 +33,7 @@ const lineConfig = {
 const pdpaRoutes = require('./routes/pdpaText');
 const userform3labelRoutes = require('./routes/userform3label');
 const statusRoutes = require('./routes/status');
+const verifyRefcodeRoutes = require('./routes/verify-refcode');
 const confirmRegistrationRoutes = require('./routes/ConfirmRegistration');
 const adtLiveWorkshopRoute = require('./routes/adtLiveWorkshopRoute');
 const adtLivePublicRoute = require('./routes/adtLivePublicRoute');
@@ -57,6 +58,7 @@ app.use((req, res, next) => {
 // ==============================================
 app.use('/router', pdpaRoutes);
 app.use('/router', userform3labelRoutes);
+app.use('/verify-refcode', verifyRefcodeRoutes);
 app.use('/router/ConfirmRegistration', confirmRegistrationRoutes);
 
 app.use('/adtliveworkshop', adtLiveWorkshopRoute);
