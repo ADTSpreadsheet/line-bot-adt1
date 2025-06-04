@@ -58,7 +58,6 @@ app.use((req, res, next) => {
 app.use('/router', pdpaRoutes);
 app.use('/router', userform3labelRoutes);
 app.use('/router/ConfirmRegistration', confirmRegistrationRoutes);
-app.use('/router/user', require('./routes/userRoute'));
 
 app.use('/adtliveworkshop', adtLiveWorkshopRoute);
 app.use(adtLivePublicRoute);
