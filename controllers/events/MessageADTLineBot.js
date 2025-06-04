@@ -31,13 +31,16 @@ const handleMessageEvent = async (event) => {
     // เช็คคำสั่ง req_refcode
     if (text === 'req_refcode') {
       console.log('🔍 ค้นหา ref_code ใน database...');
+      console.log('🔍 ค้นหาด้วย line_user_id:', userId);
       
       // ดึง ref_code จาก database
       const { data, error } = await supabase
         .from('auth_sessions')
-        .select('ref_code')
+        .select('ref_code, status, expires_at')
         .eq('line_user_id', userId)
         .maybeSingle(); // ใช้ maybeSingle แทน single
+      
+      console.log('📊 Database Query Result:', { data, error });
       
       if (error) {
         console.log('❌ Database Error:', error.message);
@@ -49,7 +52,7 @@ const handleMessageEvent = async (event) => {
       }
       
       if (data && data.ref_code) {
-        console.log(`✅ พบ ref_code: ${data.ref_code}`);
+        console.log(`✅ พบ ref_code: ${data.ref_code}, status: ${data.status}`);
         
         // ส่งข้อความ
         await client.replyMessage(event.replyToken, {
@@ -60,6 +63,15 @@ const handleMessageEvent = async (event) => {
         console.log('📤 ส่งข้อความ ref_code สำเร็จ');
       } else {
         console.log('⚠️ ไม่พบ ref_code สำหรับผู้ใช้นี้');
+        console.log('💡 ลองค้นหาในฐานข้อมูลทั้งหมด...');
+        
+        // ลองค้นหาว่ามี record ไหนบ้าง
+        const { data: allData } = await supabase
+          .from('auth_sessions')
+          .select('line_user_id, ref_code')
+          .limit(5);
+        
+        console.log('📋 ตัวอย่าง records ในฐานข้อมูล:', allData);
         
         await client.replyMessage(event.replyToken, {
           type: 'text',
