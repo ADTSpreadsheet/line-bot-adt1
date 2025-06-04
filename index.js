@@ -33,7 +33,6 @@ const lineConfig = {
 const pdpaRoutes = require('./routes/pdpaText');
 const userform3labelRoutes = require('./routes/userform3label');
 const statusRoutes = require('./routes/status');
-const { router: eventLineRoutes } = require('./routes/events/eventLine');
 const verifyRefcodeRoutes = require('./routes/verify-refcode');
 const confirmRegistrationRoutes = require('./routes/ConfirmRegistration');
 const otpRoutes = require('./routes/otp');
@@ -50,8 +49,6 @@ const adtLivePublicRoute = require('./routes/adtLivePublicRoute');
 const adtOrderRoutes = require('./routes/routes-adtOrder');
 const processRoutes = require('./routes/processRoutes');
 const starterSlipRoutes = require('./routes/starterSlipRoutes');
-const lineEventsRouter = require('./routes/LineEvents');
-
 
 // ==============================================
 // MIDDLEWARE
@@ -69,7 +66,6 @@ app.use((req, res, next) => {
 // ROUTE REGISTRATION
 // ==============================================
 app.use('/router', pdpaRoutes);
-app.use('/webhook', eventLineRoutes);
 app.use('/router', userform3labelRoutes);
 app.use('/verify-refcode', verifyRefcodeRoutes);
 app.use('/router/ConfirmRegistration', confirmRegistrationRoutes);
@@ -89,12 +85,12 @@ app.use(adtLivePublicRoute);
 app.use('/', adtOrderRoutes);
 app.use('/', processRoutes);
 app.use('/starter', starterSlipRoutes);
-app.use('/routes/LineEvents', lineEventsRouter);
 
-
-
-// ❗ ปิด open cors ซ้ำ (ปลอดภัยกว่า)
-// app.use(cors()); ❌ อันนี้ไม่ต้องแล้ว เพราะเปิดเฉพาะ origin ข้างบนไปแล้ว
+// ==============================================
+// LINE BOT ROUTES (ใหม่)
+// ==============================================
+app.use('/webhook', require('./routes/webhook'));
+app.use('/routes/LineEvents', require('./routes/LineEvents'));
 
 // ==============================================
 // FALLBACK API
