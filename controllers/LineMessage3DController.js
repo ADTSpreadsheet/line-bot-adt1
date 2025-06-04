@@ -13,6 +13,13 @@ const handleLine3DMessage = async (event) => {
 
   // 📌 กรณีลูกค้าส่งข้อความ text
   if (!isFromAdmin && msg.type === 'text') {
+    
+    // ✅ เพิ่มการเช็ค req_refcode เพื่อข้ามไป
+    if (msg.text.trim().toLowerCase() === 'req_refcode') {
+      log.info(`[3D-CONTROLLER] ข้าม req_refcode ให้ eventLine จัดการ`);
+      return; // ข้ามไป ไม่ต้องประมวลผลใน 3D System
+    }
+    
     const refInfo = await getRefRouting(userId);
     const refCode = refInfo?.ref_code || "???";
     const source = refInfo?.source || "Unknown";
