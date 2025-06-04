@@ -27,9 +27,13 @@ const handleMessageEvent = async (event) => {
     
     const text = msg.text.trim().toLowerCase();
     console.log(`💬 Text Message: "${text}"`);
+    console.log('🔍 ตรวจสอบข้อความ:', JSON.stringify(text));
+    console.log('🔍 ความยาวข้อความ:', text.length);
+    console.log('🔍 ตรวจสอบ === "req_refcode":', text === 'req_refcode');
+    console.log('🔍 ตรวจสอบ includes "req_refcode":', text.includes('req_refcode'));
     
-    // เช็คคำสั่ง req_refcode
-    if (text === 'req_refcode') {
+    // เช็คคำสั่ง req_refcode (ใช้หลายวิธีเพื่อความแน่ใจ)
+    if (text === 'req_refcode' || text.includes('req_refcode') || text === 'req refcode') {
       console.log('🔍 ค้นหา ref_code ใน database...');
       console.log('🔍 ค้นหาด้วย line_user_id:', userId);
       
