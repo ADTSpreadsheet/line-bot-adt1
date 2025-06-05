@@ -1,4 +1,4 @@
-const supabase = require('../../utils/supabaseClient');
+const { supabase } = require('../../utils/supabaseClient');
 
 async function loginStarter(username, password, res) {
   try {
