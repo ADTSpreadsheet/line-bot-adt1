@@ -36,6 +36,7 @@ const adtLivePublicRoute = require('./routes/adtLivePublicRoute');
 const adtOrderRoutes = require('./routes/routes-adtOrder');
 const starterSlipRoutes = require('./routes/starterSlipRoutes');
 const verifyAuthRoutes = require('./routes/verify-auth');
+const adtLoginRoutes = require('./routes/adt');
 
 // ==============================================
 // MIDDLEWARE
@@ -58,6 +59,8 @@ app.use('/adtliveworkshop', adtLiveWorkshopRoute);
 app.use(adtLivePublicRoute);
 app.use('/', adtOrderRoutes);
 app.use('/starter', starterSlipRoutes);
+app.use('/api/adt', adtLoginRoutes);
+
 
 // ==============================================
 // LINE BOT ROUTES (ใหม่)
