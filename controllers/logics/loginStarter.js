@@ -20,6 +20,17 @@ async function loginStarter(username, password, res) {
     }
 
     if (data.ref_code_status === 'valid') {
+      // ✅ บันทึกเวลา login ลง login_at
+      const { error: updateError } = await supabase
+        .from('starter_plan_users')
+        .update({ login_at: new Date().toISOString() })
+        .eq('id', data.id); // ใช้ id ตรงๆ ปลอดภัยสุด
+
+      if (updateError) {
+        console.error('อัปเดตเวลา login ไม่สำเร็จ:', updateError.message);
+        // ไม่ต้อง return error ให้ client ก็ได้ ปล่อยผ่าน
+      }
+
       return res.status(200).json({
         success: true,
         message: 'เข้าสู่ระบบสำเร็จ (Starter Plan)',
@@ -41,5 +52,4 @@ async function loginStarter(username, password, res) {
   }
 }
 
-// 👇 export ไว้ล่างสุดแบบเท่ ๆ
 module.exports = loginStarter;
