@@ -37,6 +37,7 @@ const adtOrderRoutes = require('./routes/routes-adtOrder');
 const starterSlipRoutes = require('./routes/starterSlipRoutes');
 const verifyAuthRoutes = require('./routes/verify-auth');
 const adtLoginRoutes = require('./routes/adt');
+const logoutRoutes = require('./routes/logout');
 
 // ==============================================
 // MIDDLEWARE
@@ -60,6 +61,7 @@ app.use(adtLivePublicRoute);
 app.use('/', adtOrderRoutes);
 app.use('/starter', starterSlipRoutes);
 app.use('/api/adt', adtLoginRoutes);
+app.use('/api', logoutRoutes);
 
 
 // ==============================================
