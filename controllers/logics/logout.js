@@ -4,12 +4,11 @@ async function logoutController(req, res) {
   try {
     const { username } = req.body;
 
-    // ✅ เช็คแค่ว่ามี username มั้ย (ไม่เช็ครูปแบบอีกแล้ว)
     if (!username) {
       return res.status(400).json({ success: false, message: 'Username is required' });
     }
 
-    // 1. ดึงข้อมูลผู้ใช้
+    // 🔍 ดึงข้อมูลผู้ใช้ตาม username
     const { data, error } = await supabase
       .from('starter_plan_users')
       .select('*')
@@ -24,11 +23,10 @@ async function logoutController(req, res) {
     const loginTime = new Date(data.login_at);
     const logoutTime = now;
 
-    // 2. คำนวณเวลาที่ใช้งาน (นาที)
-    const usedMinutes = Math.floor((logoutTime - loginTime) / 60000); // 60000 ms = 1 min
+    const usedMinutes = Math.floor((logoutTime - loginTime) / 60000);
     const remainingMinutes = Math.max(0, (data.duration_minutes || 0) - usedMinutes);
 
-    // 3. อัปเดตตาราง
+    // ✍️ อัปเดต logout, used_minutes, remaining_minutes
     const { error: updateError } = await supabase
       .from('starter_plan_users')
       .update({
@@ -41,6 +39,20 @@ async function logoutController(req, res) {
     if (updateError) {
       console.error('❌ Error updating logout info:', updateError.message);
       return res.status(500).json({ success: false, message: 'Failed to update logout info' });
+    }
+
+    // 🔒 ถ้าเวลาเหลือน้อยกว่าหรือเท่ากับ 0 → เปลี่ยน ref_code_status เป็น invalid
+    if (remainingMinutes <= 0) {
+      const { error: statusUpdateError } = await supabase
+        .from('starter_plan_users')
+        .update({ ref_code_status: 'invalid' })
+        .eq('id', data.id);
+
+      if (statusUpdateError) {
+        console.error('⚠️ ไม่สามารถอัปเดต ref_code_status ได้:', statusUpdateError.message);
+      } else {
+        console.log('🔒 ref_code_status ถูกอัปเดตเป็น invalid แล้ว');
+      }
     }
 
     return res.status(200).json({
