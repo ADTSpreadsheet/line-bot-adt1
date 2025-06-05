@@ -35,6 +35,7 @@ const adtLiveWorkshopRoute = require('./routes/adtLiveWorkshopRoute');
 const adtLivePublicRoute = require('./routes/adtLivePublicRoute');
 const adtOrderRoutes = require('./routes/routes-adtOrder');
 const starterSlipRoutes = require('./routes/starterSlipRoutes');
+const verifyAuthRoutes = require('./routes/verify-auth');
 
 // ==============================================
 // MIDDLEWARE
@@ -63,6 +64,7 @@ app.use('/starter', starterSlipRoutes);
 // ==============================================
 app.use('/webhook', require('./routes/webhook'));
 app.use('/routes/LineEvents', require('./routes/LineEvents'));
+app.use('/verify-auth', verifyAuthRoutes);
 
 // ==============================================
 // FALLBACK API
