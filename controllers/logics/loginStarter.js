@@ -14,7 +14,6 @@ async function loginStarter(username, password, res) {
       .select('*')
       .eq('username', username)
       .eq('password', password)
-      .eq('ref_code', refCode)
       .single();
 
     console.log('📦 ผลลัพธ์จาก Supabase:', data);
