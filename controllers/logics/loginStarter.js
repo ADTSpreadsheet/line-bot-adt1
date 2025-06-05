@@ -2,7 +2,12 @@ const { supabase } = require('../../utils/supabaseClient');
 
 async function loginStarter(username, password, res) {
   try {
+    console.log('🚀 [loginStarter] เริ่มกระบวนการ Login');
+    console.log('👤 username:', username);
+    console.log('🔑 password:', password);
+
     const refCode = username.replace('ADT-', '');
+    console.log('🧩 refCode ที่ได้จาก username:', refCode);
 
     const { data, error } = await supabase
       .from('starter_plan_users')
@@ -12,7 +17,11 @@ async function loginStarter(username, password, res) {
       .eq('ref_code', refCode)
       .single();
 
+    console.log('📦 ผลลัพธ์จาก Supabase:', data);
+    if (error) console.error('❌ เกิด error จาก Supabase:', error.message);
+
     if (error || !data) {
+      console.warn('⚠️ ไม่พบข้อมูลผู้ใช้งานหรือรหัสผ่านไม่ถูกต้อง');
       return res.status(401).json({
         success: false,
         message: 'ไม่พบข้อมูลผู้ใช้งานหรือรหัสผ่านไม่ถูกต้อง',
@@ -20,15 +29,17 @@ async function loginStarter(username, password, res) {
     }
 
     if (data.ref_code_status === 'valid') {
-      // ✅ บันทึกเวลา login ลง login_at
+      console.log('✅ รหัส ref_code_status = valid → กำลังอัปเดต login_at...');
+
       const { error: updateError } = await supabase
         .from('starter_plan_users')
         .update({ login_at: new Date().toISOString() })
-        .eq('id', data.id); // ใช้ id ตรงๆ ปลอดภัยสุด
+        .eq('id', data.id);
 
       if (updateError) {
-        console.error('อัปเดตเวลา login ไม่สำเร็จ:', updateError.message);
-        // ไม่ต้อง return error ให้ client ก็ได้ ปล่อยผ่าน
+        console.error('⚠️ อัปเดต login_at ไม่สำเร็จ:', updateError.message);
+      } else {
+        console.log('🕒 login_at อัปเดตสำเร็จ');
       }
 
       return res.status(200).json({
@@ -38,13 +49,14 @@ async function loginStarter(username, password, res) {
         expires_at: data.expired_at || null,
       });
     } else {
+      console.warn('⛔️ รหัส ref_code_status ไม่ใช่ valid →', data.ref_code_status);
       return res.status(403).json({
         success: false,
         message: 'รหัสนี้หมดอายุหรือไม่สามารถใช้งานได้',
       });
     }
   } catch (err) {
-    console.error('เกิดข้อผิดพลาดใน loginStarter:', err);
+    console.error('💥 เกิดข้อผิดพลาดไม่คาดคิดใน loginStarter:', err);
     return res.status(500).json({
       success: false,
       message: 'เกิดข้อผิดพลาดภายในระบบ',
