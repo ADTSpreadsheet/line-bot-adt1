@@ -26,9 +26,16 @@ async function logoutController(req, res) {
     // คำนวณเวลาที่ใช้ในเซสชันนี้
     const usedMinutes = Math.floor((logoutTime - loginTime) / 60000);
     
-    // 🔥 คำนวณเวลาคงเหลือจาก last_remaining_minutes (ถ้ามี) หรือ duration_minutes (ครั้งแรก)
-    const baseMinutes = data.last_remaining_minutes ?? data.duration_minutes ?? 0;
-    const remainingMinutes = Math.max(0, baseMinutes - usedMinutes);
+    // 🔥 เช็ค login_count เพื่อใช้สูตรที่ถูกต้อง
+    let remainingMinutes;
+    
+    if (data.login_count === 1) {
+      // ครั้งแรก: ใช้ duration_minutes
+      remainingMinutes = Math.max(0, data.duration_minutes - usedMinutes);
+    } else {
+      // ครั้งที่ 2+: ใช้ remaining_minutes เดิม
+      remainingMinutes = Math.max(0, data.remaining_minutes - usedMinutes);
+    }
 
     // ✍️ อัปเดต logout, used_minutes, remaining_minutes และ last_remaining_minutes
     const { error: updateError } = await supabase
@@ -36,8 +43,7 @@ async function logoutController(req, res) {
       .update({
         logout_at: logoutTime.toISOString(),
         used_minutes: usedMinutes,
-        remaining_minutes: remainingMinutes,
-        last_remaining_minutes: remainingMinutes  // 🔥 บันทึกสำหรับเซสชันต่อไป
+        remaining_minutes: remainingMinutes
       })
       .eq('id', data.id);
 
@@ -64,9 +70,7 @@ async function logoutController(req, res) {
       success: true,
       message: 'Logout time and usage recorded',
       used_minutes: usedMinutes,
-      remaining_minutes: remainingMinutes,
-      base_minutes: baseMinutes, // เพิ่มข้อมูลสำหรับ debug
-      session_used: usedMinutes
+      remaining_minutes: remainingMinutes
     });
 
   } catch (err) {
