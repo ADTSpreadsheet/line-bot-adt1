@@ -3,7 +3,7 @@ const { supabase } = require('../../utils/supabaseClient');
 async function logoutController(req, res) {
   try {
     const { username } = req.body;
-
+    
     if (!username) {
       return res.status(400).json({ success: false, message: 'Username is required' });
     }
@@ -22,17 +22,22 @@ async function logoutController(req, res) {
     const now = new Date();
     const loginTime = new Date(data.login_at);
     const logoutTime = now;
-
+    
+    // คำนวณเวลาที่ใช้ในเซสชันนี้
     const usedMinutes = Math.floor((logoutTime - loginTime) / 60000);
-    const remainingMinutes = Math.max(0, (data.duration_minutes || 0) - usedMinutes);
+    
+    // 🔥 คำนวณเวลาคงเหลือจาก last_remaining_minutes (ถ้ามี) หรือ duration_minutes (ครั้งแรก)
+    const baseMinutes = data.last_remaining_minutes ?? data.duration_minutes ?? 0;
+    const remainingMinutes = Math.max(0, baseMinutes - usedMinutes);
 
-    // ✍️ อัปเดต logout, used_minutes, remaining_minutes
+    // ✍️ อัปเดต logout, used_minutes, remaining_minutes และ last_remaining_minutes
     const { error: updateError } = await supabase
       .from('starter_plan_users')
       .update({
         logout_at: logoutTime.toISOString(),
         used_minutes: usedMinutes,
-        remaining_minutes: remainingMinutes
+        remaining_minutes: remainingMinutes,
+        last_remaining_minutes: remainingMinutes  // 🔥 บันทึกสำหรับเซสชันต่อไป
       })
       .eq('id', data.id);
 
@@ -59,7 +64,9 @@ async function logoutController(req, res) {
       success: true,
       message: 'Logout time and usage recorded',
       used_minutes: usedMinutes,
-      remaining_minutes: remainingMinutes
+      remaining_minutes: remainingMinutes,
+      base_minutes: baseMinutes, // เพิ่มข้อมูลสำหรับ debug
+      session_used: usedMinutes
     });
 
   } catch (err) {
