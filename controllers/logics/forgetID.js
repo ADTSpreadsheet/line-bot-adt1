@@ -210,13 +210,28 @@ async function sendLineMessage(refCode, message) {
   console.log('🤖 [sendLineMessage] Starting LINE Bot API call for ref:', refCode.substring(0,3) + '***');
   
   try {
-    // TODO: ใส่ LINE Bot API logic ตรงนี้
-    // - ค้นหา LINE User ID จาก ref_code
-    // - ส่งข้อความผ่าน LINE Messaging API
+    // หา LINE User ID จาก auth_sessions
+    console.log('🔍 Looking up LINE User ID from auth_sessions...');
+    const { data: authData, error: authError } = await supabase
+      .from('auth_sessions')
+      .select('line_user_id')
+      .eq('ref_code', refCode)
+      .single();
+
+    if (authError || !authData || !authData.line_user_id) {
+      console.error('❌ LINE User ID not found in auth_sessions:', {
+        ref_code: refCode.substring(0,3) + '***',
+        error: authError?.message
+      });
+      return { success: false, error: 'LINE User ID not found' };
+    }
+
+    const lineUserId = authData.line_user_id;
+    console.log('✅ Found LINE User ID:', lineUserId.substring(0,5) + '***');
     
     console.log('📞 Calling LINE Messaging API...');
     
-    // ตัวอย่าง (ต้องแก้ไขตาม LINE Bot ของคุณ)
+    // ส่งข้อความผ่าน LINE Messaging API
     const lineResponse = await fetch('https://api.line.me/v2/bot/message/push', {
       method: 'POST',
       headers: {
@@ -224,7 +239,7 @@ async function sendLineMessage(refCode, message) {
         'Authorization': `Bearer ${process.env.LINE_CHANNEL_ACCESS_TOKEN}`
       },
       body: JSON.stringify({
-        to: 'USER_LINE_ID', // ต้องหา LINE User ID จาก ref_code
+        to: lineUserId,
         messages: [{
           type: 'text',
           text: message
