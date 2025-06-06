@@ -36,16 +36,20 @@ async function loginStarter(username, password, res) {
     if (!user.logout_at && user.login_at) {
       const loginAt = new Date(user.login_at);
       const usedMinutes = Math.floor((now - loginAt) / (1000 * 60));
-      const remaining = user.remaining_minutes - usedMinutes;
+      
+      // 🔥 ใช้ last_remaining_minutes แทน remaining_minutes ในการคำนวณ
+      const baseMinutes = user.last_remaining_minutes ?? user.remaining_minutes ?? 0;
+      const remaining = Math.max(0, baseMinutes - usedMinutes);
 
       console.log('⏱ เจอ session เก่า → กำลังอัปเดต logout');
-
+      
       const { error: updateOldSessionError } = await supabase
         .from('starter_plan_users')
         .update({
           logout_at: nowISO,
           used_minutes: usedMinutes,
-          remaining_minutes: remaining > 0 ? remaining : 0,
+          remaining_minutes: remaining,
+          last_remaining_minutes: remaining  // 🔥 เพิ่มบรรทัดนี้
         })
         .eq('id', user.id);
 
@@ -56,12 +60,17 @@ async function loginStarter(username, password, res) {
       }
     }
 
+    // 🔥 นับจำนวนครั้งการ login
+    const currentLoginCount = (user.login_count || 0) + 1;
+    console.log(`📊 Login Count: ${currentLoginCount}`);
+
     // 👉 จากนั้นเริ่ม session ใหม่: login_at = now, logout_at = null
     const { error: updateNewSessionError } = await supabase
       .from('starter_plan_users')
       .update({
         login_at: nowISO,
         logout_at: null, // reset logout
+        login_count: currentLoginCount  // 🔥 อัปเดตจำนวนครั้งการ login
         // **ไม่ต้อง reset remaining_minutes ตรงนี้** ปล่อยให้ใช้จาก session เดิม
       })
       .eq('id', user.id);
@@ -77,7 +86,9 @@ async function loginStarter(username, password, res) {
       message: 'เข้าสู่ระบบสำเร็จ (Starter Plan)',
       plan: 'starter',
       expires_at: user.expired_at || null,
+      login_count: currentLoginCount  // 🔥 ส่งจำนวนครั้งกลับไปด้วย (optional)
     });
+
   } catch (err) {
     console.error('💥 เกิดข้อผิดพลาดไม่คาดคิดใน loginStarter:', err);
     return res.status(500).json({
