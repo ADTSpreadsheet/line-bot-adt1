@@ -71,25 +71,38 @@ async function submitStarterSlip(req, res) {
     // 🔢 Logic 2.2.5: สร้าง order_number และ price_thb
     console.log('🔢 กำลังสร้าง order_number และคำนวณราคา...');
     
-    // หา Sequential Number (ลำดับการสั่งซื้อ)
+    // หา Sequential Number สำหรับ duration นี้โดยเฉพาะ
     const { data: existingOrders, error: countError } = await supabase
       .from('starter_plan_users')
-      .select('id')
-      .order('created_at', { ascending: true });
+      .select('order_number')
+      .eq('duration_minutes', duration_minutes)
+      .not('order_number', 'is', null);
 
     if (countError) {
       console.error('❌ ไม่สามารถนับจำนวนออเดอร์ได้:', countError);
       return res.status(500).json({ message: 'เกิดข้อผิดพลาดในการสร้าง order number' });
     }
 
-    const sequentialNumber = (existingOrders?.length || 0) + 1;
-    const paddedNumber = sequentialNumber.toString().padStart(2, '0');
-    const order_number = `${duration}D-${paddedNumber}`;
+    // หาหมายเลขสูงสุดที่ขึ้นต้นด้วย "{duration}D-"
+    const maxOrderNumber = existingOrders
+      .filter(order => order.order_number?.startsWith(`${duration}D-`))
+      .map(order => {
+        const match = order.order_number.match(/-(\d+)$/);
+        return match ? parseInt(match[1]) : 0;
+      })
+      .reduce((max, num) => Math.max(max, num), 0);
+
+    const sequentialNumber = maxOrderNumber + 1;
+    const order_number = `${duration}D-${sequentialNumber.toString().padStart(4, '0')}`;
     
     // คำนวณราคา: (5500 ÷ 15) × duration
     const price_thb = Math.round((5500 / 15) * duration * 100) / 100;
     
     console.log('📝 ข้อมูลที่สร้างใหม่:');
+    console.log('- Duration (วัน):', duration);
+    console.log('- Duration (นาที):', duration_minutes);
+    console.log('- Existing Orders for this duration:', existingOrders?.length || 0);
+    console.log('- Max Order Number:', maxOrderNumber);
     console.log('- Sequential Number:', sequentialNumber);
     console.log('- Order Number:', order_number);
     console.log('- Price THB:', price_thb);
