@@ -295,14 +295,33 @@ const handleStarterApprovalProcess = async (ref_code) => {
       throw new Error(`คุณได้ทำการอนุมัติ Ref.Code ${ref_code} ไปแล้ว`);
     }
 
-    const { username, password, duration_minutes, line_user_id } = starterData;
+    const { duration_minutes, line_user_id } = starterData;
     const durationDays = Math.floor(duration_minutes / 1440);
 
-    // อัพเดทสถานะ
+    // ดึง serial_key จาก auth_sessions สำหรับสร้าง password
+    const { data: authData, error: authError } = await supabase
+      .from('auth_sessions')
+      .select('serial_key')
+      .eq('ref_code', ref_code)
+      .single();
+
+    if (authError || !authData) {
+      throw new Error('❌ ไม่พบข้อมูล serial_key ใน auth_sessions');
+    }
+
+    // สร้าง username และ password
+    const username = `ADT-${durationDays}D-${ref_code}`;
+    const password = authData.serial_key;
+
+    console.log('🔑 สร้าง Username/Password:', { username, password });
+
+    // อัพเดทสถานะ พร้อม username/password
     const { error: updateError } = await supabase
       .from('starter_plan_users')
       .update({ 
-        submissions_status: 'approved'
+        submissions_status: 'approved',
+        username: username,
+        password: password
       })
       .eq('ref_code', ref_code);
 
