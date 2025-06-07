@@ -50,6 +50,28 @@ async function submitStarterSlip(req, res) {
     console.log('- serial_key:', serial_key);
     console.log('- line_user_id:', line_user_id);
 
+    // ✅ Logic 2.1.5: เช็คว่ามี valid record อยู่แล้วหรือไม่
+    const { data: existingValidRecord, error: checkError } = await supabase
+      .from('starter_plan_users')
+      .select('*')
+      .eq('ref_code', ref_code)
+      .eq('ref_code_status', 'valid')
+      .maybeSingle(); // ใช้ maybeSingle เพื่อไม่ error ถ้าไม่เจอ
+
+    if (checkError) {
+      console.error('❌ เช็ค existing record ไม่สำเร็จ:', checkError);
+      return res.status(500).json({ message: 'เกิดข้อผิดพลาดในการตรวจสอบข้อมูล' });
+    }
+
+    if (existingValidRecord) {
+      console.log('⚠️ พบ valid record อยู่แล้ว:', existingValidRecord.order_number);
+      return res.status(409).json({ 
+        message: 'มีการซื้อแพคเกจที่ยังใช้งานได้อยู่แล้ว',
+        existing_order: existingValidRecord.order_number,
+        remaining_minutes: existingValidRecord.remaining_minutes
+      });
+    }
+
     const duration_minutes = duration * 1440;
 
     // ✅ ตั้งชื่อไฟล์สลิปแบบสั้น
@@ -122,6 +144,7 @@ async function submitStarterSlip(req, res) {
           used_minutes: 0,
           slip_image_url: publicUrl,
           submissions_status: 'pending',
+          ref_code_status: 'pending', // เพิ่มการกำหนด status เริ่มต้น
           line_user_id,
           order_number,
           price_thb
