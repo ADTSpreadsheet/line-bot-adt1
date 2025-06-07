@@ -7,6 +7,91 @@ const client = new line.Client({
   channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN
 });
 
+// 🎨 ฟังก์ชันสร้าง Flex Message หลังดำเนินการเสร็จ (สำหรับ Admin)
+const createUpdatedAdminFlex = (userData, ref_code, action, actionData = {}) => {
+  const { first_name, last_name, order_number } = userData;
+  const full_name = `${first_name} ${last_name}`;
+  const isApproved = action === 'approved';
+  const actionText = isApproved ? 'อนุมัติ' : 'ปฏิเสธ';
+  const statusColor = isApproved ? '#28a745' : '#dc3545';
+  const statusIcon = isApproved ? '✅' : '❌';
+
+  return {
+    type: "flex",
+    altText: `${actionText}คำสั่งซื้อ ${full_name} แล้ว`,
+    contents: {
+      type: "bubble",
+      header: {
+        type: "box",
+        layout: "vertical",
+        contents: [
+          {
+            type: "text",
+            text: `${statusIcon} Starter Plan no. ${order_number || 'N/A'}`,
+            size: "md",
+            weight: "bold",
+            color: statusColor
+          }
+        ],
+        backgroundColor: "#F8F9FA",
+        paddingAll: "sm"
+      },
+      body: {
+        type: "box",
+        layout: "vertical",
+        spacing: "xs",
+        contents: [
+          { type: "text", text: `🔢 Ref.Code: ${ref_code}`, size: "sm", weight: "bold", color: "#007BFF" },
+          { type: "text", text: `👤 ชื่อ: ${full_name}`, size: "sm" },
+          { type: "text", text: `📱 เบอร์: ${userData.phone_number || 'N/A'}`, size: "sm" },
+          { type: "text", text: `🆔 เลขบัตร: ${userData.national_id || 'N/A'}`, size: "sm" },
+          { type: "text", text: `⏰ ระยะเวลา: ${actionData.duration || 'N/A'} วัน`, size: "sm" },
+          { type: "text", text: `💰 ราคาแพคเกจ: ${userData.price_thb || 'N/A'} บาท`, size: "sm" }
+        ],
+        paddingAll: "sm"
+      },
+      footer: {
+        type: "box",
+        layout: "vertical",
+        spacing: "xs",
+        contents: [
+          // แสดงสถานะการดำเนินการ
+          {
+            type: 'text',
+            text: `${statusIcon} ${actionText}คำสั่งซื้อนี้แล้ว`,
+            weight: 'bold',
+            color: statusColor,
+            align: 'center',
+            size: 'md',
+            margin: 'md'
+          },
+          {
+            type: 'text',
+            text: `${actionText}เมื่อ: ${new Date().toLocaleString('th-TH')}`,
+            size: 'xs',
+            color: '#666666',
+            align: 'center',
+            margin: 'sm'
+          },
+          // ปุ่มดูสลิป (ถ้ามี)
+          ...(userData.slip_image_url ? [{
+            type: 'button',
+            style: 'link',
+            action: {
+              type: 'uri',
+              label: '📄 ดูสลิป',
+              uri: userData.slip_image_url
+            },
+            height: "sm",
+            margin: "md"
+          }] : [])
+        ],
+        paddingAll: "sm"
+      }
+    }
+  };
+};
+
 const processOrder = async (req, res) => {
   try {
     const { ref_code, action, license_no, plan_type } = req.body;
@@ -195,8 +280,9 @@ const handleStarterApprovalProcess = async (ref_code) => {
     // ดึงข้อมูลจาก starter_plan_users
     const { data: starterData, error: starterError } = await supabase
       .from('starter_plan_users')
-      .select('submissions_status, username, password, duration_minutes, line_user_id')
+      .select('*')
       .eq('ref_code', ref_code)
+      .eq('submissions_status', 'pending')
       .single();
 
     if (starterError || !starterData) {
@@ -211,6 +297,17 @@ const handleStarterApprovalProcess = async (ref_code) => {
 
     const { username, password, duration_minutes, line_user_id } = starterData;
     const durationDays = Math.floor(duration_minutes / 1440);
+
+    // อัพเดทสถานะ
+    const { error: updateError } = await supabase
+      .from('starter_plan_users')
+      .update({ 
+        submissions_status: 'approved'
+      })
+      .eq('ref_code', ref_code);
+
+    if (updateError) throw updateError;
+    console.log('✅ อัพเดทสถานะ starter_plan_users สำเร็จ');
 
     // ส่ง Flex Message ไปยังลูกค้า (Starter Plan)
     const flexMessage = {
@@ -272,6 +369,32 @@ const handleStarterApprovalProcess = async (ref_code) => {
 
     await client.pushMessage(line_user_id, flexMessage);
     console.log(`✅ ส่ง Flex Message Starter Plan สำเร็จ → line_user_id: ${line_user_id}`);
+
+    // 🎨 แก้ไข Flex Message ของ Admin
+    try {
+      const { data: msgData, error: msgError } = await supabase
+        .from('starter_plan_users')
+        .select('admin_message_id, first_name, last_name, order_number, phone_number, national_id, price_thb, slip_image_url')
+        .eq('ref_code', ref_code)
+        .single();
+
+      if (msgError) {
+        console.log('⚠️ ไม่สามารถดึง admin_message_id ได้:', msgError);
+      } else if (msgData?.admin_message_id) {
+        const updatedFlex = createUpdatedAdminFlex(msgData, ref_code, 'approved', { duration: durationDays });
+        
+        // สร้าง LINE Client สำหรับ Bot2 (Admin)
+        const adminClient = new line.Client({
+          channelAccessToken: process.env.LINE_BOT2_ACCESS_TOKEN || process.env.LINE_CHANNEL_ACCESS_TOKEN
+        });
+        
+        await adminClient.editMessage(msgData.admin_message_id, updatedFlex);
+        console.log('✅ แก้ไข Flex Message ของ Admin สำเร็จ');
+      }
+    } catch (editError) {
+      console.log('⚠️ ไม่สามารถแก้ไข Flex Message ของ Admin ได้:', editError.message);
+      // ไม่ throw error เพราะการส่งข้อความหลักสำเร็จแล้ว
+    }
 
   } catch (error) {
     console.error('❌ เกิดข้อผิดพลาดใน handleStarterApprovalProcess:', error);
@@ -351,8 +474,9 @@ const handleStarterRejectionProcess = async (ref_code) => {
     // ดึงข้อมูลจาก starter_plan_users
     const { data: starterData, error: starterError } = await supabase
       .from('starter_plan_users')
-      .select('submissions_status, line_user_id')
+      .select('*')
       .eq('ref_code', ref_code)
+      .eq('submissions_status', 'pending')
       .single();
 
     if (starterError || !starterData) {
@@ -370,7 +494,19 @@ const handleStarterRejectionProcess = async (ref_code) => {
       throw new Error(`Ref.Code ${ref_code} ได้รับการอนุมัติไปแล้ว ไม่สามารถปฏิเสธได้`);
     }
 
-    const { line_user_id } = starterData;
+    const { line_user_id, duration_minutes } = starterData;
+    const durationDays = Math.floor(duration_minutes / 1440);
+
+    // อัพเดทสถานะ
+    const { error: updateError } = await supabase
+      .from('starter_plan_users')
+      .update({ 
+        submissions_status: 'rejected'
+      })
+      .eq('ref_code', ref_code);
+
+    if (updateError) throw updateError;
+    console.log('✅ อัพเดทสถานะ starter_plan_users เป็น rejected สำเร็จ');
 
     // ส่งข้อความปฏิเสธ
     await client.pushMessage(line_user_id, {
@@ -379,6 +515,32 @@ const handleStarterRejectionProcess = async (ref_code) => {
     });
 
     console.log(`✅ ส่งข้อความปฏิเสธ Starter Plan สำเร็จ → line_user_id: ${line_user_id}`);
+
+    // 🎨 แก้ไข Flex Message ของ Admin
+    try {
+      const { data: msgData, error: msgError } = await supabase
+        .from('starter_plan_users')
+        .select('admin_message_id, first_name, last_name, order_number, phone_number, national_id, price_thb, slip_image_url')
+        .eq('ref_code', ref_code)
+        .single();
+
+      if (msgError) {
+        console.log('⚠️ ไม่สามารถดึง admin_message_id ได้:', msgError);
+      } else if (msgData?.admin_message_id) {
+        const updatedFlex = createUpdatedAdminFlex(msgData, ref_code, 'rejected', { duration: durationDays });
+        
+        // สร้าง LINE Client สำหรับ Bot2 (Admin)
+        const adminClient = new line.Client({
+          channelAccessToken: process.env.LINE_BOT2_ACCESS_TOKEN || process.env.LINE_CHANNEL_ACCESS_TOKEN
+        });
+        
+        await adminClient.editMessage(msgData.admin_message_id, updatedFlex);
+        console.log('✅ แก้ไข Flex Message ของ Admin สำเร็จ');
+      }
+    } catch (editError) {
+      console.log('⚠️ ไม่สามารถแก้ไข Flex Message ของ Admin ได้:', editError.message);
+      // ไม่ throw error เพราะการส่งข้อความหลักสำเร็จแล้ว
+    }
 
   } catch (error) {
     console.error('❌ เกิดข้อผิดพลาดใน handleStarterRejectionProcess:', error);
