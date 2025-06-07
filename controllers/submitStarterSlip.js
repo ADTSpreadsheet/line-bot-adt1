@@ -68,6 +68,32 @@ async function submitStarterSlip(req, res) {
       return res.status(500).json({ message: 'อัปโหลดภาพไม่สำเร็จ', error: uploadError });
     }
 
+    // 🔢 Logic 2.2.5: สร้าง order_number และ price_thb
+    console.log('🔢 กำลังสร้าง order_number และคำนวณราคา...');
+    
+    // หา Sequential Number (ลำดับการสั่งซื้อ)
+    const { data: existingOrders, error: countError } = await supabase
+      .from('starter_plan_users')
+      .select('id')
+      .order('created_at', { ascending: true });
+
+    if (countError) {
+      console.error('❌ ไม่สามารถนับจำนวนออเดอร์ได้:', countError);
+      return res.status(500).json({ message: 'เกิดข้อผิดพลาดในการสร้าง order number' });
+    }
+
+    const sequentialNumber = (existingOrders?.length || 0) + 1;
+    const paddedNumber = sequentialNumber.toString().padStart(2, '0');
+    const order_number = `${duration}D-${paddedNumber}`;
+    
+    // คำนวณราคา: (5500 ÷ 15) × duration
+    const price_thb = Math.round((5500 / 15) * duration * 100) / 100;
+    
+    console.log('📝 ข้อมูลที่สร้างใหม่:');
+    console.log('- Sequential Number:', sequentialNumber);
+    console.log('- Order Number:', order_number);
+    console.log('- Price THB:', price_thb);
+
     // ✅ Logic 2.3: บันทึกลง starter_plan_users
     const insertResult = await supabase
       .from('starter_plan_users')
@@ -83,7 +109,9 @@ async function submitStarterSlip(req, res) {
           used_minutes: 0,
           slip_image_url: publicUrl,
           submissions_status: 'pending',
-          line_user_id
+          line_user_id,
+          order_number,
+          price_thb
         }
       ]);
 
@@ -91,6 +119,8 @@ async function submitStarterSlip(req, res) {
       console.error("❌ insert starter_plan_users ไม่สำเร็จ:", insertResult.error);
       return res.status(500).json({ message: 'บันทึกข้อมูลไม่สำเร็จ', error: insertResult.error });
     }
+
+    console.log('✅ บันทึกข้อมูลลง starter_plan_users สำเร็จ พร้อม order_number และ price_thb');
 
     // ✅ Logic 3: แจ้ง Bot2 ผ่าน API2
     console.log('🛰 กำลังยิงไปยัง:', `${process.env.API2_URL}/starter/notify-admin-slip`);
@@ -111,176 +141,25 @@ async function submitStarterSlip(req, res) {
       });
     }
 
-    // ✅ Logic 4: ถ้า API2 ตอบกลับสเตตัส 200 พร้อม ref_code และ duration
-    if (response.status === 200 && response.data) {
-      console.log('✅ API2 ตอบกลับสำเร็จ:', response.data);
+    // ✅ Logic 4: ถ้า API2 ตอบกลับสเตตัส 200 = สำเร็จ
+    if (response.status === 200) {
+      console.log('✅ API2 ตอบกลับสำเร็จ - ส่งแจ้งเตือน Admin แล้ว');
       
-      // 🔍 รับข้อมูลจาก API2 response (อยู่ใน data.data)
-      const apiData = response.data.data || response.data;
-      const { ref_code: returnedRefCode, duration: returnedDuration } = apiData;
-      
-      console.log('📝 ข้อมูลที่ได้จาก API2:');
-      console.log('- Response structure:', response.data);
-      console.log('- Returned ref_code:', returnedRefCode);
-      console.log('- Returned duration:', returnedDuration);
-      
-      if (!returnedRefCode) {
-        console.error('❌ API2 ไม่ได้ส่ง ref_code กลับมา');
-        console.error('Full response:', JSON.stringify(response.data, null, 2));
-        return res.status(500).json({ message: 'API2 ไม่ได้ส่ง ref_code กลับมา' });
-      }
-
-      // ✅ ใช้ ref_code ที่ได้จาก API2 ไปค้นหา line_user_id ใหม่
-      const { data: sessionData2, error: sessionError2 } = await supabase
-        .from('auth_sessions')
-        .select('serial_key, line_user_id')
-        .eq('ref_code', returnedRefCode)
-        .single();
-
-      if (sessionError2 || !sessionData2) {
-        console.error('❌ ไม่พบข้อมูล auth_sessions สำหรับ ref_code:', returnedRefCode);
-        return res.status(404).json({ message: `ไม่พบข้อมูล ref_code: ${returnedRefCode} ในระบบ` });
-      }
-
-      const { serial_key: finalSerialKey, line_user_id: finalLineUserId } = sessionData2;
-      
-      console.log('🔍 ข้อมูลที่ค้นพบจาก auth_sessions:');
-      console.log('- serial_key:', finalSerialKey);
-      console.log('- line_user_id:', finalLineUserId);
-
-      if (!finalLineUserId) {
-        console.error('❌ ไม่พบ line_user_id สำหรับ ref_code:', returnedRefCode);
-        return res.status(400).json({ message: `ไม่พบ LINE User ID สำหรับ ref_code: ${returnedRefCode}` });
-      }
-
-      const username = `ADT-${returnedRefCode}`;
-      const password = finalSerialKey;
-
-      // ✅ อัปเดต username/password
-      const { error: updateError } = await supabase
-        .from('starter_plan_users')
-        .update({ username, password })
-        .eq('ref_code', returnedRefCode);
-
-      if (updateError) {
-        console.error('❌ อัปเดต username/password ล้มเหลว:', updateError);
-        return res.status(500).json({ message: 'อัปเดตข้อมูลใน starter_plan_users ไม่สำเร็จ' });
-      }
-
-      // ✅ ส่ง Flex ไปแจ้งลูกค้า (ส่งเอง ไม่เรียก API อื่น)
-      try {
-        if (client) {
-          console.log('📱 ใช้ LINE SDK ส่ง Flex Message เอง');
-          
-          const flexMessage = {
-            type: "flex",
-            altText: "แจ้งเตือนสถานะการสั่งซื้อ",
-            contents: {
-              type: "bubble",
-              header: {
-                type: "box",
-                layout: "vertical",
-                contents: [
-                  {
-                    type: "text",
-                    text: "📌 แจ้งเตือนสถานะการสั่งซื้อ",
-                    weight: "bold",
-                    color: "#007BFF",
-                    size: "lg"
-                  }
-                ],
-                backgroundColor: "#F8F9FA",
-                paddingAll: "lg"
-              },
-              body: {
-                type: "box",
-                layout: "vertical",
-                spacing: "md",
-                contents: [
-                  {
-                    type: "text",
-                    text: "รายละเอียด Starter Plan ของท่านคือ:",
-                    weight: "bold",
-                    size: "md"
-                  },
-                  {
-                    type: "text",
-                    text: `- Ref.Code: ${returnedRefCode}`,
-                    size: "sm"
-                  },
-                  {
-                    type: "text",
-                    text: `- Username: ${username}`,
-                    size: "sm"
-                  },
-                  {
-                    type: "text",
-                    text: `- Password: ${password}`,
-                    size: "sm"
-                  },
-                  {
-                    type: "text",
-                    text: `- ระยะเวลาการใช้งาน: ${returnedDuration} วัน`,
-                    size: "sm"
-                  },
-                  {
-                    type: "text",
-                    text: "ท่านสามารถนำข้อมูลไปทำการ Login ที่หน้าโปรแกรม ADTSpreadsheet ได้เลยครับ ✅",
-                    wrap: true,
-                    size: "sm",
-                    color: "#28A745"
-                  }
-                ],
-                paddingAll: "lg"
-              }
-            }
-          };
-
-          console.log('📤 กำลังส่ง Flex Message ไปยัง LINE User:', finalLineUserId);
-          const lineResponse = await client.pushMessage(finalLineUserId, flexMessage);
-          console.log('✅ ส่ง LINE Flex Message สำเร็จ:', lineResponse);
-          
-        } else {
-          console.log('❌ ไม่มี LINE Bot Client - ไม่สามารถส่ง Flex ได้');
-          return res.status(500).json({
-            message: 'ไม่พบการตั้งค่า LINE Bot Client',
-            data: {
-              ref_code: returnedRefCode,
-              username,
-              duration: returnedDuration
-            }
-          });
+      return res.status(200).json({
+        message: '✅ บันทึกข้อมูลและแจ้งเตือน Admin สำเร็จ รอการอนุมัติ',
+        data: {
+          ref_code,
+          duration,
+          order_number,
+          price_thb,
+          status: 'pending_approval'
         }
-
-        return res.status(200).json({
-          message: '✅ ส่ง Flex สำเร็จ และอัปเดตข้อมูลเรียบร้อย',
-          data: {
-            ref_code: returnedRefCode,
-            username,
-            duration: returnedDuration,
-            line_user_id: finalLineUserId
-          }
-        });
-        
-      } catch (flexError) {
-        console.error('❌ ส่ง Flex Message ล้มเหลว:', flexError);
-        
-        return res.status(200).json({
-          message: '⚠️ บันทึกข้อมูลสำเร็จ แต่ส่งแจ้งเตือนไม่สำเร็จ',
-          warning: 'กรุณาตรวจสอบการตั้งค่า LINE Bot',
-          data: {
-            ref_code: returnedRefCode,
-            username,
-            duration: returnedDuration
-          },
-          error: flexError.message
-        });
-      }
+      });
       
     } else {
-      console.error('❌ API2 ตอบกลับสถานะไม่ถูกต้องหรือไม่มีข้อมูล:', response.status, response.data);
+      console.error('❌ API2 ตอบกลับสถานะไม่ถูกต้อง:', response.status, response.data);
       return res.status(500).json({ 
-        message: '❌ API2 ไม่ได้ส่งข้อมูลที่จำเป็นกลับมา',
+        message: '❌ ไม่สามารถแจ้งเตือน Admin ได้',
         status: response.status,
         data: response.data
       });
