@@ -1,10 +1,11 @@
 const { supabase } = require('../utils/supabaseClient');
 const uploadBase64Image = require('../utils/uploadBase64Image');
-const axios = require('axios');
-const line = require('@line/bot-sdk');
 const runOCR = require('../utils/ocr/runOCR');
 const extractInfoFromText = require('../utils/ocr/extractInfoFromText');
+const axios = require('axios');
+const line = require('@line/bot-sdk');
 
+// LINE Bot Client
 let client = null;
 if (process.env.LINE_CHANNEL_ACCESS_TOKEN) {
   client = new line.Client({
@@ -30,6 +31,7 @@ async function submitStarterSlip(req, res) {
       return res.status(400).json({ message: 'กรุณากรอกข้อมูลให้ครบถ้วน' });
     }
 
+    // ✅ 1. ตรวจ session
     const { data: sessionData, error: sessionError } = await supabase
       .from('auth_sessions')
       .select('serial_key, line_user_id')
@@ -37,12 +39,12 @@ async function submitStarterSlip(req, res) {
       .single();
 
     if (sessionError || !sessionData) {
-      console.error('❌ ไม่พบ sessionData:', sessionError);
       return res.status(404).json({ message: 'ไม่พบข้อมูล ref_code ในระบบ' });
     }
 
     const { serial_key, line_user_id } = sessionData;
 
+    // ✅ 2. เช็คว่ามี record อยู่แล้วหรือยัง
     const { data: existingValidRecord, error: checkError } = await supabase
       .from('starter_plan_users')
       .select('*')
@@ -51,21 +53,20 @@ async function submitStarterSlip(req, res) {
       .maybeSingle();
 
     if (checkError) {
-      console.error('❌ เช็ค existing record ไม่สำเร็จ:', checkError);
       return res.status(500).json({ message: 'เกิดข้อผิดพลาดในการตรวจสอบข้อมูล' });
     }
 
     if (existingValidRecord) {
-      return res.status(409).json({
+      return res.status(409).json({ 
         message: 'มีการซื้อแพคเกจที่ยังใช้งานได้อยู่แล้ว',
-        existing_order: existingValidRecord.order_number,
-        remaining_minutes: existingValidRecord.remaining_minutes
+        existing_order: existingValidRecord.order_number
       });
     }
 
     const duration_minutes = duration * 1440;
     const slipFileName = `SP-${ref_code}.jpg`;
 
+    // ✅ 3. อัปโหลดภาพเข้า Supabase
     const { publicUrl, error: uploadError } = await uploadBase64Image({
       base64String: file_content,
       fileName: slipFileName,
@@ -77,7 +78,7 @@ async function submitStarterSlip(req, res) {
       return res.status(500).json({ message: 'อัปโหลดภาพไม่สำเร็จ', error: uploadError });
     }
 
-    // ✅ OCR STEP
+    // ✅ 4. OCR & บันทึกลง starter_slip_ocr_logs
     try {
       const rawText = await runOCR(publicUrl);
       const parsed = extractInfoFromText(rawText);
@@ -93,11 +94,13 @@ async function submitStarterSlip(req, res) {
         status: 'pending'
       });
 
-      console.log('📄 OCR log saved for ref_code:', ref_code);
-    } catch (ocrError) {
-      console.warn('⚠️ OCR failed or partial:', ocrError.message);
+      console.log('🧾 OCR บันทึกลง starter_slip_ocr_logs เรียบร้อยแล้ว');
+
+    } catch (ocrErr) {
+      console.warn('⚠️ OCR failed:', ocrErr.message);
     }
 
+    // ✅ 5. สร้าง order_number
     const { data: existingOrders, error: countError } = await supabase
       .from('starter_plan_users')
       .select('order_number')
@@ -116,6 +119,7 @@ async function submitStarterSlip(req, res) {
     const order_number = `${duration}D-${sequentialNumber.toString().padStart(4, '0')}`;
     const price_thb = Math.round((5500 / 15) * duration * 100) / 100;
 
+    // ✅ 6. Insert ข้อมูลหลักลง starter_plan_users
     const insertResult = await supabase
       .from('starter_plan_users')
       .insert([
@@ -141,45 +145,36 @@ async function submitStarterSlip(req, res) {
       return res.status(500).json({ message: 'บันทึกข้อมูลไม่สำเร็จ', error: insertResult.error });
     }
 
-    let response;
+    // ✅ 7. แจ้ง Bot2 (ถ้าต้องการ)
     try {
-      response = await axios.post(`${process.env.API2_URL}/starter/notify-admin-slip`, {
+      const notifyRes = await axios.post(`${process.env.API2_URL}/starter/notify-admin-slip`, {
         ref_code,
         duration
-      }, {
-        timeout: 10000
       });
-    } catch (apiError) {
-      return res.status(500).json({
-        message: 'ไม่สามารถแจ้งเตือนแอดมินได้',
-        error: apiError.message
-      });
-    }
 
-    if (response.status === 200) {
-      return res.status(200).json({
-        message: '✅ บันทึกข้อมูลและแจ้งเตือน Admin สำเร็จ รอการอนุมัติ',
-        data: {
-          ref_code,
-          duration,
-          order_number,
-          price_thb,
-          status: 'pending_approval'
-        }
-      });
-    } else {
-      return res.status(500).json({
-        message: '❌ ไม่สามารถแจ้งเตือน Admin ได้',
-        status: response.status,
-        data: response.data
-      });
+      if (notifyRes.status === 200) {
+        return res.status(200).json({
+          message: '✅ บันทึกข้อมูลสำเร็จ',
+          data: {
+            ref_code,
+            duration,
+            order_number,
+            price_thb,
+            status: 'pending_approval'
+          }
+        });
+      } else {
+        throw new Error(`Unexpected status: ${notifyRes.status}`);
+      }
+
+    } catch (notifyErr) {
+      console.error('❌ แจ้ง Bot2 ไม่สำเร็จ:', notifyErr.message);
+      return res.status(500).json({ message: 'บันทึกข้อมูลแล้ว แต่ไม่สามารถแจ้ง Bot2 ได้' });
     }
 
   } catch (err) {
-    return res.status(500).json({
-      message: 'เกิดข้อผิดพลาดในระบบ',
-      error: err.message
-    });
+    console.error('❌ submitStarterSlip ERROR:', err);
+    return res.status(500).json({ message: 'เกิดข้อผิดพลาดในระบบ', error: err.message });
   }
 }
 
