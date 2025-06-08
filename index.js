@@ -40,6 +40,7 @@ const adtLoginRoutes = require('./routes/adt');
 const logoutRoutes = require('./routes/logout');
 const forgetIDRoutes = require('./routes/forgetID')
 const { processOrder } = require('./controllers/processOrderController');
+const testOCRRoute = require('./routes/testOCRRoute');
 
 // ==============================================
 // MIDDLEWARE
@@ -66,6 +67,7 @@ app.use('/api/adt', adtLoginRoutes);
 app.use('/api', logoutRoutes);
 app.use('/api/forget-id', forgetIDRoutes);
 app.post('/processOrder', processOrder);
+app.use('/api', testOCRRoute);
 
 
 // ==============================================
