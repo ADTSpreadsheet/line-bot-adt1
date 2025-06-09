@@ -99,7 +99,7 @@ async function submitStarterSlip(req, res) {
           used_minutes: 0,
           slip_image_url: publicUrl,
           submissions_status: 'pending',
-          ref_code_status: 'pending',
+          ref_code_status: 'valid',
           line_user_id,
           order_number,
           price_thb
