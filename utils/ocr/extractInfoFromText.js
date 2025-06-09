@@ -1,68 +1,59 @@
-function normalizeThaiText(text) {
-  return text
-    .replace(/([\u0E00-\u0E7F])\s+([\u0E00-\u0E7F])/g, '$1$2') // รวมอักษรไทยที่ถูกเว้น
-    .replace(/(\d)\s+(\d)/g, '$1$2') // รวมตัวเลข
-    .replace(/\s{2,}/g, ' ')
-    .replace(/\s+บาท/g, ' บาท')
-    .replace(/\s+([.,])/g, '$1')
-    .trim();
-}
+function extractInfoFromText(text) {
+  const cleanText = text.replace(/\s+/g, ' ').trim();
+  const lines = cleanText.split('\n').map(line => line.trim());
 
-function parseThaiAmount(text) {
-  const cleaned = text
-    .replace(/[^\d.,]/g, '')
-    .replace(/,+/g, '.')
-    .replace(/\.+/g, '.');
-  const parts = cleaned.split('.');
-  if (parts.length >= 3) {
-    const merged = parts.slice(0, -1).join('') + '.' + parts[parts.length - 1];
-    return parseFloat(merged);
+  const result = {
+    sender_name: null,
+    receiver_name: null,
+    amount: null,
+    transfer_date: null,
+    transfer_time: null,
+    transaction_id: null
+  };
+
+  // ✅ 1. ชื่อผู้โอนและผู้รับ (มักอยู่ติดกัน 2 บรรทัด)
+  const nameRegex = /นาย\s?[^\d]+/g;
+  const names = cleanText.match(nameRegex);
+  if (names?.length >= 2) {
+    result.sender_name = names[0].trim();
+    result.receiver_name = names[1].trim();
   }
-  return parseFloat(cleaned);
-}
 
-function parseThaiDate(raw) {
-  const months = {
-    'ม.ค.': 1, 'ก.พ.': 2, 'มี.ค.': 3, 'เม.ย.': 4, 'พ.ค.': 5,
-    'มิ.ย.': 6, 'ก.ค.': 7, 'ส.ค.': 8, 'ก.ย.': 9, 'ต.ค.': 10,
-    'พ.ย.': 11, 'ธ.ค.': 12
-  };
-  const regex = /(\d{1,2})\s?(ม\.\w{1,2}\.|พ\.\w{1,2}\.|[ก-ฮ]{2,3}\.)\s?(\d{2})/;
-  const match = raw.match(regex);
-  if (!match) return null;
-  const day = parseInt(match[1]);
-  const month = months[match[2]];
-  const year = parseInt(match[3]) + 2000;
-  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-}
+  // ✅ 2. วันที่และเวลา (เช่น "31 พ.ค. 68 19:30 น.")
+  const dateTimeRegex = /(\d{1,2})\s?(ม\.ค\.|ก\.พ\.|มี\.ค\.|เม\.ย\.|พ\.ค\.|มิ\.ย\.|ก\.ค\.|ส\.ค\.|ก\.ย\.|ต\.ค\.|พ\.ย\.|ธ\.ค\.)\s?(\d{2})\s?(\d{1,2}:\d{2})/;
+  const matchDate = cleanText.match(dateTimeRegex);
+  if (matchDate) {
+    const [_, day, thMonth, yearShort, time] = matchDate;
+    const thMonths = {
+      'ม.ค.': '01', 'ก.พ.': '02', 'มี.ค.': '03', 'เม.ย.': '04',
+      'พ.ค.': '05', 'มิ.ย.': '06', 'ก.ค.': '07', 'ส.ค.': '08',
+      'ก.ย.': '09', 'ต.ค.': '10', 'พ.ย.': '11', 'ธ.ค.': '12'
+    };
+    const month = thMonths[thMonth] || '01';
+    const year = '25' + yearShort;
+    result.transfer_date = `${year}-${month}-${day.padStart(2, '0')}`;
+    result.transfer_time = `${time}:00`;
+  }
 
-function extractInfoFromText(rawText) {
-  const text = normalizeThaiText(rawText);
+  // ✅ 3. จำนวนเงิน
+  const amountRegex = /(\d{1,3}(,\d{3})*(\.\d{2})?)/g;
+  const matches = cleanText.match(amountRegex);
+  if (matches) {
+    // ใช้ค่าที่มากที่สุดเป็นยอดเงิน
+    const amounts = matches.map(a => parseFloat(a.replace(/,/g, ''))).filter(n => !isNaN(n));
+    if (amounts.length > 0) {
+      result.amount = Math.max(...amounts);
+    }
+  }
 
-  const amountMatch = text.match(/จำนวน[:\s]*([0-9.,]+)/);
-  const amount = amountMatch ? parseThaiAmount(amountMatch[1]) : null;
+  // ✅ 4. หมายเลขรายการ
+  const txIdRegex = /[0-9]{5,}[A-Z]{2}[0-9A-Z]+/;
+  const txMatch = cleanText.match(txIdRegex);
+  if (txMatch) {
+    result.transaction_id = txMatch[0];
+  }
 
-  const dateMatch = text.match(/(\d{1,2} [ก-ฮ]{2,4}\.? ?\d{2})/);
-  const date = dateMatch ? parseThaiDate(dateMatch[1]) : null;
-
-  const timeMatch = text.match(/(\d{1,2}:\d{2})/);
-  const time = timeMatch ? timeMatch[1] + ':00' : null;
-
-  const nameMatches = text.match(/(นาย|นางสาว|นาง|น\.ส\.) ?[^\d\n]{2,30}/g);
-  const senderName = nameMatches?.[0] || null;
-  const receiverName = nameMatches?.[1] || null;
-
-  const transactionMatch = text.match(/(?:รายการ[:\s]*)?(\d{10,})[A-Z]{3,}\d*/);
-  const transactionId = transactionMatch ? transactionMatch[1] : null;
-
-  return {
-    amount,
-    transfer_date: date,
-    transfer_time: time,
-    sender_name: senderName,
-    receiver_name: receiverName,
-    transaction_id: transactionId
-  };
+  return result;
 }
 
 module.exports = extractInfoFromText;
